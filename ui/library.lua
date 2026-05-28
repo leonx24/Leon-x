@@ -34,7 +34,7 @@ MainCorner.CornerRadius = UDim.new(0,16)
 MainCorner.Parent = Main
 
 local MainStroke = Instance.new("UIStroke")
-MainStroke.Color = Color3.fromRGB(30,30,30)
+MainStroke.Color = Color3.fromRGB(28,28,28)
 MainStroke.Parent = Main
 
 -- TOPBAR
@@ -61,7 +61,7 @@ Sidebar.BorderSizePixel = 0
 Sidebar.Parent = Main
 
 local SideStroke = Instance.new("UIStroke")
-SideStroke.Color = Color3.fromRGB(28,28,28)
+SideStroke.Color = Color3.fromRGB(26,26,26)
 SideStroke.Parent = Sidebar
 
 local SideLayout = Instance.new("UIListLayout")
@@ -87,7 +87,7 @@ local Pages = {}
 local Minimize = Instance.new("TextButton")
 Minimize.Size = UDim2.new(0,30,0,30)
 Minimize.Position = UDim2.new(1,-75,0,10)
-Minimize.BackgroundColor3 = Color3.fromRGB(25,25,25)
+Minimize.BackgroundColor3 = Color3.fromRGB(24,24,24)
 Minimize.Text = "-"
 Minimize.TextColor3 = Color3.fromRGB(255,255,255)
 Minimize.Font = Enum.Font.GothamBold
@@ -130,7 +130,7 @@ FloatCorner.CornerRadius = UDim.new(1,0)
 FloatCorner.Parent = Float
 
 local FloatStroke = Instance.new("UIStroke")
-FloatStroke.Color = Color3.fromRGB(40,40,40)
+FloatStroke.Color = Color3.fromRGB(35,35,35)
 FloatStroke.Parent = Float
 
 -- DRAG MAIN
@@ -171,30 +171,27 @@ UIS.InputEnded:Connect(function(input)
 	end
 end)
 
--- RESIZE (Modern Bottom Right)
-
+-- RESIZE
 local Resize = Instance.new("TextButton")
-Resize.Size = UDim2.new(0,30,0,30)
-Resize.Position = UDim2.new(1,-34,1,-34)
+Resize.Size = UDim2.new(0,24,0,24)
+Resize.Position = UDim2.new(1,-26,1,-26)
 Resize.BackgroundTransparency = 1
 Resize.Text = ""
 Resize.AutoButtonColor = false
 Resize.ZIndex = 20
 Resize.Parent = Main
 
--- Resize Icon
 local ResizeIcon = Instance.new("TextLabel")
 ResizeIcon.Size = UDim2.new(1,0,1,0)
 ResizeIcon.BackgroundTransparency = 1
-ResizeIcon.Text = "⤡"
+ResizeIcon.Text = "◢"
 ResizeIcon.TextColor3 = Color3.fromRGB(255,255,255)
 ResizeIcon.Font = Enum.Font.GothamBold
-ResizeIcon.TextSize = 20
+ResizeIcon.TextSize = 16
 ResizeIcon.TextTransparency = 0.2
 ResizeIcon.ZIndex = 21
 ResizeIcon.Parent = Resize
 
--- Hover Effect
 Resize.MouseEnter:Connect(function()
 
 	TweenService:Create(
@@ -217,7 +214,6 @@ Resize.MouseLeave:Connect(function()
 	):Play()
 end)
 
--- Resize Logic
 local resizing = false
 local resizeStart
 local startSize
@@ -327,11 +323,12 @@ function Library:CreateTab(name)
 
 	local Button = Instance.new("TextButton")
 	Button.Size = UDim2.new(1,-20,0,40)
-	Button.BackgroundColor3 = Color3.fromRGB(24,24,24)
+	Button.BackgroundColor3 = Color3.fromRGB(22,22,22)
 	Button.Text = name
 	Button.TextColor3 = Color3.fromRGB(255,255,255)
 	Button.Font = Enum.Font.GothamMedium
 	Button.TextSize = 14
+	Button.AutoButtonColor = false
 	Button.Parent = Sidebar
 
 	local ButtonCorner = Instance.new("UICorner")
@@ -339,13 +336,13 @@ function Library:CreateTab(name)
 	ButtonCorner.Parent = Button
 
 	local ButtonStroke = Instance.new("UIStroke")
-	ButtonStroke.Color = Color3.fromRGB(35,35,35)
+	ButtonStroke.Color = Color3.fromRGB(32,32,32)
 	ButtonStroke.Parent = Button
 
 	local Page = Instance.new("ScrollingFrame")
 	Page.Size = UDim2.new(1,0,1,0)
 	Page.CanvasSize = UDim2.new(0,0,0,0)
-	Page.ScrollBarThickness = 2
+	Page.ScrollBarThickness = 0
 	Page.BackgroundTransparency = 1
 	Page.Visible = false
 	Page.Parent = Content
@@ -393,7 +390,7 @@ function Library:CreateToggle(parent, text, callback)
 
 	local Toggle = Instance.new("TextButton")
 	Toggle.Size = UDim2.new(1,0,0,45)
-	Toggle.BackgroundColor3 = Color3.fromRGB(22,22,22)
+	Toggle.BackgroundColor3 = Color3.fromRGB(20,20,20)
 	Toggle.Text = ""
 	Toggle.AutoButtonColor = false
 	Toggle.Parent = parent
@@ -403,7 +400,7 @@ function Library:CreateToggle(parent, text, callback)
 	ToggleCorner.Parent = Toggle
 
 	local ToggleStroke = Instance.new("UIStroke")
-	ToggleStroke.Color = Color3.fromRGB(35,35,35)
+	ToggleStroke.Color = Color3.fromRGB(30,30,30)
 	ToggleStroke.Parent = Toggle
 
 	local Label = Instance.new("TextLabel")
@@ -457,7 +454,7 @@ function Library:CreateToggle(parent, text, callback)
 				Switch,
 				TweenInfo.new(0.2),
 				{
-					BackgroundColor3 = Color3.fromRGB(70,120,255)
+					BackgroundColor3 = Color3.fromRGB(255,255,255)
 				}
 			):Play()
 
