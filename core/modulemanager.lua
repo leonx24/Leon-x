@@ -1,4 +1,3 @@
-```lua
 local Modules = {}
 
 function Modules:Register(module)
@@ -40,4 +39,4 @@ function Modules:Toggle(name)
 end
 
 return Modules
-```
+

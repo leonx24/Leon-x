@@ -1,27 +1,60 @@
 local Library = loadstring(game:HttpGet(
-"https://raw.githubusercontent.com/affaririzkyf/Leon-X/main/ui/library.lua"
-))()
+"https://raw.githubusercontent.com/affaririzkyf/Leon-X/main/ui/library.lua"))()
 
 local Movement = Library:CreateTab("Movement")
 local Visual = Library:CreateTab("Visual")
 local Player = Library:CreateTab("Player")
 
-Library:CreateToggle(Movement, "Fly", function(v)
-	print(v)
-end)
+Movement:AddToggle({
+Name = "Fly",
 
-Library:CreateToggle(Movement, "Speed", function(v)
-	print(v)
-end)
 
-Library:CreateToggle(Visual, "ESP", function(v)
-	print(v)
-end)
+Callback = function(v)
+	print("Fly:", v)
+end
 
-Library:CreateToggle(Visual, "FullBright", function(v)
-	print(v)
-end)
 
-Library:CreateToggle(Player, "Anti AFK", function(v)
-	print(v)
-end)
+})
+
+Movement:AddToggle({
+Name = "Speed",
+
+
+Callback = function(v)
+	print("Speed:", v)
+end
+
+
+})
+
+Visual:AddToggle({
+Name = "ESP",
+
+
+Callback = function(v)
+	print("ESP:", v)
+end
+
+
+})
+
+Visual:AddToggle({
+Name = "FullBright",
+
+
+Callback = function(v)
+	print("FullBright:", v)
+end
+
+
+})
+
+Player:AddToggle({
+Name = "Anti AFK",
+
+
+Callback = function(v)
+	print("Anti AFK:", v)
+end
+
+})

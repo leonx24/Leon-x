@@ -1,5 +1,3 @@
-core/animations.lua
-
 local TweenService = game:GetService("TweenService")
 
 local Animations = {}
