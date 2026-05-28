@@ -1,8 +1,8 @@
--- Leon X | UI Library v2.1
+-- Leon X | UI Library v2.2
 -- Modern · Minimal · Dark Monochrome · Premium
 
 local Library = {}
-Library.Version = "2.1.0"
+Library.Version = "2.2.0"
 
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
@@ -16,21 +16,25 @@ local C = {
     BG        = Color3.fromRGB(10,  10,  10),
     Surface   = Color3.fromRGB(16,  16,  16),
     Elevated  = Color3.fromRGB(22,  22,  22),
-    Border    = Color3.fromRGB(32,  32,  32),
-    BorderSub = Color3.fromRGB(26,  26,  26),
+    Border    = Color3.fromRGB(35,  35,  35),
+    BorderSub = Color3.fromRGB(28,  28,  28),
     Accent    = Color3.fromRGB(255, 255, 255),
     AccentDim = Color3.fromRGB(150, 150, 150),
     Text      = Color3.fromRGB(235, 235, 235),
-    TextSub   = Color3.fromRGB(110, 110, 110),
-    SwitchOff = Color3.fromRGB(40,  40,  40),
+    TextSub   = Color3.fromRGB(100, 100, 100),
+    SwitchOff = Color3.fromRGB(42,  42,  42),
     SwitchOn  = Color3.fromRGB(210, 210, 210),
     Hover     = Color3.fromRGB(28,  28,  28),
-    Active    = Color3.fromRGB(36,  36,  36),
+    Active    = Color3.fromRGB(38,  38,  38),
+    CloseRed  = Color3.fromRGB(160, 40,  40),
+    CloseHov  = Color3.fromRGB(200, 55,  55),
 }
 
 -- ── Helpers ───────────────────────────────────────────────────────────────────
 local function tw(obj, t, props)
-    TweenService:Create(obj, TweenInfo.new(t, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), props):Play()
+    TweenService:Create(obj,
+        TweenInfo.new(t, Enum.EasingStyle.Quint, Enum.EasingDirection.Out),
+        props):Play()
 end
 
 local function mkCorner(p, r)
@@ -41,9 +45,9 @@ end
 
 local function mkStroke(p, col, thick)
     local s = Instance.new("UIStroke")
-    s.Color = col or C.Border
+    s.Color     = col   or C.Border
     s.Thickness = thick or 1
-    s.Parent = p
+    s.Parent    = p
 end
 
 local function mkPad(p, t, l, r, b)
@@ -56,10 +60,19 @@ local function mkPad(p, t, l, r, b)
 end
 
 local function hover(btn, n, h, a)
-    btn.MouseEnter:Connect(function() tw(btn, 0.15, {BackgroundColor3 = h}) end)
-    btn.MouseLeave:Connect(function() tw(btn, 0.18, {BackgroundColor3 = n}) end)
-    btn.MouseButton1Down:Connect(function() tw(btn, 0.07, {BackgroundColor3 = a}) end)
-    btn.MouseButton1Up:Connect(function() tw(btn, 0.12, {BackgroundColor3 = h}) end)
+    btn.MouseEnter:Connect(function()    tw(btn, 0.12, {BackgroundColor3 = h}) end)
+    btn.MouseLeave:Connect(function()    tw(btn, 0.18, {BackgroundColor3 = n}) end)
+    btn.MouseButton1Down:Connect(function() tw(btn, 0.06, {BackgroundColor3 = a}) end)
+    btn.MouseButton1Up:Connect(function()   tw(btn, 0.12, {BackgroundColor3 = h}) end)
+end
+
+local function newLabel(parent, zi)
+    local l = Instance.new("TextLabel")
+    l.BackgroundTransparency = 1
+    l.BorderSizePixel        = 0
+    l.ZIndex                 = zi or 1
+    l.Parent                 = parent
+    return l
 end
 
 -- ── Destroy old ───────────────────────────────────────────────────────────────
@@ -69,40 +82,42 @@ pcall(function() gui:FindFirstChild("LeonX"):Destroy() end)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name           = "LeonX"
 ScreenGui.ResetOnSpawn   = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global   -- GLOBAL so ZIndex is absolute
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.DisplayOrder   = 999
 ScreenGui.Parent         = gui
 
--- ── Main window ───────────────────────────────────────────────────────────────
--- NOTE: NO ClipsDescendants — dropdown list needs to overflow
+-- ══════════════════════════════════════════════════════════════════════════════
+-- MAIN WINDOW
+-- ClipsDescendants = true  →  rounded corners clip all children
+-- Dropdown lists are parented to ScreenGui so they escape the clip
+-- ══════════════════════════════════════════════════════════════════════════════
 local Main = Instance.new("Frame")
 Main.Name             = "Main"
 Main.Size             = UDim2.new(0, 660, 0, 420)
 Main.Position         = UDim2.new(0.5, -330, 0.5, -210)
 Main.BackgroundColor3 = C.BG
 Main.BorderSizePixel  = 0
+Main.ClipsDescendants = true   -- ← clips children to rounded shape
 Main.ZIndex           = 10
 Main.Parent           = ScreenGui
 mkCorner(Main, 14)
 mkStroke(Main, C.Border, 1)
 
--- ── Topbar (ZIndex 20) ────────────────────────────────────────────────────────
+-- ── Topbar ────────────────────────────────────────────────────────────────────
 local Topbar = Instance.new("Frame")
 Topbar.Name             = "Topbar"
 Topbar.Size             = UDim2.new(1, 0, 0, 48)
-Topbar.Position         = UDim2.new(0, 0, 0, 0)
 Topbar.BackgroundColor3 = C.BG
 Topbar.BorderSizePixel  = 0
-Topbar.ZIndex           = 20
+Topbar.ZIndex           = 30
 Topbar.Parent           = Main
 
--- topbar bottom divider
 local TopDiv = Instance.new("Frame")
 TopDiv.Size             = UDim2.new(1, 0, 0, 1)
 TopDiv.Position         = UDim2.new(0, 0, 1, -1)
 TopDiv.BackgroundColor3 = C.Border
 TopDiv.BorderSizePixel  = 0
-TopDiv.ZIndex           = 20
+TopDiv.ZIndex           = 30
 TopDiv.Parent           = Topbar
 
 -- logo dot
@@ -111,66 +126,70 @@ Dot.Size             = UDim2.new(0, 7, 0, 7)
 Dot.Position         = UDim2.new(0, 18, 0.5, -3)
 Dot.BackgroundColor3 = C.Accent
 Dot.BorderSizePixel  = 0
-Dot.ZIndex           = 21
+Dot.ZIndex           = 31
 Dot.Parent           = Topbar
 mkCorner(Dot, 4)
 
--- title
-local TitleLbl = Instance.new("TextLabel")
-TitleLbl.Size             = UDim2.new(0, 80, 1, 0)
-TitleLbl.Position         = UDim2.new(0, 32, 0, 0)
-TitleLbl.BackgroundTransparency = 1
-TitleLbl.Text             = "Leon X"
-TitleLbl.TextColor3       = C.Text
-TitleLbl.Font             = Enum.Font.GothamBold
-TitleLbl.TextSize         = 15
-TitleLbl.TextXAlignment   = Enum.TextXAlignment.Left
-TitleLbl.ZIndex           = 21
-TitleLbl.Parent           = Topbar
+local TitleLbl = newLabel(Topbar, 31)
+TitleLbl.Size           = UDim2.new(0, 80, 1, 0)
+TitleLbl.Position       = UDim2.new(0, 32, 0, 0)
+TitleLbl.Text           = "Leon X"
+TitleLbl.TextColor3     = C.Text
+TitleLbl.Font           = Enum.Font.GothamBold
+TitleLbl.TextSize       = 15
+TitleLbl.TextXAlignment = Enum.TextXAlignment.Left
 
--- version
-local VerLbl = Instance.new("TextLabel")
-VerLbl.Size             = UDim2.new(0, 40, 1, 0)
-VerLbl.Position         = UDim2.new(0, 112, 0, 0)
-VerLbl.BackgroundTransparency = 1
-VerLbl.Text             = "v2.1"
-VerLbl.TextColor3       = C.TextSub
-VerLbl.Font             = Enum.Font.Gotham
-VerLbl.TextSize         = 11
-VerLbl.TextXAlignment   = Enum.TextXAlignment.Left
-VerLbl.ZIndex           = 21
-VerLbl.Parent           = Topbar
+local VerLbl = newLabel(Topbar, 31)
+VerLbl.Size           = UDim2.new(0, 40, 1, 0)
+VerLbl.Position       = UDim2.new(0, 114, 0, 0)
+VerLbl.Text           = "v2.2"
+VerLbl.TextColor3     = C.TextSub
+VerLbl.Font           = Enum.Font.Gotham
+VerLbl.TextSize       = 11
+VerLbl.TextXAlignment = Enum.TextXAlignment.Left
 
--- window control buttons
-local function mkCtrl(xOff, icon, bg)
-    local b = Instance.new("TextButton")
-    b.Size             = UDim2.new(0, 26, 0, 26)
-    b.Position         = UDim2.new(1, xOff, 0.5, -13)
-    b.BackgroundColor3 = bg
-    b.Text             = icon
-    b.TextColor3       = C.AccentDim
-    b.Font             = Enum.Font.GothamBold
-    b.TextSize         = 12
-    b.AutoButtonColor  = false
-    b.ZIndex           = 22
-    b.Parent           = Topbar
-    mkCorner(b, 8)
-    return b
-end
+-- ── Window controls (Close + Minimize) ───────────────────────────────────────
+-- Bigger, more visible, proper icons
+local BtnClose = Instance.new("TextButton")
+BtnClose.Size             = UDim2.new(0, 28, 0, 28)
+BtnClose.Position         = UDim2.new(1, -14, 0.5, -14)
+BtnClose.AnchorPoint      = Vector2.new(1, 0)
+BtnClose.Position         = UDim2.new(1, -12, 0.5, -14)
+BtnClose.BackgroundColor3 = C.CloseRed
+BtnClose.Text             = "×"
+BtnClose.TextColor3       = Color3.fromRGB(255, 255, 255)
+BtnClose.Font             = Enum.Font.GothamBold
+BtnClose.TextSize         = 18
+BtnClose.AutoButtonColor  = false
+BtnClose.BorderSizePixel  = 0
+BtnClose.ZIndex           = 32
+BtnClose.Parent           = Topbar
+mkCorner(BtnClose, 8)
+hover(BtnClose, C.CloseRed, C.CloseHov, Color3.fromRGB(220, 60, 60))
 
-local BtnClose = mkCtrl(-14, "✕", Color3.fromRGB(30, 14, 14))
-local BtnMin   = mkCtrl(-46, "−", C.Elevated)
-hover(BtnClose, Color3.fromRGB(30,14,14), Color3.fromRGB(58,20,20), Color3.fromRGB(72,22,22))
-hover(BtnMin,   C.Elevated, C.Hover, C.Active)
+local BtnMin = Instance.new("TextButton")
+BtnMin.Size             = UDim2.new(0, 28, 0, 28)
+BtnMin.Position         = UDim2.new(1, -46, 0.5, -14)
+BtnMin.BackgroundColor3 = C.Elevated
+BtnMin.Text             = "−"
+BtnMin.TextColor3       = C.AccentDim
+BtnMin.Font             = Enum.Font.GothamBold
+BtnMin.TextSize         = 18
+BtnMin.AutoButtonColor  = false
+BtnMin.BorderSizePixel  = 0
+BtnMin.ZIndex           = 32
+BtnMin.Parent           = Topbar
+mkCorner(BtnMin, 8)
+hover(BtnMin, C.Elevated, C.Hover, C.Active)
 
--- ── Sidebar (ZIndex 15) ───────────────────────────────────────────────────────
+-- ── Sidebar ───────────────────────────────────────────────────────────────────
 local Sidebar = Instance.new("Frame")
 Sidebar.Name             = "Sidebar"
 Sidebar.Size             = UDim2.new(0, 158, 1, -48)
 Sidebar.Position         = UDim2.new(0, 0, 0, 48)
 Sidebar.BackgroundColor3 = C.Surface
 Sidebar.BorderSizePixel  = 0
-Sidebar.ZIndex           = 15
+Sidebar.ZIndex           = 20
 Sidebar.Parent           = Main
 
 -- right divider
@@ -179,16 +198,16 @@ SideDiv.Size             = UDim2.new(0, 1, 1, 0)
 SideDiv.Position         = UDim2.new(1, 0, 0, 0)
 SideDiv.BackgroundColor3 = C.Border
 SideDiv.BorderSizePixel  = 0
-SideDiv.ZIndex           = 15
+SideDiv.ZIndex           = 20
 SideDiv.Parent           = Sidebar
 
--- tab list layout container
+-- tab container with UIListLayout
 local TabList = Instance.new("Frame")
 TabList.Name             = "TabList"
 TabList.Size             = UDim2.new(1, 0, 1, 0)
 TabList.BackgroundTransparency = 1
 TabList.BorderSizePixel  = 0
-TabList.ZIndex           = 15
+TabList.ZIndex           = 20
 TabList.Parent           = Sidebar
 
 local TabLayout = Instance.new("UIListLayout")
@@ -198,14 +217,14 @@ TabLayout.SortOrder           = Enum.SortOrder.LayoutOrder
 TabLayout.Parent              = TabList
 mkPad(TabList, 12, 0, 0, 12)
 
--- ── Content area (ZIndex 12) ──────────────────────────────────────────────────
+-- ── Content area ──────────────────────────────────────────────────────────────
 local ContentArea = Instance.new("Frame")
 ContentArea.Name             = "Content"
 ContentArea.Size             = UDim2.new(1, -159, 1, -48)
 ContentArea.Position         = UDim2.new(0, 159, 0, 48)
 ContentArea.BackgroundTransparency = 1
 ContentArea.BorderSizePixel  = 0
-ContentArea.ZIndex           = 12
+ContentArea.ZIndex           = 15
 ContentArea.Parent           = Main
 
 local Pages = {}
@@ -216,7 +235,7 @@ do
     local drag, ds, sp = false, nil, nil
     Topbar.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            drag = true; ds = i.Position; sp = Main.Position
+            drag=true; ds=i.Position; sp=Main.Position
         end
     end)
     UIS.InputChanged:Connect(function(i)
@@ -226,29 +245,41 @@ do
         end
     end)
     UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then drag = false end
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then drag=false end
     end)
 end
 
--- ── Resize ────────────────────────────────────────────────────────────────────
+-- ── Resize (bottom-right corner, outside Main so not clipped) ─────────────────
+-- We put it on ScreenGui and track Main position
 local ResizeBtn = Instance.new("TextButton")
-ResizeBtn.Size             = UDim2.new(0, 22, 0, 22)
-ResizeBtn.AnchorPoint      = Vector2.new(1, 1)
-ResizeBtn.Position         = UDim2.new(1, -4, 1, -4)
-ResizeBtn.BackgroundTransparency = 1
+ResizeBtn.Size             = UDim2.new(0, 24, 0, 24)
+ResizeBtn.BackgroundColor3 = C.Elevated
 ResizeBtn.Text             = "⤡"
-ResizeBtn.TextColor3       = C.TextSub
-ResizeBtn.Font             = Enum.Font.Gotham
-ResizeBtn.TextSize         = 13
+ResizeBtn.TextColor3       = C.AccentDim
+ResizeBtn.Font             = Enum.Font.GothamBold
+ResizeBtn.TextSize         = 14
 ResizeBtn.AutoButtonColor  = false
-ResizeBtn.ZIndex           = 25
-ResizeBtn.Parent           = Main
+ResizeBtn.BorderSizePixel  = 0
+ResizeBtn.ZIndex           = 500
+ResizeBtn.Parent           = ScreenGui
+mkCorner(ResizeBtn, 6)
+
+-- keep resize button anchored to bottom-right of Main
+local function updateResizePos()
+    local p = Main.AbsolutePosition
+    local s = Main.AbsoluteSize
+    ResizeBtn.Position = UDim2.new(0, p.X + s.X - 28, 0, p.Y + s.Y - 28)
+end
+
+Main:GetPropertyChangedSignal("AbsolutePosition"):Connect(updateResizePos)
+Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateResizePos)
+task.defer(updateResizePos)
 
 do
     local rsz, rs, ss = false, nil, nil
     ResizeBtn.InputBegan:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            rsz = true; rs = i.Position; ss = Main.Size
+            rsz=true; rs=i.Position; ss=Main.Size
         end
     end)
     UIS.InputChanged:Connect(function(i)
@@ -259,7 +290,7 @@ do
         end
     end)
     UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then rsz = false end
+        if i.UserInputType == Enum.UserInputType.MouseButton1 then rsz=false end
     end)
 end
 
@@ -296,15 +327,15 @@ do
     end)
     UIS.InputEnded:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 and df then
-            df = false
-            if not mv then Main.Visible=true; Float.Visible=false end
+            df=false
+            if not mv then Main.Visible=true; Float.Visible=false; ResizeBtn.Visible=true end
             task.wait(); mv=false
         end
     end)
 end
 
 BtnMin.MouseButton1Click:Connect(function()
-    Main.Visible=false; Float.Visible=true
+    Main.Visible=false; Float.Visible=true; ResizeBtn.Visible=false
 end)
 BtnClose.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
@@ -332,24 +363,22 @@ local function createSection(parent, name)
     local pill = Instance.new("Frame")
     pill.AnchorPoint = Vector2.new(0.5, 0.5)
     pill.Position = UDim2.new(0.5, 0, 0.5, 0)
-    pill.Size = UDim2.new(0, 10, 1, 0)  -- will resize
+    pill.Size = UDim2.new(0, 80, 1, 0)
     pill.BackgroundColor3 = C.BG
     pill.BorderSizePixel = 0
     pill.Parent = w
 
-    local lbl = Instance.new("TextLabel")
+    local lbl = newLabel(pill, 1)
     lbl.Size = UDim2.new(1, -12, 1, 0)
     lbl.Position = UDim2.new(0, 6, 0, 0)
-    lbl.BackgroundTransparency = 1
     lbl.Text = name
     lbl.TextColor3 = C.TextSub
     lbl.Font = Enum.Font.GothamMedium
     lbl.TextSize = 11
     lbl.TextXAlignment = Enum.TextXAlignment.Center
-    lbl.Parent = pill
 
     task.defer(function()
-        pill.Size = UDim2.new(0, lbl.TextBounds.X + 14, 1, 0)
+        pill.Size = UDim2.new(0, lbl.TextBounds.X + 16, 1, 0)
     end)
     return w
 end
@@ -369,16 +398,14 @@ local function createToggle(parent, data)
     mkCorner(row, 10)
     mkStroke(row, C.BorderSub, 1)
 
-    local lbl = Instance.new("TextLabel")
+    local lbl = newLabel(row, 1)
     lbl.Size = UDim2.new(1, -68, 1, 0)
     lbl.Position = UDim2.new(0, 14, 0, 0)
-    lbl.BackgroundTransparency = 1
     lbl.Text = data.Name or "Toggle"
     lbl.TextColor3 = C.Text
     lbl.Font = Enum.Font.GothamMedium
     lbl.TextSize = 13
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = row
 
     local track = Instance.new("Frame")
     track.Size = UDim2.new(0, 38, 0, 20)
@@ -437,7 +464,7 @@ local function createButton(parent, data)
 
     hover(btn, C.Elevated, C.Hover, C.Active)
     btn.MouseButton1Click:Connect(function()
-        tw(btn, 0.06, {BackgroundColor3 = Color3.fromRGB(48,48,48)})
+        tw(btn, 0.06, {BackgroundColor3 = Color3.fromRGB(50,50,50)})
         task.delay(0.12, function() tw(btn, 0.15, {BackgroundColor3 = C.Elevated}) end)
         cb()
     end)
@@ -463,27 +490,23 @@ local function createSlider(parent, data)
     mkCorner(wrap, 10)
     mkStroke(wrap, C.BorderSub, 1)
 
-    local nameLbl = Instance.new("TextLabel")
+    local nameLbl = newLabel(wrap, 1)
     nameLbl.Size = UDim2.new(1,-80, 0, 22)
     nameLbl.Position = UDim2.new(0, 14, 0, 8)
-    nameLbl.BackgroundTransparency = 1
     nameLbl.Text = data.Name or "Slider"
     nameLbl.TextColor3 = C.Text
     nameLbl.Font = Enum.Font.GothamMedium
     nameLbl.TextSize = 13
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    nameLbl.Parent = wrap
 
-    local valLbl = Instance.new("TextLabel")
+    local valLbl = newLabel(wrap, 1)
     valLbl.Size = UDim2.new(0, 70, 0, 22)
     valLbl.Position = UDim2.new(1, -80, 0, 8)
-    valLbl.BackgroundTransparency = 1
     valLbl.Text = tostring(cur)..suf
     valLbl.TextColor3 = C.AccentDim
     valLbl.Font = Enum.Font.GothamMedium
     valLbl.TextSize = 12
     valLbl.TextXAlignment = Enum.TextXAlignment.Right
-    valLbl.Parent = wrap
 
     local trackBg = Instance.new("Frame")
     trackBg.Size = UDim2.new(1, -28, 0, 4)
@@ -542,14 +565,13 @@ local function createSlider(parent, data)
 end
 
 -- Dropdown ────────────────────────────────────────────────────────────────────
--- List is parented to ScreenGui (absolute position) so it never gets clipped
+-- List parented to ScreenGui → escapes ClipsDescendants on Main
 local function createDropdown(parent, data)
     local cb      = data.Callback or function() end
     local options = data.Options  or {}
     local cur     = data.Default  or (options[1] or "Select")
     local open    = false
 
-    -- header row (stays inside the page scroll)
     local wrap = Instance.new("Frame")
     wrap.Size = UDim2.new(1, 0, 0, 42)
     wrap.BackgroundColor3 = C.Elevated
@@ -563,51 +585,46 @@ local function createDropdown(parent, data)
     hdr.BackgroundTransparency = 1
     hdr.Text = ""
     hdr.AutoButtonColor = false
+    hdr.BorderSizePixel = 0
     hdr.Parent = wrap
 
-    local nameLbl = Instance.new("TextLabel")
+    local nameLbl = newLabel(hdr, 1)
     nameLbl.Size = UDim2.new(1, -110, 1, 0)
     nameLbl.Position = UDim2.new(0, 14, 0, 0)
-    nameLbl.BackgroundTransparency = 1
     nameLbl.Text = data.Name or "Dropdown"
     nameLbl.TextColor3 = C.Text
     nameLbl.Font = Enum.Font.GothamMedium
     nameLbl.TextSize = 13
     nameLbl.TextXAlignment = Enum.TextXAlignment.Left
-    nameLbl.Parent = hdr
 
-    local valLbl = Instance.new("TextLabel")
+    local valLbl = newLabel(hdr, 1)
     valLbl.Size = UDim2.new(0, 90, 1, 0)
     valLbl.Position = UDim2.new(1, -106, 0, 0)
-    valLbl.BackgroundTransparency = 1
     valLbl.Text = cur
     valLbl.TextColor3 = C.AccentDim
     valLbl.Font = Enum.Font.Gotham
     valLbl.TextSize = 12
     valLbl.TextXAlignment = Enum.TextXAlignment.Right
-    valLbl.Parent = hdr
 
-    local arrow = Instance.new("TextLabel")
+    local arrow = newLabel(hdr, 1)
     arrow.Size = UDim2.new(0, 18, 1, 0)
     arrow.Position = UDim2.new(1, -22, 0, 0)
-    arrow.BackgroundTransparency = 1
     arrow.Text = "›"
     arrow.TextColor3 = C.TextSub
     arrow.Font = Enum.Font.GothamBold
-    arrow.TextSize = 15
+    arrow.TextSize = 16
     arrow.TextXAlignment = Enum.TextXAlignment.Center
-    arrow.Parent = hdr
 
-    -- floating list — parented to ScreenGui, positioned absolutely
-    local listH = math.min(#options * 34 + 8, 168)
+    -- floating list on ScreenGui
+    local listH = math.min(#options * 34 + 8, 170)
 
     local List = Instance.new("Frame")
-    List.Size = UDim2.new(0, 0, 0, 0)   -- starts collapsed
     List.BackgroundColor3 = C.Surface
     List.BorderSizePixel = 0
-    List.ZIndex = 200                    -- always on top
+    List.ZIndex = 500
     List.Visible = false
     List.ClipsDescendants = true
+    List.Size = UDim2.new(0, 10, 0, 0)
     List.Parent = ScreenGui
     mkCorner(List, 10)
     mkStroke(List, C.Border, 1)
@@ -617,7 +634,6 @@ local function createDropdown(parent, data)
     listLayout.Parent = List
     mkPad(List, 4, 0, 0, 4)
 
-    -- build items
     for _, opt in ipairs(options) do
         local item = Instance.new("TextButton")
         item.Size = UDim2.new(1, 0, 0, 34)
@@ -625,75 +641,60 @@ local function createDropdown(parent, data)
         item.Text = ""
         item.AutoButtonColor = false
         item.BorderSizePixel = 0
-        item.ZIndex = 201
+        item.ZIndex = 501
         item.Parent = List
 
-        local itemLbl = Instance.new("TextLabel")
+        local itemLbl = newLabel(item, 501)
         itemLbl.Size = UDim2.new(1, -20, 1, 0)
         itemLbl.Position = UDim2.new(0, 12, 0, 0)
-        itemLbl.BackgroundTransparency = 1
         itemLbl.Text = opt
         itemLbl.TextColor3 = C.Text
         itemLbl.Font = Enum.Font.Gotham
         itemLbl.TextSize = 12
         itemLbl.TextXAlignment = Enum.TextXAlignment.Left
-        itemLbl.ZIndex = 201
-        itemLbl.Parent = item
 
         hover(item, C.Surface, C.Elevated, C.Active)
 
         item.MouseButton1Click:Connect(function()
-            cur = opt
-            valLbl.Text = opt
-            -- close
+            cur = opt; valLbl.Text = opt
             open = false
             tw(arrow, 0.15, {Rotation = 0})
-            tw(List, 0.15, {Size = UDim2.new(0, List.Size.X.Offset, 0, 0)})
+            tw(List,  0.15, {Size = UDim2.new(0, List.Size.X.Offset, 0, 0)})
             task.delay(0.16, function() List.Visible = false end)
             cb(opt)
         end)
     end
 
-    -- position list under the header using AbsolutePosition
-    local function positionList()
-        local abs = wrap.AbsolutePosition
-        local sz  = wrap.AbsoluteSize
-        List.Position = UDim2.new(0, abs.X, 0, abs.Y + sz.Y + 4)
-        List.Size     = UDim2.new(0, sz.X, 0, 0)
+    local function closeDD()
+        open = false
+        tw(arrow, 0.15, {Rotation = 0})
+        tw(List,  0.15, {Size = UDim2.new(0, List.Size.X.Offset, 0, 0)})
+        task.delay(0.16, function() List.Visible = false end)
+    end
+
+    local function openDD()
+        open = true
+        local ap = wrap.AbsolutePosition
+        local as = wrap.AbsoluteSize
+        List.Position = UDim2.new(0, ap.X, 0, ap.Y + as.Y + 4)
+        List.Size     = UDim2.new(0, as.X, 0, 0)
+        List.Visible  = true
+        tw(arrow, 0.15, {Rotation = 90})
+        tw(List,  0.18, {Size = UDim2.new(0, as.X, 0, listH)})
     end
 
     hdr.MouseButton1Click:Connect(function()
-        if open then
-            open = false
-            tw(arrow, 0.15, {Rotation = 0})
-            tw(List, 0.15, {Size = UDim2.new(0, List.Size.X.Offset, 0, 0)})
-            task.delay(0.16, function() List.Visible = false end)
-        else
-            open = true
-            positionList()
-            List.Visible = true
-            tw(arrow, 0.15, {Rotation = 90})
-            tw(List, 0.18, {Size = UDim2.new(0, wrap.AbsoluteSize.X, 0, listH)})
-        end
+        if open then closeDD() else openDD() end
     end)
 
-    -- close if clicked outside
     UIS.InputBegan:Connect(function(i)
-        if open and i.UserInputType == Enum.UserInputType.MouseButton1 then
-            local mp = i.Position
-            local lp2 = List.AbsolutePosition
-            local ls  = List.AbsoluteSize
-            if mp.X < lp2.X or mp.X > lp2.X+ls.X or mp.Y < lp2.Y or mp.Y > lp2.Y+ls.Y then
-                local wp = wrap.AbsolutePosition
-                local ws = wrap.AbsoluteSize
-                if mp.X < wp.X or mp.X > wp.X+ws.X or mp.Y < wp.Y or mp.Y > wp.Y+ws.Y then
-                    open = false
-                    tw(arrow, 0.15, {Rotation = 0})
-                    tw(List, 0.15, {Size = UDim2.new(0, List.Size.X.Offset, 0, 0)})
-                    task.delay(0.16, function() List.Visible = false end)
-                end
-            end
+        if not open or i.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        local mp = i.Position
+        local function outside(f)
+            local p = f.AbsolutePosition; local s = f.AbsoluteSize
+            return mp.X<p.X or mp.X>p.X+s.X or mp.Y<p.Y or mp.Y>p.Y+s.Y
         end
+        if outside(List) and outside(wrap) then closeDD() end
     end)
 
     local api = {Frame=wrap}
@@ -716,16 +717,14 @@ local function createKeybind(parent, data)
     mkCorner(row, 10)
     mkStroke(row, C.BorderSub, 1)
 
-    local lbl = Instance.new("TextLabel")
+    local lbl = newLabel(row, 1)
     lbl.Size = UDim2.new(1, -110, 1, 0)
     lbl.Position = UDim2.new(0, 14, 0, 0)
-    lbl.BackgroundTransparency = 1
     lbl.Text = data.Name or "Keybind"
     lbl.TextColor3 = C.Text
     lbl.Font = Enum.Font.GothamMedium
     lbl.TextSize = 13
     lbl.TextXAlignment = Enum.TextXAlignment.Left
-    lbl.Parent = row
 
     local keyBtn = Instance.new("TextButton")
     keyBtn.Size = UDim2.new(0, 80, 0, 26)
@@ -744,17 +743,13 @@ local function createKeybind(parent, data)
 
     keyBtn.MouseButton1Click:Connect(function()
         if waiting then return end
-        waiting = true
-        keyBtn.Text = "..."
-        keyBtn.TextColor3 = C.Text
+        waiting = true; keyBtn.Text = "..."; keyBtn.TextColor3 = C.Text
     end)
     UIS.InputBegan:Connect(function(i, gp)
         if not waiting or gp then return end
         if i.UserInputType == Enum.UserInputType.Keyboard then
-            cur = i.KeyCode
-            waiting = false
-            keyBtn.Text = i.KeyCode.Name
-            keyBtn.TextColor3 = C.AccentDim
+            cur = i.KeyCode; waiting = false
+            keyBtn.Text = i.KeyCode.Name; keyBtn.TextColor3 = C.AccentDim
             cb(cur)
         end
     end)
@@ -766,16 +761,13 @@ end
 
 -- Label ───────────────────────────────────────────────────────────────────────
 local function createLabel(parent, data)
-    local lbl = Instance.new("TextLabel")
+    local lbl = newLabel(parent, 1)
     lbl.Size = UDim2.new(1, 0, 0, 26)
-    lbl.BackgroundTransparency = 1
-    lbl.BorderSizePixel = 0
     lbl.Text = data.Text or ""
     lbl.TextColor3 = data.Color or C.TextSub
     lbl.Font = Enum.Font.Gotham
     lbl.TextSize = 12
     lbl.TextXAlignment = data.Align or Enum.TextXAlignment.Left
-    lbl.Parent = parent
 
     local api = {Frame=lbl}
     function api:Set(t) lbl.Text=t end
@@ -786,41 +778,36 @@ end
 -- CreateTab
 -- ══════════════════════════════════════════════════════════════════════════════
 function Library:CreateTab(name)
-    -- sidebar tab button
     local tabBtn = Instance.new("TextButton")
     tabBtn.Size = UDim2.new(1, -16, 0, 36)
     tabBtn.BackgroundColor3 = C.Surface
     tabBtn.Text = ""
     tabBtn.AutoButtonColor = false
     tabBtn.BorderSizePixel = 0
-    tabBtn.ZIndex = 16
+    tabBtn.ZIndex = 21
     tabBtn.Parent = TabList
     mkCorner(tabBtn, 9)
 
-    -- active indicator bar (left edge)
     local bar = Instance.new("Frame")
     bar.Size = UDim2.new(0, 3, 0, 18)
     bar.Position = UDim2.new(0, 0, 0.5, -9)
     bar.BackgroundColor3 = C.Accent
     bar.BackgroundTransparency = 1
     bar.BorderSizePixel = 0
-    bar.ZIndex = 17
+    bar.ZIndex = 22
     bar.Parent = tabBtn
     mkCorner(bar, 2)
 
-    local tabLbl = Instance.new("TextLabel")
+    local tabLbl = newLabel(tabBtn, 22)
     tabLbl.Size = UDim2.new(1, -14, 1, 0)
     tabLbl.Position = UDim2.new(0, 14, 0, 0)
-    tabLbl.BackgroundTransparency = 1
     tabLbl.Text = name
     tabLbl.TextColor3 = C.TextSub
     tabLbl.Font = Enum.Font.GothamMedium
     tabLbl.TextSize = 13
     tabLbl.TextXAlignment = Enum.TextXAlignment.Left
-    tabLbl.ZIndex = 17
-    tabLbl.Parent = tabBtn
 
-    -- page (scrolling frame inside ContentArea)
+    -- scrolling page
     local page = Instance.new("ScrollingFrame")
     page.Size = UDim2.new(1, 0, 1, 0)
     page.CanvasSize = UDim2.new(0, 0, 0, 0)
@@ -828,7 +815,7 @@ function Library:CreateTab(name)
     page.ScrollBarImageColor3 = C.BorderSub
     page.BackgroundTransparency = 1
     page.BorderSizePixel = 0
-    page.ZIndex = 13
+    page.ZIndex = 16
     page.Visible = false
     page.Parent = ContentArea
 
@@ -858,19 +845,23 @@ function Library:CreateTab(name)
         Library.CurrentPage = page
     end
 
-    if not Library.CurrentPage then activate() end
+    -- defer first activation so all tabs are registered first
+    if not Library.CurrentPage then
+        Library.CurrentPage = page   -- reserve slot immediately
+        task.defer(activate)         -- activate after all tabs created
+    end
+
     tabBtn.MouseButton1Click:Connect(activate)
     hover(tabBtn, C.Surface, C.Hover, C.Active)
 
-    -- Tab API
     local Tab = {}
-    function Tab:AddSection(n)    return createSection(page, n)    end
-    function Tab:AddToggle(d)     return createToggle(page, d)     end
-    function Tab:AddButton(d)     return createButton(page, d)     end
-    function Tab:AddSlider(d)     return createSlider(page, d)     end
-    function Tab:AddDropdown(d)   return createDropdown(page, d)   end
-    function Tab:AddKeybind(d)    return createKeybind(page, d)    end
-    function Tab:AddLabel(d)      return createLabel(page, d)      end
+    function Tab:AddSection(n)  return createSection(page, n)  end
+    function Tab:AddToggle(d)   return createToggle(page, d)   end
+    function Tab:AddButton(d)   return createButton(page, d)   end
+    function Tab:AddSlider(d)   return createSlider(page, d)   end
+    function Tab:AddDropdown(d) return createDropdown(page, d) end
+    function Tab:AddKeybind(d)  return createKeybind(page, d)  end
+    function Tab:AddLabel(d)    return createLabel(page, d)    end
     return Tab
 end
 
