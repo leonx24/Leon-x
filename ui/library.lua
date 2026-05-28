@@ -86,11 +86,18 @@ ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
 ScreenGui.DisplayOrder   = 999
 ScreenGui.Parent         = gui
 
--- ══════════════════════════════════════════════════════════════════════════════
--- MAIN WINDOW
--- ClipsDescendants = true  →  rounded corners clip all children
--- Dropdown lists are parented to ScreenGui so they escape the clip
--- ══════════════════════════════════════════════════════════════════════════════
+-- ── Main window ───────────────────────────────────────────────────────────────
+-- Border frame behind Main (stroke on ClipsDescendants frame renders outside bounds)
+local MainBorder = Instance.new("Frame")
+MainBorder.Name             = "MainBorder"
+MainBorder.Size             = UDim2.new(0, 662, 0, 422)
+MainBorder.Position         = UDim2.new(0.5, -331, 0.5, -211)
+MainBorder.BackgroundColor3 = C.Border
+MainBorder.BorderSizePixel  = 0
+MainBorder.ZIndex           = 9
+MainBorder.Parent           = ScreenGui
+mkCorner(MainBorder, 15)
+
 local Main = Instance.new("Frame")
 Main.Name             = "Main"
 Main.Size             = UDim2.new(0, 660, 0, 420)
@@ -101,7 +108,6 @@ Main.ClipsDescendants = true   -- ← clips children to rounded shape
 Main.ZIndex           = 10
 Main.Parent           = ScreenGui
 mkCorner(Main, 14)
-mkStroke(Main, C.Border, 1)
 
 -- ── Topbar ────────────────────────────────────────────────────────────────────
 local Topbar = Instance.new("Frame")
@@ -149,12 +155,9 @@ VerLbl.TextSize       = 11
 VerLbl.TextXAlignment = Enum.TextXAlignment.Left
 
 -- ── Window controls (Close + Minimize) ───────────────────────────────────────
--- Bigger, more visible, proper icons
+-- Both buttons parented to ScreenGui to avoid ClipsDescendants cutting them
 local BtnClose = Instance.new("TextButton")
 BtnClose.Size             = UDim2.new(0, 28, 0, 28)
-BtnClose.Position         = UDim2.new(1, -14, 0.5, -14)
-BtnClose.AnchorPoint      = Vector2.new(1, 0)
-BtnClose.Position         = UDim2.new(1, -12, 0.5, -14)
 BtnClose.BackgroundColor3 = C.CloseRed
 BtnClose.Text             = "×"
 BtnClose.TextColor3       = Color3.fromRGB(255, 255, 255)
@@ -162,14 +165,13 @@ BtnClose.Font             = Enum.Font.GothamBold
 BtnClose.TextSize         = 18
 BtnClose.AutoButtonColor  = false
 BtnClose.BorderSizePixel  = 0
-BtnClose.ZIndex           = 32
-BtnClose.Parent           = Topbar
+BtnClose.ZIndex           = 200
+BtnClose.Parent           = ScreenGui
 mkCorner(BtnClose, 8)
 hover(BtnClose, C.CloseRed, C.CloseHov, Color3.fromRGB(220, 60, 60))
 
 local BtnMin = Instance.new("TextButton")
 BtnMin.Size             = UDim2.new(0, 28, 0, 28)
-BtnMin.Position         = UDim2.new(1, -46, 0.5, -14)
 BtnMin.BackgroundColor3 = C.Elevated
 BtnMin.Text             = "−"
 BtnMin.TextColor3       = C.AccentDim
@@ -177,10 +179,23 @@ BtnMin.Font             = Enum.Font.GothamBold
 BtnMin.TextSize         = 18
 BtnMin.AutoButtonColor  = false
 BtnMin.BorderSizePixel  = 0
-BtnMin.ZIndex           = 32
-BtnMin.Parent           = Topbar
+BtnMin.ZIndex           = 200
+BtnMin.Parent           = ScreenGui
 mkCorner(BtnMin, 8)
 hover(BtnMin, C.Elevated, C.Hover, C.Active)
+
+-- keep buttons anchored to topbar right edge
+local function updateBtnPos()
+    local p = Main.AbsolutePosition
+    local s = Main.AbsoluteSize
+    -- Close: 14px from right, vertically centered in topbar (48px)
+    BtnClose.Position = UDim2.new(0, p.X + s.X - 14 - 28, 0, p.Y + 10)
+    -- Min: 8px gap left of close
+    BtnMin.Position   = UDim2.new(0, p.X + s.X - 14 - 28 - 8 - 28, 0, p.Y + 10)
+end
+Main:GetPropertyChangedSignal("AbsolutePosition"):Connect(updateBtnPos)
+Main:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateBtnPos)
+task.defer(updateBtnPos)
 
 -- ── Sidebar ───────────────────────────────────────────────────────────────────
 local Sidebar = Instance.new("Frame")
@@ -241,7 +256,10 @@ do
     UIS.InputChanged:Connect(function(i)
         if drag and i.UserInputType == Enum.UserInputType.MouseMovement then
             local d = i.Position - ds
-            Main.Position = UDim2.new(sp.X.Scale, sp.X.Offset+d.X, sp.Y.Scale, sp.Y.Offset+d.Y)
+            local nx = sp.X.Offset + d.X
+            local ny = sp.Y.Offset + d.Y
+            Main.Position       = UDim2.new(sp.X.Scale, nx, sp.Y.Scale, ny)
+            MainBorder.Position = UDim2.new(sp.X.Scale, nx-1, sp.Y.Scale, ny-1)
         end
     end)
     UIS.InputEnded:Connect(function(i)
@@ -285,8 +303,10 @@ do
     UIS.InputChanged:Connect(function(i)
         if rsz and i.UserInputType == Enum.UserInputType.MouseMovement then
             local d = i.Position - rs
-            Main.Size = UDim2.new(0, math.clamp(ss.X.Offset+d.X, 520, 1200),
-                                  0, math.clamp(ss.Y.Offset+d.Y, 320, 800))
+            local nw = math.clamp(ss.X.Offset+d.X, 520, 1200)
+            local nh = math.clamp(ss.Y.Offset+d.Y, 320, 800)
+            Main.Size       = UDim2.new(0, nw, 0, nh)
+            MainBorder.Size = UDim2.new(0, nw+2, 0, nh+2)
         end
     end)
     UIS.InputEnded:Connect(function(i)
@@ -328,7 +348,10 @@ do
     UIS.InputEnded:Connect(function(i)
         if i.UserInputType == Enum.UserInputType.MouseButton1 and df then
             df=false
-            if not mv then Main.Visible=true; Float.Visible=false; ResizeBtn.Visible=true end
+            if not mv then
+                Main.Visible=true; Float.Visible=false
+                ResizeBtn.Visible=true; BtnClose.Visible=true; BtnMin.Visible=true
+            end
             task.wait(); mv=false
         end
     end)
@@ -336,6 +359,7 @@ end
 
 BtnMin.MouseButton1Click:Connect(function()
     Main.Visible=false; Float.Visible=true; ResizeBtn.Visible=false
+    BtnClose.Visible=false; BtnMin.Visible=false
 end)
 BtnClose.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
@@ -845,10 +869,13 @@ function Library:CreateTab(name)
         Library.CurrentPage = page
     end
 
-    -- defer first activation so all tabs are registered first
+    -- First tab: activate immediately (no other tabs exist yet to hide)
     if not Library.CurrentPage then
-        Library.CurrentPage = page   -- reserve slot immediately
-        task.defer(activate)         -- activate after all tabs created
+        Library.CurrentPage = page
+        page.Visible = true
+        tabBtn.BackgroundColor3 = C.Elevated
+        bar.BackgroundTransparency = 0
+        tabLbl.TextColor3 = C.Text
     end
 
     tabBtn.MouseButton1Click:Connect(activate)
