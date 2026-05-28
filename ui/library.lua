@@ -113,47 +113,47 @@ ScreenGui.DisplayOrder    = 999
 ScreenGui.Parent          = gui
 
 -- ── Main Window ───────────────────────────────────────────────────────────────
-local Main = frame({
-    Name             = "Main",
-    Size             = UDim2.new(0, 660, 0, 420),
-    Position         = UDim2.new(0.5, -330, 0.5, -210),
-    BackgroundColor3 = C.BG,
-    Parent           = ScreenGui,
-})
+local Main = Instance.new("Frame")
+Main.Name             = "Main"
+Main.Size             = UDim2.new(0, 660, 0, 420)
+Main.Position         = UDim2.new(0.5, -330, 0.5, -210)
+Main.BackgroundColor3 = C.BG
+Main.BorderSizePixel  = 0
+Main.ClipsDescendants = true
+Main.Parent           = ScreenGui
 corner(Main, 14)
 stroke(Main, C.Border, 1)
 
--- subtle inner shadow via gradient overlay
+-- drop shadow (parented to ScreenGui so ClipsDescendants on Main doesn't hide it)
 local Shadow = Instance.new("ImageLabel")
 Shadow.Name               = "Shadow"
-Shadow.Size               = UDim2.new(1, 30, 1, 30)
-Shadow.Position           = UDim2.new(0, -15, 0, -15)
+Shadow.Size               = UDim2.new(0, 700, 0, 460)
+Shadow.Position           = UDim2.new(0.5, -350, 0.5, -230)
 Shadow.BackgroundTransparency = 1
 Shadow.Image              = "rbxassetid://6014261993"
 Shadow.ImageColor3        = Color3.fromRGB(0, 0, 0)
-Shadow.ImageTransparency  = 0.55
+Shadow.ImageTransparency  = 0.5
 Shadow.ScaleType          = Enum.ScaleType.Slice
 Shadow.SliceCenter        = Rect.new(49, 49, 450, 450)
 Shadow.ZIndex             = 0
-Shadow.Parent             = Main
+Shadow.Parent             = ScreenGui
 
 -- ── Topbar ────────────────────────────────────────────────────────────────────
-local Topbar = frame({
-    Name             = "Topbar",
-    Size             = UDim2.new(1, 0, 0, 48),
-    BackgroundColor3 = C.BG,
-    ZIndex           = 5,
-    Parent           = Main,
-})
-corner(Topbar, 14)
+local Topbar = Instance.new("Frame")
+Topbar.Name             = "Topbar"
+Topbar.Size             = UDim2.new(1, 0, 0, 48)
+Topbar.BackgroundColor3 = C.BG
+Topbar.BorderSizePixel  = 0
+Topbar.ZIndex           = 5
+Topbar.Parent           = Main
 
 -- bottom border line on topbar
-local TopLine = frame({
-    Size             = UDim2.new(1, 0, 0, 1),
-    Position         = UDim2.new(0, 0, 1, -1),
-    BackgroundColor3 = C.Border,
-    Parent           = Topbar,
-})
+local TopLine = Instance.new("Frame")
+TopLine.Size             = UDim2.new(1, 0, 0, 1)
+TopLine.Position         = UDim2.new(0, 0, 1, -1)
+TopLine.BackgroundColor3 = C.Border
+TopLine.BorderSizePixel  = 0
+TopLine.Parent           = Topbar
 
 -- Logo dot + title
 local LogoDot = frame({
@@ -211,46 +211,46 @@ addHover(BtnClose,    Color3.fromRGB(28,14,14),  Color3.fromRGB(55,20,20),  Colo
 addHover(BtnMinimize, C.Elevated, C.Hover, C.Active)
 
 -- ── Sidebar ───────────────────────────────────────────────────────────────────
-local Sidebar = frame({
-    Name             = "Sidebar",
-    Size             = UDim2.new(0, 160, 1, -48),
-    Position         = UDim2.new(0, 0, 0, 48),
-    BackgroundColor3 = C.Surface,
-    Parent           = Main,
-})
+local Sidebar = Instance.new("Frame")
+Sidebar.Name             = "Sidebar"
+Sidebar.Size             = UDim2.new(0, 160, 1, -48)
+Sidebar.Position         = UDim2.new(0, 0, 0, 48)
+Sidebar.BackgroundColor3 = C.Surface
+Sidebar.BorderSizePixel  = 0
+Sidebar.Parent           = Main
 
--- right border
-local SideRight = frame({
-    Size             = UDim2.new(0, 1, 1, 0),
-    Position         = UDim2.new(1, -1, 0, 0),
-    BackgroundColor3 = C.Border,
-    Parent           = Sidebar,
-})
+-- right border line (decorative, not in layout)
+local SideRight = Instance.new("Frame")
+SideRight.Size             = UDim2.new(0, 1, 1, 0)
+SideRight.Position         = UDim2.new(1, -1, 0, 0)
+SideRight.BackgroundColor3 = C.Border
+SideRight.BorderSizePixel  = 0
+SideRight.Parent           = Sidebar
 
--- bottom-left corner fix
-local SideCornerFix = frame({
-    Size             = UDim2.new(0, 14, 0, 14),
-    Position         = UDim2.new(0, 0, 1, -14),
-    BackgroundColor3 = C.Surface,
-    Parent           = Sidebar,
-})
+-- inner scroll container — UIListLayout lives here, not on Sidebar directly
+local SideInner = Instance.new("Frame")
+SideInner.Name             = "SideInner"
+SideInner.Size             = UDim2.new(1, -1, 1, 0)  -- leave 1px for border
+SideInner.BackgroundTransparency = 1
+SideInner.BorderSizePixel  = 0
+SideInner.Parent           = Sidebar
 
 local SideLayout = Instance.new("UIListLayout")
-SideLayout.Padding            = UDim.new(0, 4)
+SideLayout.Padding             = UDim.new(0, 4)
 SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-SideLayout.SortOrder          = Enum.SortOrder.LayoutOrder
-SideLayout.Parent             = Sidebar
+SideLayout.SortOrder           = Enum.SortOrder.LayoutOrder
+SideLayout.Parent              = SideInner
 
-padding(Sidebar, 14, 0, 0, 14)
+padding(SideInner, 14, 0, 0, 14)
 
 -- ── Content Area ──────────────────────────────────────────────────────────────
-local ContentArea = frame({
-    Name             = "Content",
-    Size             = UDim2.new(1, -160, 1, -48),
-    Position         = UDim2.new(0, 160, 0, 48),
-    BackgroundTransparency = 1,
-    Parent           = Main,
-})
+local ContentArea = Instance.new("Frame")
+ContentArea.Name             = "Content"
+ContentArea.Size             = UDim2.new(1, -160, 1, -48)
+ContentArea.Position         = UDim2.new(0, 160, 0, 48)
+ContentArea.BackgroundTransparency = 1
+ContentArea.BorderSizePixel  = 0
+ContentArea.Parent           = Main
 
 local Pages = {}
 Library.CurrentPage = nil
@@ -880,7 +880,7 @@ function Library:CreateTab(name, icon)
     TabBtn.BackgroundColor3 = C.Surface
     TabBtn.Text             = ""
     TabBtn.AutoButtonColor  = false
-    TabBtn.Parent           = Sidebar
+    TabBtn.Parent           = SideInner
     corner(TabBtn, 9)
 
     -- active indicator bar
