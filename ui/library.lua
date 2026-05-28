@@ -165,6 +165,60 @@ UIS.InputEnded:Connect(function(input)
 	end
 end)
 
+-- RESIZE
+
+local Resize = Instance.new("Frame")
+Resize.Size = UDim2.new(0,16,0,16)
+Resize.Position = UDim2.new(1,-16,1,-16)
+Resize.BackgroundTransparency = 1
+Resize.Parent = Main
+
+local ResizeIcon = Instance.new("TextLabel")
+ResizeIcon.Size = UDim2.new(1,0,1,0)
+ResizeIcon.BackgroundTransparency = 1
+ResizeIcon.Text = "◢"
+ResizeIcon.TextColor3 = Color3.fromRGB(80,80,80)
+ResizeIcon.Font = Enum.Font.GothamBold
+ResizeIcon.TextSize = 14
+ResizeIcon.Parent = Resize
+
+local resizing = false
+local resizeStart
+local startSize
+
+Resize.InputBegan:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+		resizing = true
+		resizeStart = input.Position
+		startSize = Main.Size
+	end
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+	if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+
+		local delta = input.Position - resizeStart
+
+		Main.Size = UDim2.new(
+			startSize.X.Scale,
+			math.clamp(startSize.X.Offset + delta.X, 500, 1000),
+
+			startSize.Y.Scale,
+			math.clamp(startSize.Y.Offset + delta.Y, 300, 700)
+		)
+	end
+end)
+
+UIS.InputEnded:Connect(function(input)
+
+	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+		resizing = false
+	end
+end)
+
 -- FLOAT DRAG
 local draggingFloat = false
 local dragFloatStart
