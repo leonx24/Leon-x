@@ -128,7 +128,7 @@ local FloatStroke = Instance.new("UIStroke")
 FloatStroke.Color = Color3.fromRGB(35,35,35)
 FloatStroke.Parent = Float
 
--- DRAGGING
+-- DRAG MAIN
 
 local dragging = false
 local dragStart
@@ -251,7 +251,71 @@ end
 
 end)
 
--- FLOAT BUTTON LOGIC
+-- FLOAT DRAG
+
+local draggingFloat = false
+local dragFloatStart
+local floatStartPos
+local moved = false
+
+Float.InputBegan:Connect(function(input)
+
+
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+	draggingFloat = true
+	moved = false
+
+	dragFloatStart = input.Position
+	floatStartPos = Float.Position
+end
+
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+
+if draggingFloat and input.UserInputType == Enum.UserInputType.MouseMovement then
+
+	local delta = input.Position - dragFloatStart
+
+	if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+		moved = true
+	end
+
+	Float.Position = UDim2.new(
+		floatStartPos.X.Scale,
+		floatStartPos.X.Offset + delta.X,
+
+		floatStartPos.Y.Scale,
+		floatStartPos.Y.Offset + delta.Y
+	)
+end
+
+
+end)
+
+Float.InputEnded:Connect(function(input)
+
+
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+	draggingFloat = false
+
+	if not moved then
+		Main.Visible = true
+		Float.Visible = false
+	end
+
+	task.wait()
+	moved = false
+end
+
+
+end)
+
+-- BUTTON LOGIC
 
 Minimize.MouseButton1Click:Connect(function()
 
@@ -270,16 +334,7 @@ ScreenGui:Destroy()
 
 end)
 
-Float.MouseButton1Click:Connect(function()
-
-
-Main.Visible = true
-Float.Visible = false
-
-
-end)
-
--- TOGGLE
+-- TOGGLE COMPONENT
 
 local Toggle = {}
 
@@ -321,8 +376,11 @@ Switch.BackgroundColor3 = Color3.fromRGB(40,40,40)
 Switch.Parent = ToggleFrame
 
 local SwitchCorner = Instance.new("UICorner")
+
+
 SwitchCorner.CornerRadius = UDim.new(1,0)
 SwitchCorner.Parent = Switch
+
 
 local Circle = Instance.new("Frame")
 Circle.Size = UDim2.new(0,16,0,16)
