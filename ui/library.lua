@@ -14,6 +14,7 @@ pcall(function()
 	playerGui:FindFirstChild("LeonX"):Destroy()
 end)
 
+-- SCREEN GUI
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "LeonX"
 ScreenGui.ResetOnSpawn = false
@@ -82,7 +83,7 @@ Content.Parent = Main
 
 local Pages = {}
 
--- MINIMIZE BUTTON
+-- MINIMIZE
 local Minimize = Instance.new("TextButton")
 Minimize.Size = UDim2.new(0,30,0,30)
 Minimize.Position = UDim2.new(1,-75,0,10)
@@ -97,7 +98,7 @@ local MinCorner = Instance.new("UICorner")
 MinCorner.CornerRadius = UDim.new(1,0)
 MinCorner.Parent = Minimize
 
--- CLOSE BUTTON
+-- CLOSE
 local Close = Instance.new("TextButton")
 Close.Size = UDim2.new(0,30,0,30)
 Close.Position = UDim2.new(1,-40,0,10)
@@ -138,7 +139,9 @@ local dragStart
 local startPos
 
 Topbar.InputBegan:Connect(function(input)
+
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
 		dragging = true
 		dragStart = input.Position
 		startPos = Main.Position
@@ -146,6 +149,7 @@ Topbar.InputBegan:Connect(function(input)
 end)
 
 UIS.InputChanged:Connect(function(input)
+
 	if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
 
 		local delta = input.Position - dragStart
@@ -153,6 +157,7 @@ UIS.InputChanged:Connect(function(input)
 		Main.Position = UDim2.new(
 			startPos.X.Scale,
 			startPos.X.Offset + delta.X,
+
 			startPos.Y.Scale,
 			startPos.Y.Offset + delta.Y
 		)
@@ -160,26 +165,30 @@ UIS.InputChanged:Connect(function(input)
 end)
 
 UIS.InputEnded:Connect(function(input)
+
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		dragging = false
 	end
 end)
 
 -- RESIZE
-
-local Resize = Instance.new("Frame")
-Resize.Size = UDim2.new(0,16,0,16)
-Resize.Position = UDim2.new(1,-16,1,-16)
+local Resize = Instance.new("TextButton")
+Resize.Size = UDim2.new(0,22,0,22)
+Resize.Position = UDim2.new(1,-22,1,-22)
 Resize.BackgroundTransparency = 1
+Resize.Text = ""
+Resize.AutoButtonColor = false
+Resize.ZIndex = 10
 Resize.Parent = Main
 
 local ResizeIcon = Instance.new("TextLabel")
 ResizeIcon.Size = UDim2.new(1,0,1,0)
 ResizeIcon.BackgroundTransparency = 1
 ResizeIcon.Text = "◢"
-ResizeIcon.TextColor3 = Color3.fromRGB(80,80,80)
+ResizeIcon.TextColor3 = Color3.fromRGB(100,100,100)
 ResizeIcon.Font = Enum.Font.GothamBold
-ResizeIcon.TextSize = 14
+ResizeIcon.TextSize = 18
+ResizeIcon.ZIndex = 11
 ResizeIcon.Parent = Resize
 
 local resizing = false
@@ -226,7 +235,9 @@ local floatStartPos
 local moved = false
 
 Float.InputBegan:Connect(function(input)
+
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
 		draggingFloat = true
 		moved = false
 
@@ -248,6 +259,7 @@ UIS.InputChanged:Connect(function(input)
 		Float.Position = UDim2.new(
 			floatStartPos.X.Scale,
 			floatStartPos.X.Offset + delta.X,
+
 			floatStartPos.Y.Scale,
 			floatStartPos.Y.Offset + delta.Y
 		)
@@ -257,6 +269,7 @@ end)
 Float.InputEnded:Connect(function(input)
 
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
 		draggingFloat = false
 
 		if not moved then
@@ -322,7 +335,12 @@ function Library:CreateTab(name)
 
 	Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 
-		Page.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+		Page.CanvasSize = UDim2.new(
+			0,
+			0,
+			0,
+			Layout.AbsoluteContentSize.Y + 20
+		)
 	end)
 
 	Pages[name] = Page
@@ -403,13 +421,17 @@ function Library:CreateToggle(parent, text, callback)
 			TweenService:Create(
 				Circle,
 				TweenInfo.new(0.2),
-				{Position = UDim2.new(1,-18,0.5,-8)}
+				{
+					Position = UDim2.new(1,-18,0.5,-8)
+				}
 			):Play()
 
 			TweenService:Create(
 				Switch,
 				TweenInfo.new(0.2),
-				{BackgroundColor3 = Color3.fromRGB(70,120,255)}
+				{
+					BackgroundColor3 = Color3.fromRGB(70,120,255)
+				}
 			):Play()
 
 		else
@@ -417,13 +439,17 @@ function Library:CreateToggle(parent, text, callback)
 			TweenService:Create(
 				Circle,
 				TweenInfo.new(0.2),
-				{Position = UDim2.new(0,2,0.5,-8)}
+				{
+					Position = UDim2.new(0,2,0.5,-8)
+				}
 			):Play()
 
 			TweenService:Create(
 				Switch,
 				TweenInfo.new(0.2),
-				{BackgroundColor3 = Color3.fromRGB(40,40,40)}
+				{
+					BackgroundColor3 = Color3.fromRGB(40,40,40)
+				}
 			):Play()
 		end
 
