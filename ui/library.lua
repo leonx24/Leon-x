@@ -171,28 +171,36 @@ UIS.InputEnded:Connect(function(input)
 	end
 end)
 
--- RESIZE
-local Resize = Instance.new("TextButton")
-Resize.Size = UDim2.new(0,24,0,24)
-Resize.Position = UDim2.new(1,-26,1,-26)
-Resize.BackgroundTransparency = 1
-Resize.Text = ""
-Resize.AutoButtonColor = false
-Resize.ZIndex = 20
-Resize.Parent = Main
+-- RESIZE HANDLE
+
+local ResizeCorner = Instance.new("Frame")
+ResizeCorner.Size = UDim2.new(0,18,0,18)
+ResizeCorner.AnchorPoint = Vector2.new(1,1)
+ResizeCorner.Position = UDim2.new(1,-6,1,-6)
+ResizeCorner.BackgroundTransparency = 1
+ResizeCorner.ZIndex = 50
+ResizeCorner.Parent = Main
+
+local ResizeButton = Instance.new("TextButton")
+ResizeButton.Size = UDim2.new(1,0,1,0)
+ResizeButton.BackgroundTransparency = 1
+ResizeButton.Text = ""
+ResizeButton.AutoButtonColor = false
+ResizeButton.Parent = ResizeCorner
 
 local ResizeIcon = Instance.new("TextLabel")
 ResizeIcon.Size = UDim2.new(1,0,1,0)
 ResizeIcon.BackgroundTransparency = 1
 ResizeIcon.Text = "◢"
 ResizeIcon.TextColor3 = Color3.fromRGB(255,255,255)
+ResizeIcon.TextTransparency = 0.35
 ResizeIcon.Font = Enum.Font.GothamBold
-ResizeIcon.TextSize = 16
-ResizeIcon.TextTransparency = 0.2
-ResizeIcon.ZIndex = 21
-ResizeIcon.Parent = Resize
+ResizeIcon.TextSize = 14
+ResizeIcon.TextXAlignment = Enum.TextXAlignment.Right
+ResizeIcon.TextYAlignment = Enum.TextYAlignment.Bottom
+ResizeIcon.Parent = ResizeCorner
 
-Resize.MouseEnter:Connect(function()
+ResizeButton.MouseEnter:Connect(function()
 
 	TweenService:Create(
 		ResizeIcon,
@@ -203,13 +211,13 @@ Resize.MouseEnter:Connect(function()
 	):Play()
 end)
 
-Resize.MouseLeave:Connect(function()
+ResizeButton.MouseLeave:Connect(function()
 
 	TweenService:Create(
 		ResizeIcon,
 		TweenInfo.new(0.15),
 		{
-			TextTransparency = 0.2
+			TextTransparency = 0.35
 		}
 	):Play()
 end)
@@ -218,7 +226,7 @@ local resizing = false
 local resizeStart
 local startSize
 
-Resize.InputBegan:Connect(function(input)
+ResizeButton.InputBegan:Connect(function(input)
 
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 
@@ -235,10 +243,10 @@ UIS.InputChanged:Connect(function(input)
 		local delta = input.Position - resizeStart
 
 		Main.Size = UDim2.new(
-			startSize.X.Scale,
+			0,
 			math.clamp(startSize.X.Offset + delta.X, 520, 1200),
 
-			startSize.Y.Scale,
+			0,
 			math.clamp(startSize.Y.Offset + delta.Y, 320, 800)
 		)
 	end
