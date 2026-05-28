@@ -171,26 +171,53 @@ UIS.InputEnded:Connect(function(input)
 	end
 end)
 
--- RESIZE
+-- RESIZE (Modern Bottom Right)
+
 local Resize = Instance.new("TextButton")
-Resize.Size = UDim2.new(0,22,0,22)
-Resize.Position = UDim2.new(1,-28,1,-28)
+Resize.Size = UDim2.new(0,30,0,30)
+Resize.Position = UDim2.new(1,-34,1,-34)
 Resize.BackgroundTransparency = 1
 Resize.Text = ""
 Resize.AutoButtonColor = false
-Resize.ZIndex = 10
+Resize.ZIndex = 20
 Resize.Parent = Main
 
+-- Resize Icon
 local ResizeIcon = Instance.new("TextLabel")
-Resize.Size = UDim2.new(0,28,0,28)
+ResizeIcon.Size = UDim2.new(1,0,1,0)
 ResizeIcon.BackgroundTransparency = 1
-ResizeIcon.Text = "◢"
-ResizeIcon.TextColor3 = Color3.fromRGB(70,120,255)
+ResizeIcon.Text = "⤡"
+ResizeIcon.TextColor3 = Color3.fromRGB(255,255,255)
 ResizeIcon.Font = Enum.Font.GothamBold
-ResizeIcon.TextSize = 18
-ResizeIcon.ZIndex = 11
+ResizeIcon.TextSize = 20
+ResizeIcon.TextTransparency = 0.2
+ResizeIcon.ZIndex = 21
 ResizeIcon.Parent = Resize
 
+-- Hover Effect
+Resize.MouseEnter:Connect(function()
+
+	TweenService:Create(
+		ResizeIcon,
+		TweenInfo.new(0.15),
+		{
+			TextTransparency = 0
+		}
+	):Play()
+end)
+
+Resize.MouseLeave:Connect(function()
+
+	TweenService:Create(
+		ResizeIcon,
+		TweenInfo.new(0.15),
+		{
+			TextTransparency = 0.2
+		}
+	):Play()
+end)
+
+-- Resize Logic
 local resizing = false
 local resizeStart
 local startSize
@@ -213,10 +240,10 @@ UIS.InputChanged:Connect(function(input)
 
 		Main.Size = UDim2.new(
 			startSize.X.Scale,
-			math.clamp(startSize.X.Offset + delta.X, 500, 1000),
+			math.clamp(startSize.X.Offset + delta.X, 520, 1200),
 
 			startSize.Y.Scale,
-			math.clamp(startSize.Y.Offset + delta.Y, 300, 700)
+			math.clamp(startSize.Y.Offset + delta.Y, 320, 800)
 		)
 	end
 end)
