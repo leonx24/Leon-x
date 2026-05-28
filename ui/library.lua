@@ -86,6 +86,17 @@ CloseCorner.Parent = Close
 
 -- Tabs
 local Tabs = Instance.new("Frame")
+local TabsLayout = Instance.new("UIListLayout")
+TabsLayout.Padding = UDim.new(0, 5)
+TabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
+TabsLayout.Parent = Tabs
+
+local TabsPadding = Instance.new("UIPadding")
+TabsPadding.PaddingTop = UDim.new(0, 5)
+TabsPadding.PaddingLeft = UDim.new(0, 5)
+TabsPadding.PaddingRight = UDim.new(0, 5)
+TabsPadding.Parent = Tabs
+
 Tabs.Size = UDim2.new(0,120,1,-35)
 Tabs.Position = UDim2.new(0,0,0,35)
 Tabs.BackgroundColor3 = Color3.fromRGB(25,25,25)
@@ -94,6 +105,7 @@ Tabs.Parent = Main
 
 -- Content
 local Content = Instance.new("Frame")
+local Pages = {}
 Content.Size = UDim2.new(1,-120,1,-35)
 Content.Position = UDim2.new(0,120,0,35)
 Content.BackgroundColor3 = Color3.fromRGB(15,15,15)
@@ -222,13 +234,13 @@ OpenButton.InputEnded:Connect(function(input)
 	end
 end)
 
--- Create Tab
-function Library:CreateTab(name)
-	local count = #Tabs:GetChildren()
+-- create tab
 
+function Library:CreateTab(name)
+
+	-- Sidebar Button
 	local TabButton = Instance.new("TextButton")
-	TabButton.Size = UDim2.new(1,-10,0,35)
-	TabButton.Position = UDim2.new(0,5,0,(count-1)*40)
+	TabButton.Size = UDim2.new(1,0,0,35)
 	TabButton.BackgroundColor3 = Color3.fromRGB(35,35,35)
 	TabButton.Text = name
 	TabButton.TextColor3 = Color3.fromRGB(255,255,255)
@@ -240,8 +252,51 @@ function Library:CreateTab(name)
 	Corner.CornerRadius = UDim.new(0,8)
 	Corner.Parent = TabButton
 
-	return TabButton
+	-- Page
+	local Page = Instance.new("ScrollingFrame")
+	Page.Size = UDim2.new(1,0,1,0)
+	Page.CanvasSize = UDim2.new(0,0,0,0)
+	Page.ScrollBarThickness = 2
+	Page.BackgroundTransparency = 1
+	Page.Visible = false
+	Page.Parent = Content
+
+	local Layout = Instance.new("UIListLayout")
+	Layout.Padding = UDim.new(0,5)
+	Layout.SortOrder = Enum.SortOrder.LayoutOrder
+	Layout.Parent = Page
+
+	local Padding = Instance.new("UIPadding")
+	Padding.PaddingTop = UDim.new(0,10)
+	Padding.PaddingLeft = UDim.new(0,10)
+	Padding.PaddingRight = UDim.new(0,10)
+	Padding.Parent = Page
+
+	Layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+		Page.CanvasSize = UDim2.new(0,0,0,Layout.AbsoluteContentSize.Y + 20)
+	end)
+
+	Pages[name] = Page
+
+	-- First Tab Open
+	if #Content:GetChildren() == 1 then
+		Page.Visible = true
+	end
+
+	-- Tab Switching
+	TabButton.MouseButton1Click:Connect(function()
+
+		for _, v in pairs(Pages) do
+			v.Visible = false
+		end
+
+		Page.Visible = true
+	end)
+
+	return Page
 end
+
+-- create toggle
 
 function Library:CreateToggle(parent, text, callback)
 	local Toggle = Instance.new("TextButton")
@@ -272,6 +327,43 @@ function Library:CreateToggle(parent, text, callback)
 
 		if callback then
 			callback(enabled)
+		end
+	end)
+
+	return Toggle
+end
+
+function Library:CreateToggle(parent, text, callback)
+
+	local Toggle = Instance.new("TextButton")
+	Toggle.Size = UDim2.new(1,-5,0,35)
+	Toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
+	Toggle.Text = text .. " : OFF"
+	Toggle.TextColor3 = Color3.fromRGB(255,255,255)
+	Toggle.Font = Enum.Font.Gotham
+	Toggle.TextSize = 14
+	Toggle.Parent = parent
+
+	local Corner = Instance.new("UICorner")
+	Corner.CornerRadius = UDim.new(0,8)
+	Corner.Parent = Toggle
+
+	local Enabled = false
+
+	Toggle.MouseButton1Click:Connect(function()
+
+		Enabled = not Enabled
+
+		if Enabled then
+			Toggle.Text = text .. " : ON"
+			Toggle.BackgroundColor3 = Color3.fromRGB(50,120,50)
+		else
+			Toggle.Text = text .. " : OFF"
+			Toggle.BackgroundColor3 = Color3.fromRGB(35,35,35)
+		end
+
+		if callback then
+			callback(Enabled)
 		end
 	end)
 
