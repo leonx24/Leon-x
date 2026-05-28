@@ -1,17 +1,27 @@
-local Services = require(script.Parent.services)
+core/animations.lua
+
+local TweenService = game:GetService("TweenService")
 
 local Animations = {}
 
 function Animations:Tween(object, time, properties)
-    local tween = Services.TweenService:Create(
-        object,
-        TweenInfo.new(time),
-        properties
-    )
 
-    tween:Play()
 
-    return tween
+local tween = TweenService:Create(
+	object,
+	TweenInfo.new(
+		time,
+		Enum.EasingStyle.Quint,
+		Enum.EasingDirection.Out
+	),
+	properties
+)
+
+tween:Play()
+
+return tween
+
+
 end
 
 return Animations
