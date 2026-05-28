@@ -296,24 +296,29 @@ end
 
 end)
 
-Float.InputEnded:Connect(function(input)
+UIS.InputEnded:Connect(function(input)
 
 
 if input.UserInputType == Enum.UserInputType.MouseButton1 then
 
-	draggingFloat = false
+	if draggingFloat then
 
-	if not moved then
-		Main.Visible = true
-		Float.Visible = false
+		draggingFloat = false
+
+		if not moved then
+			Main.Visible = true
+			Float.Visible = false
+		end
+
+		task.wait()
+
+		moved = false
 	end
-
-	task.wait()
-	moved = false
 end
 
 
 end)
+
 
 -- BUTTON LOGIC
 
