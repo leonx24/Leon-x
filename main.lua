@@ -1,60 +1,164 @@
+-- Leon X | main.lua
+-- Showcase semua komponen UI
+
 local Library = loadstring(game:HttpGet(
-"https://raw.githubusercontent.com/affaririzkyf/Leon-X/main/ui/library.lua"))()
+    "https://raw.githubusercontent.com/affaririzkyf/Leon-X/main/ui/library.lua"
+))()
 
+-- ── Tabs ──────────────────────────────────────────────────────────────────────
 local Movement = Library:CreateTab("Movement")
-local Visual = Library:CreateTab("Visual")
-local Player = Library:CreateTab("Player")
+local Visual   = Library:CreateTab("Visual")
+local Player   = Library:CreateTab("Player")
+local Settings = Library:CreateTab("Settings")
 
-Movement:AddToggle({
-Name = "Fly",
+-- ── Movement ──────────────────────────────────────────────────────────────────
+Movement:AddSection("Locomotion")
 
-
-Callback = function(v)
-	print("Fly:", v)
-end
-
-
+local FlyToggle = Movement:AddToggle({
+    Name     = "Fly",
+    Default  = false,
+    Callback = function(v)
+        print("Fly:", v)
+    end,
 })
 
+local SpeedToggle = Movement:AddToggle({
+    Name     = "Speed",
+    Default  = false,
+    Callback = function(v)
+        print("Speed:", v)
+    end,
+})
+
+Movement:AddSlider({
+    Name     = "Walk Speed",
+    Min      = 16,
+    Max      = 200,
+    Default  = 16,
+    Suffix   = " stud/s",
+    Callback = function(v)
+        print("WalkSpeed:", v)
+    end,
+})
+
+Movement:AddSlider({
+    Name     = "Jump Power",
+    Min      = 50,
+    Max      = 500,
+    Default  = 50,
+    Callback = function(v)
+        print("JumpPower:", v)
+    end,
+})
+
+Movement:AddSection("Misc")
+
 Movement:AddToggle({
-Name = "Speed",
+    Name     = "Infinite Jump",
+    Default  = false,
+    Callback = function(v)
+        print("InfJump:", v)
+    end,
+})
 
+Movement:AddKeybind({
+    Name     = "Fly Keybind",
+    Default  = Enum.KeyCode.F,
+    Callback = function(key)
+        print("Fly key set to:", key.Name)
+    end,
+})
 
-Callback = function(v)
-	print("Speed:", v)
-end
+-- ── Visual ────────────────────────────────────────────────────────────────────
+Visual:AddSection("Rendering")
 
-
+Visual:AddToggle({
+    Name     = "ESP",
+    Default  = false,
+    Callback = function(v)
+        print("ESP:", v)
+    end,
 })
 
 Visual:AddToggle({
-Name = "ESP",
-
-
-Callback = function(v)
-	print("ESP:", v)
-end
-
-
+    Name     = "FullBright",
+    Default  = false,
+    Callback = function(v)
+        print("FullBright:", v)
+    end,
 })
 
-Visual:AddToggle({
-Name = "FullBright",
+Visual:AddSection("Appearance")
 
-
-Callback = function(v)
-	print("FullBright:", v)
-end
-
-
+Visual:AddDropdown({
+    Name     = "ESP Color",
+    Options  = { "White", "Red", "Green", "Blue", "Yellow" },
+    Default  = "White",
+    Callback = function(v)
+        print("ESP Color:", v)
+    end,
 })
+
+Visual:AddSlider({
+    Name     = "ESP Opacity",
+    Min      = 0,
+    Max      = 100,
+    Default  = 80,
+    Suffix   = "%",
+    Callback = function(v)
+        print("ESP Opacity:", v)
+    end,
+})
+
+-- ── Player ────────────────────────────────────────────────────────────────────
+Player:AddSection("Utility")
 
 Player:AddToggle({
-Name = "Anti AFK",
+    Name     = "Anti AFK",
+    Default  = false,
+    Callback = function(v)
+        print("AntiAFK:", v)
+    end,
+})
 
+Player:AddButton({
+    Name     = "Rejoin Server",
+    Callback = function()
+        print("Rejoining...")
+    end,
+})
 
-Callback = function(v)
-	print("Anti AFK:", v)
-end
+Player:AddButton({
+    Name     = "Copy Player ID",
+    Callback = function()
+        print("Copied:", game.Players.LocalPlayer.UserId)
+    end,
+})
 
+-- ── Settings ──────────────────────────────────────────────────────────────────
+Settings:AddSection("Interface")
+
+Settings:AddToggle({
+    Name     = "Show Notifications",
+    Default  = true,
+    Callback = function(v)
+        print("Notifications:", v)
+    end,
+})
+
+Settings:AddDropdown({
+    Name     = "UI Scale",
+    Options  = { "Small", "Normal", "Large" },
+    Default  = "Normal",
+    Callback = function(v)
+        print("Scale:", v)
+    end,
+})
+
+Settings:AddSection("About")
+
+Settings:AddLabel({
+    Text  = "Leon X  ·  v2.0.0  ·  by Leon",
+    Color = Color3.fromRGB(80, 80, 80),
+    Align = Enum.TextXAlignment.Center,
 })
