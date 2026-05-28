@@ -174,7 +174,7 @@ end)
 -- RESIZE
 local Resize = Instance.new("TextButton")
 Resize.Size = UDim2.new(0,22,0,22)
-Resize.Position = UDim2.new(1,-22,1,-22)
+Resize.Position = UDim2.new(1,-28,1,-28)
 Resize.BackgroundTransparency = 1
 Resize.Text = ""
 Resize.AutoButtonColor = false
@@ -182,10 +182,10 @@ Resize.ZIndex = 10
 Resize.Parent = Main
 
 local ResizeIcon = Instance.new("TextLabel")
-ResizeIcon.Size = UDim2.new(1,0,1,0)
+Resize.Size = UDim2.new(0,28,0,28)
 ResizeIcon.BackgroundTransparency = 1
 ResizeIcon.Text = "◢"
-ResizeIcon.TextColor3 = Color3.fromRGB(100,100,100)
+ResizeIcon.TextColor3 = Color3.fromRGB(70,120,255)
 ResizeIcon.Font = Enum.Font.GothamBold
 ResizeIcon.TextSize = 18
 ResizeIcon.ZIndex = 11
