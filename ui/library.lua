@@ -75,6 +75,61 @@ Content.Parent = Main
 
 local Pages = {}
 
+-- MINIMIZE
+
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.new(0,30,0,30)
+Minimize.Position = UDim2.new(1,-75,0,10)
+Minimize.BackgroundColor3 = Color3.fromRGB(24,24,24)
+Minimize.Text = "-"
+Minimize.TextColor3 = Color3.fromRGB(255,255,255)
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextSize = 18
+Minimize.Parent = Main
+
+local MinCorner = Instance.new("UICorner")
+MinCorner.CornerRadius = UDim.new(1,0)
+MinCorner.Parent = Minimize
+
+-- CLOSE
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.new(0,30,0,30)
+Close.Position = UDim2.new(1,-40,0,10)
+Close.BackgroundColor3 = Color3.fromRGB(45,20,20)
+Close.Text = "X"
+Close.TextColor3 = Color3.fromRGB(255,255,255)
+Close.Font = Enum.Font.GothamBold
+Close.TextSize = 14
+Close.Parent = Main
+
+local CloseCorner = Instance.new("UICorner")
+CloseCorner.CornerRadius = UDim.new(1,0)
+CloseCorner.Parent = Close
+
+-- FLOAT BUTTON
+
+local Float = Instance.new("TextButton")
+Float.Size = UDim2.new(0,55,0,55)
+Float.Position = UDim2.new(0,20,0.5,-27)
+Float.BackgroundColor3 = Color3.fromRGB(18,18,18)
+Float.Text = "LX"
+Float.TextColor3 = Color3.fromRGB(255,255,255)
+Float.Font = Enum.Font.GothamBold
+Float.TextSize = 20
+Float.Visible = false
+Float.Parent = ScreenGui
+
+local FloatCorner = Instance.new("UICorner")
+FloatCorner.CornerRadius = UDim.new(1,0)
+FloatCorner.Parent = Float
+
+local FloatStroke = Instance.new("UIStroke")
+FloatStroke.Color = Color3.fromRGB(35,35,35)
+FloatStroke.Parent = Float
+
+-- DRAGGING
+
 local dragging = false
 local dragStart
 local startPos
@@ -121,6 +176,194 @@ end
 
 end)
 
+-- RESIZE
+
+local ResizeCorner = Instance.new("Frame")
+ResizeCorner.Size = UDim2.new(0,18,0,18)
+ResizeCorner.AnchorPoint = Vector2.new(1,1)
+ResizeCorner.Position = UDim2.new(1,-6,1,-6)
+ResizeCorner.BackgroundTransparency = 1
+ResizeCorner.ZIndex = 50
+ResizeCorner.Parent = Main
+
+local ResizeButton = Instance.new("TextButton")
+ResizeButton.Size = UDim2.new(1,0,1,0)
+ResizeButton.BackgroundTransparency = 1
+ResizeButton.Text = ""
+ResizeButton.AutoButtonColor = false
+ResizeButton.Parent = ResizeCorner
+
+local ResizeIcon = Instance.new("TextLabel")
+ResizeIcon.Size = UDim2.new(1,0,1,0)
+ResizeIcon.BackgroundTransparency = 1
+ResizeIcon.Text = "⤡"
+ResizeIcon.TextColor3 = Color3.fromRGB(255,255,255)
+ResizeIcon.TextTransparency = 0.35
+ResizeIcon.Font = Enum.Font.GothamBold
+ResizeIcon.TextSize = 14
+ResizeIcon.TextXAlignment = Enum.TextXAlignment.Right
+ResizeIcon.TextYAlignment = Enum.TextYAlignment.Bottom
+ResizeIcon.Parent = ResizeCorner
+
+ResizeButton.MouseEnter:Connect(function()
+
+
+TweenService:Create(
+	ResizeIcon,
+	TweenInfo.new(0.15),
+	{
+		TextTransparency = 0
+	}
+):Play()
+
+
+end)
+
+ResizeButton.MouseLeave:Connect(function()
+
+
+TweenService:Create(
+	ResizeIcon,
+	TweenInfo.new(0.15),
+	{
+		TextTransparency = 0.35
+	}
+):Play()
+
+
+end)
+
+local resizing = false
+local resizeStart
+local startSize
+
+ResizeButton.InputBegan:Connect(function(input)
+
+
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+	resizing = true
+	resizeStart = input.Position
+	startSize = Main.Size
+end
+
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+
+if resizing and input.UserInputType == Enum.UserInputType.MouseMovement then
+
+	local delta = input.Position - resizeStart
+
+	Main.Size = UDim2.new(
+		0,
+		math.clamp(startSize.X.Offset + delta.X, 520, 1200),
+
+		0,
+		math.clamp(startSize.Y.Offset + delta.Y, 320, 800)
+	)
+end
+
+
+end)
+
+UIS.InputEnded:Connect(function(input)
+
+
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+	resizing = false
+end
+
+
+end)
+
+-- FLOAT DRAG
+
+local draggingFloat = false
+local dragFloatStart
+local floatStartPos
+local moved = false
+
+Float.InputBegan:Connect(function(input)
+
+
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+	draggingFloat = true
+	moved = false
+
+	dragFloatStart = input.Position
+	floatStartPos = Float.Position
+end
+
+
+end)
+
+UIS.InputChanged:Connect(function(input)
+
+
+if draggingFloat and input.UserInputType == Enum.UserInputType.MouseMovement then
+
+	local delta = input.Position - dragFloatStart
+
+	if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
+		moved = true
+	end
+
+	Float.Position = UDim2.new(
+		floatStartPos.X.Scale,
+		floatStartPos.X.Offset + delta.X,
+
+		floatStartPos.Y.Scale,
+		floatStartPos.Y.Offset + delta.Y
+	)
+end
+
+
+end)
+
+Float.InputEnded:Connect(function(input)
+
+
+if input.UserInputType == Enum.UserInputType.MouseButton1 then
+
+	draggingFloat = false
+
+	if not moved then
+		Main.Visible = true
+		Float.Visible = false
+	end
+
+	task.wait()
+	moved = false
+end
+
+
+end)
+
+-- BUTTON LOGIC
+
+Minimize.MouseButton1Click:Connect(function()
+
+
+Main.Visible = false
+Float.Visible = true
+
+
+end)
+
+Close.MouseButton1Click:Connect(function()
+
+
+ScreenGui:Destroy()
+
+
+end)
+
+-- TOGGLE COMPONENT
+
 local Toggle = {}
 
 function Toggle:Create(parent, data)
@@ -135,13 +378,13 @@ ToggleFrame.Text = ""
 ToggleFrame.AutoButtonColor = false
 ToggleFrame.Parent = parent
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0,12)
-Corner.Parent = ToggleFrame
+local ToggleCorner = Instance.new("UICorner")
+ToggleCorner.CornerRadius = UDim.new(0,12)
+ToggleCorner.Parent = ToggleFrame
 
-local Stroke = Instance.new("UIStroke")
-Stroke.Color = Color3.fromRGB(30,30,30)
-Stroke.Parent = ToggleFrame
+local ToggleStroke = Instance.new("UIStroke")
+ToggleStroke.Color = Color3.fromRGB(30,30,30)
+ToggleStroke.Parent = ToggleFrame
 
 local Label = Instance.new("TextLabel")
 Label.Size = UDim2.new(1,-70,1,0)
@@ -242,6 +485,10 @@ local ButtonCorner = Instance.new("UICorner")
 ButtonCorner.CornerRadius = UDim.new(0,10)
 ButtonCorner.Parent = Button
 
+local ButtonStroke = Instance.new("UIStroke")
+ButtonStroke.Color = Color3.fromRGB(32,32,32)
+ButtonStroke.Parent = Button
+
 local Page = Instance.new("ScrollingFrame")
 Page.Size = UDim2.new(1,0,1,0)
 Page.CanvasSize = UDim2.new(0,0,0,0)
@@ -275,8 +522,9 @@ Pages[name] = {
 	Button = Button
 }
 
-if table.getn(Content:GetChildren()) == 1 then
+if #Content:GetChildren() == 1 then
 	Page.Visible = true
+	Button.BackgroundColor3 = Color3.fromRGB(30,30,30)
 end
 
 Button.MouseButton1Click:Connect(function()
