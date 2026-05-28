@@ -1,1 +1,1 @@
-loadstring(game:HttpGet("RAW_LINK_MAIN"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/affaririzkyf/Leon-X/main/main.lua"))()
