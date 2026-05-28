@@ -205,34 +205,6 @@ ResizeIcon.TextXAlignment = Enum.TextXAlignment.Right
 ResizeIcon.TextYAlignment = Enum.TextYAlignment.Bottom
 ResizeIcon.Parent = ResizeCorner
 
-ResizeButton.MouseEnter:Connect(function()
-
-
-TweenService:Create(
-	ResizeIcon,
-	TweenInfo.new(0.15),
-	{
-		TextTransparency = 0
-	}
-):Play()
-
-
-end)
-
-ResizeButton.MouseLeave:Connect(function()
-
-
-TweenService:Create(
-	ResizeIcon,
-	TweenInfo.new(0.15),
-	{
-		TextTransparency = 0.35
-	}
-):Play()
-
-
-end)
-
 local resizing = false
 local resizeStart
 local startSize
@@ -279,71 +251,7 @@ end
 
 end)
 
--- FLOAT DRAG
-
-local draggingFloat = false
-local dragFloatStart
-local floatStartPos
-local moved = false
-
-Float.InputBegan:Connect(function(input)
-
-
-if input.UserInputType == Enum.UserInputType.MouseButton1 then
-
-	draggingFloat = true
-	moved = false
-
-	dragFloatStart = input.Position
-	floatStartPos = Float.Position
-end
-
-
-end)
-
-UIS.InputChanged:Connect(function(input)
-
-
-if draggingFloat and input.UserInputType == Enum.UserInputType.MouseMovement then
-
-	local delta = input.Position - dragFloatStart
-
-	if math.abs(delta.X) > 5 or math.abs(delta.Y) > 5 then
-		moved = true
-	end
-
-	Float.Position = UDim2.new(
-		floatStartPos.X.Scale,
-		floatStartPos.X.Offset + delta.X,
-
-		floatStartPos.Y.Scale,
-		floatStartPos.Y.Offset + delta.Y
-	)
-end
-
-
-end)
-
-Float.InputEnded:Connect(function(input)
-
-
-if input.UserInputType == Enum.UserInputType.MouseButton1 then
-
-	draggingFloat = false
-
-	if not moved then
-		Main.Visible = true
-		Float.Visible = false
-	end
-
-	task.wait()
-	moved = false
-end
-
-
-end)
-
--- BUTTON LOGIC
+-- FLOAT BUTTON LOGIC
 
 Minimize.MouseButton1Click:Connect(function()
 
@@ -362,7 +270,16 @@ ScreenGui:Destroy()
 
 end)
 
--- TOGGLE COMPONENT
+Float.MouseButton1Click:Connect(function()
+
+
+Main.Visible = true
+Float.Visible = false
+
+
+end)
+
+-- TOGGLE
 
 local Toggle = {}
 
@@ -522,7 +439,10 @@ Pages[name] = {
 	Button = Button
 }
 
-if #Content:GetChildren() == 1 then
+if not Library.CurrentPage then
+
+	Library.CurrentPage = Page
+
 	Page.Visible = true
 	Button.BackgroundColor3 = Color3.fromRGB(30,30,30)
 end
