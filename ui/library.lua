@@ -175,6 +175,15 @@ Content.Position = UDim2.new(0,153,0,46)
 
 local Pages = {}
 Library._first = true
+Library.Registry = {}   -- Flag → component api, populated by Tab:Add* when Flag is set
+
+-- internal helper: register a component api if data.Flag is provided
+local function reg(data, api)
+    if type(data.Flag) == "string" and data.Flag ~= "" then
+        Library.Registry[data.Flag] = api
+    end
+    return api
+end
 
 -- drag
 do
@@ -568,6 +577,13 @@ local function mkKeybind(parent, data)
         end
     end)
     local api = {Frame=row}
+    function api:Set(keyCode)
+        -- always silent: update state + label, exit waiting, never fires cb
+        waiting = false
+        cur = keyCode
+        kb.Text = keyCode.Name
+        kb.TextColor3 = C.Dim
+    end
     function api:Get() return cur end
     return api
 end
