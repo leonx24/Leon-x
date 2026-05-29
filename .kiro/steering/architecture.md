@@ -14,7 +14,7 @@ Everything runs as a Roblox LocalScript executed by an exploit executor. There i
 
 ## Deployment Model
 
-- **Source of truth**: GitHub repo `affaririzkyf/Leon-x` (main branch)
+- **Source of truth**: GitHub repo `leonx24/Leon-x` (main branch)
 - **Entry point for users**: paste `loader.lua` content into executor
 - **loader.lua** is a one-liner that fetches and runs `main.lua`
 - **main.lua** fetches and runs `library.lua` and individual module files

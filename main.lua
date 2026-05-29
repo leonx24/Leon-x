@@ -1,11 +1,11 @@
 -- Leon X | main.lua
 
 local Library = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/affaririzkyf/Leon-x/main/ui/library.lua"
+    "https://raw.githubusercontent.com/leonx24/Leon-x/main/ui/library.lua"
 ))()
 
 local Fly = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/affaririzkyf/Leon-x/main/modules/movements/fly.lua"
+    "https://raw.githubusercontent.com/leonx24/Leon-x/main/modules/movements/fly.lua"
 ))()
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────

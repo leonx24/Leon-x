@@ -98,7 +98,7 @@ To connect the existing `core/modulemanager.lua` to `main.lua`:
 ```lua
 -- in main.lua, after loading modules:
 local ModuleManager = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/affaririzkyf/Leon-x/main/core/modulemanager.lua"
+    "https://raw.githubusercontent.com/leonx24/Leon-x/main/core/modulemanager.lua"
 ))()
 
 ModuleManager:Register(Fly)
@@ -111,7 +111,7 @@ To connect `core/services.lua`:
 
 ```lua
 local Services = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/affaririzkyf/Leon-x/main/core/services.lua"
+    "https://raw.githubusercontent.com/leonx24/Leon-x/main/core/services.lua"
 ))()
 -- use Services.Players instead of game:GetService("Players")
 ```
