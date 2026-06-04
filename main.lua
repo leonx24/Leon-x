@@ -136,6 +136,135 @@ Movement:AddKeybind({
     end,
 })
 
+-- ── Noclip ────────────────────────────────────────────────────────────────────
+local noclipOn   = false
+local noclipConn = nil
+
+local function setNoclip(state)
+    noclipOn = state
+    if state then
+        noclipConn = RunService.Stepped:Connect(function()
+            local char = lp.Character
+            if not char then return end
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") and p.CanCollide then
+                    p.CanCollide = false
+                end
+            end
+        end)
+    else
+        if noclipConn then noclipConn:Disconnect(); noclipConn = nil end
+        -- restore collision on all parts
+        local char = lp.Character
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then p.CanCollide = true end
+            end
+        end
+    end
+end
+
+Movement:AddToggle({
+    Name     = "Noclip",
+    Flag     = "Noclip",
+    Default  = false,
+    Callback = function(v)
+        setNoclip(v)
+        notify("Noclip", v and "Enabled — tembus objek" or "Disabled", v and "success" or "info", 2)
+    end,
+})
+
+-- restore collision after respawn
+lp.CharacterAdded:Connect(function()
+    if noclipOn then
+        task.wait(0.5)
+        setNoclip(true)
+    end
+end)
+
+-- ── Anti Ragdoll ──────────────────────────────────────────────────────────────
+local antiRagdollOn   = false
+local antiRagdollConn = nil
+
+local function applyAntiRagdoll(char)
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    -- Disable breakJointsOnDeath so limbs don't fly off
+    hum.BreakJointsOnDeath = false
+    -- Prevent falling → ragdoll states
+    antiRagdollConn = hum.StateChanged:Connect(function(_, newState)
+        if not antiRagdollOn then return end
+        if newState == Enum.HumanoidStateType.FallingDown
+        or newState == Enum.HumanoidStateType.Ragdoll then
+            hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+        end
+    end)
+end
+
+Movement:AddToggle({
+    Name     = "Anti Ragdoll",
+    Flag     = "AntiRagdoll",
+    Default  = false,
+    Callback = function(v)
+        antiRagdollOn = v
+        if v then
+            applyAntiRagdoll(lp.Character)
+            notify("Anti Ragdoll", "Enabled", "success", 2)
+        else
+            if antiRagdollConn then antiRagdollConn:Disconnect(); antiRagdollConn = nil end
+            notify("Anti Ragdoll", "Disabled", "info", 2)
+        end
+    end,
+})
+
+lp.CharacterAdded:Connect(function(char)
+    if antiRagdollOn then
+        task.wait(0.5)
+        applyAntiRagdoll(char)
+    end
+end)
+
+-- ── Invisible (local) ─────────────────────────────────────────────────────────
+-- Makes your own character transparent to yourself only (client-side)
+local invisOn = false
+local partTransparency = {}   -- saves original transparency per part
+
+local function setInvisible(state)
+    invisOn = state
+    local char = lp.Character
+    if not char then return end
+    if state then
+        partTransparency = {}
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                partTransparency[p] = p.LocalTransparencyModifier
+                p.LocalTransparencyModifier = 1
+            end
+        end
+    else
+        for p, orig in pairs(partTransparency) do
+            pcall(function() p.LocalTransparencyModifier = orig end)
+        end
+        partTransparency = {}
+    end
+end
+
+Movement:AddToggle({
+    Name     = "Invisible (local)",
+    Flag     = "Invisible",
+    Default  = false,
+    Callback = function(v)
+        setInvisible(v)
+        notify("Invisible", v and "You are now invisible (local)" or "Visible again",
+               v and "success" or "info", 2)
+    end,
+})
+
+lp.CharacterAdded:Connect(function()
+    if invisOn then task.wait(0.5); setInvisible(true) end
+end)
+
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL
 -- ══════════════════════════════════════════════════════════════════════════════
