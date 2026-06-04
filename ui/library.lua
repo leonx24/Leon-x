@@ -717,14 +717,14 @@ function Library:CreateTab(name)
     btn.MouseButton1Click:Connect(activate)
     hvr(btn, C.Surface, C.Hover, C.Press)
     local Tab = {}
-    function Tab:AddSection(n)     return mkSection(page,n)     end
-    function Tab:AddToggle(d)      return mkToggle(page,d)      end
-    function Tab:AddButton(d)      return mkButton(page,d)      end
-    function Tab:AddSlider(d)      return mkSlider(page,d)      end
-    function Tab:AddDropdown(d)    return mkDropdown(page,d)    end
-    function Tab:AddKeybind(d)     return mkKeybind(page,d)     end
-    function Tab:AddLabel(d)       return mkLabel(page,d)       end
-    function Tab:AddColorPicker(d) return mkColorPicker(page,d) end
+    function Tab:AddSection(n)     return mkSection(page,n)           end
+    function Tab:AddToggle(d)      return reg(d, mkToggle(page,d))    end
+    function Tab:AddButton(d)      return mkButton(page,d)            end
+    function Tab:AddSlider(d)      return reg(d, mkSlider(page,d))    end
+    function Tab:AddDropdown(d)    return reg(d, mkDropdown(page,d))  end
+    function Tab:AddKeybind(d)     return reg(d, mkKeybind(page,d))   end
+    function Tab:AddLabel(d)       return mkLabel(page,d)             end
+    function Tab:AddColorPicker(d) return mkColorPicker(page,d)       end
     return Tab
 end
 
