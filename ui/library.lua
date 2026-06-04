@@ -764,4 +764,101 @@ function Library:CreateTab(name)
     return Tab
 end
 
+-- ── Notification system ──────────────────────────────────────────────────────
+-- Container stacks toasts bottom-right, parented to Screen
+local NotifContainer = Instance.new("Frame")
+NotifContainer.Name              = "NotifContainer"
+NotifContainer.Size              = UDim2.new(0, 260, 1, 0)
+NotifContainer.Position          = UDim2.new(1, -270, 0, 0)
+NotifContainer.BackgroundTransparency = 1
+NotifContainer.BorderSizePixel   = 0
+NotifContainer.ZIndex            = 100
+NotifContainer.Parent            = Screen
+
+local NotifLayout = Instance.new("UIListLayout")
+NotifLayout.Padding              = UDim.new(0, 8)
+NotifLayout.SortOrder            = Enum.SortOrder.LayoutOrder
+NotifLayout.VerticalAlignment    = Enum.VerticalAlignment.Bottom
+NotifLayout.HorizontalAlignment  = Enum.HorizontalAlignment.Right
+NotifLayout.Parent               = NotifContainer
+
+local notifCount = 0
+
+local typeColor = {
+    info    = Color3.fromRGB(60,  130, 255),
+    success = Color3.fromRGB(60,  200, 100),
+    warn    = Color3.fromRGB(255, 180, 40),
+    error   = Color3.fromRGB(220, 55,  55),
+}
+
+function Library:Notify(data)
+    local title    = data.Title    or "Leon X"
+    local text     = data.Text     or ""
+    local ntype    = data.Type     or "info"
+    local duration = data.Duration or 3
+
+    notifCount = notifCount + 1
+    local accentCol = typeColor[ntype] or typeColor.info
+
+    -- card
+    local card = Instance.new("Frame")
+    card.Size             = UDim2.new(1, 0, 0, 58)
+    card.BackgroundColor3 = C.Surface
+    card.BorderSizePixel  = 0
+    card.BackgroundTransparency = 1   -- start invisible, tween in
+    card.LayoutOrder      = notifCount
+    card.ZIndex           = 100
+    card.Parent           = NotifContainer
+    rnd(card, 10)
+
+    -- left accent bar
+    local bar = mkF(card, accentCol)
+    bar.Size     = UDim2.new(0, 3, 1, -16)
+    bar.Position = UDim2.new(0, 8, 0, 8)
+    bar.ZIndex   = 101
+    rnd(bar, 2)
+
+    -- title
+    local tl = mkL(card, title, 12, C.Text, Enum.Font.GothamBold)
+    tl.Size     = UDim2.new(1, -26, 0, 16)
+    tl.Position = UDim2.new(0, 18, 0, 10)
+    tl.ZIndex   = 101
+
+    -- body
+    local bl = mkL(card, text, 11, C.Dim, Enum.Font.Gotham)
+    bl.Size           = UDim2.new(1, -26, 0, 24)
+    bl.Position       = UDim2.new(0, 18, 0, 27)
+    bl.ZIndex         = 101
+    bl.TextWrapped    = true
+
+    -- progress bar (shrinks over duration)
+    local progBg = mkF(card, C.Elevated)
+    progBg.Size     = UDim2.new(1, -16, 0, 2)
+    progBg.Position = UDim2.new(0, 8, 1, -8)
+    progBg.ZIndex   = 101
+    rnd(progBg, 1)
+
+    local prog = mkF(progBg, accentCol)
+    prog.Size    = UDim2.new(1, 0, 1, 0)
+    prog.ZIndex  = 102
+    rnd(prog, 1)
+
+    -- slide in + fade in
+    card.Position = UDim2.new(1, 20, 0, 0)
+    tw(card, 0.25, { BackgroundTransparency = 0, Position = UDim2.new(0, 0, 0, 0) })
+
+    -- shrink progress bar
+    TweenService:Create(prog,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        { Size = UDim2.new(0, 0, 1, 0) }
+    ):Play()
+
+    -- fade out and destroy
+    task.delay(duration, function()
+        tw(card, 0.3, { BackgroundTransparency = 1 })
+        task.wait(0.32)
+        pcall(function() card:Destroy() end)
+    end)
+end
+
 return Library

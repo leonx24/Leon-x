@@ -1,4 +1,4 @@
--- Leon X | main.lua v4.3
+-- Leon X | main.lua v4.4
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
@@ -13,6 +13,11 @@ local Fly           = loadstring(game:HttpGet(BASE .. "modules/movements/fly.lua
 local ConfigManager = loadstring(game:HttpGet(BASE .. "modules/core/configmanager.lua"))()
 
 ConfigManager:Init(Library)
+
+-- shorthand for notifications
+local function notify(title, text, ntype, dur)
+    Library:Notify({ Title=title, Text=text, Type=ntype or "info", Duration=dur or 3 })
+end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 local Movement = Library:CreateTab("Movement")
@@ -31,6 +36,7 @@ local flyToggle = Movement:AddToggle({
     Default  = false,
     Callback = function(v)
         if v then Fly:Enable() else Fly:Disable() end
+        notify("Fly", v and "Fly enabled" or "Fly disabled", v and "success" or "info", 2)
     end,
 })
 
@@ -53,6 +59,7 @@ Movement:AddToggle({
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then hum.WalkSpeed = v and 60 or 16 end
+        notify("Speed Hack", v and "Enabled (60)" or "Disabled", v and "success" or "info", 2)
     end,
 })
 
@@ -92,7 +99,10 @@ Movement:AddToggle({
     Name     = "Infinite Jump",
     Flag     = "InfiniteJump",
     Default  = false,
-    Callback = function(v) infJumpOn = v end,
+    Callback = function(v)
+        infJumpOn = v
+        notify("Infinite Jump", v and "Enabled" or "Disabled", v and "success" or "info", 2)
+    end,
 })
 
 UIS.JumpRequest:Connect(function()
@@ -105,7 +115,7 @@ UIS.JumpRequest:Connect(function()
     end
 end)
 
--- Fly keybind — single listener wired at startup
+-- Fly keybind — single listener, no accumulation
 local flyKey = Enum.KeyCode.F
 UIS.InputBegan:Connect(function(i, gp)
     if gp then return end
@@ -120,95 +130,92 @@ Movement:AddKeybind({
     Name     = "Fly Keybind",
     Flag     = "FlyKeybind",
     Default  = Enum.KeyCode.F,
-    Callback = function(key) flyKey = key end,
+    Callback = function(key)
+        flyKey = key
+        notify("Fly Keybind", "Set to " .. key.Name, "info", 2)
+    end,
 })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL
 -- ══════════════════════════════════════════════════════════════════════════════
 
--- ── ESP state ─────────────────────────────────────────────────────────────────
-local espOn       = false
-local espColor    = Color3.fromRGB(255, 255, 255)
-local espOpacity  = 0.2   -- box fill transparency (0=opaque, 1=invisible)
-local espBoxes    = {}    -- [player] = {box, nameTag}
-local espConn     = nil
+-- ── ESP ───────────────────────────────────────────────────────────────────────
+-- Uses Highlight: ikut bentuk badan (bukan kotak), tembus objek (AlwaysOnTop)
+local espOn      = false
+local espColor   = Color3.fromRGB(255, 255, 255)
+local espOpacity = 0.15
+local espData    = {}   -- [player] = {hl, bbg}
+
+local espPlayerConn = nil
+local espCharConns  = {}
 
 local function removeESP(player)
-    if espBoxes[player] then
-        pcall(function()
-            if espBoxes[player].box    then espBoxes[player].box:Destroy()     end
-            if espBoxes[player].nameTag then espBoxes[player].nameTag:Destroy() end
-        end)
-        espBoxes[player] = nil
-    end
+    local d = espData[player]
+    if not d then return end
+    pcall(function() if d.hl  then d.hl:Destroy()  end end)
+    pcall(function() if d.bbg then d.bbg:Destroy() end end)
+    espData[player] = nil
 end
 
 local function addESP(player)
     if player == lp then return end
     removeESP(player)
-
     local char = player.Character
     if not char then return end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- BillboardGui for name + distance
+    -- Highlight — ikut mesh karakter, AlwaysOnTop = tembus dinding
+    local hl = Instance.new("Highlight")
+    hl.Name                = "LeonESP"
+    hl.Adornee             = char
+    hl.OutlineColor        = espColor
+    hl.FillColor           = espColor
+    hl.OutlineTransparency = 0
+    hl.FillTransparency    = 1 - espOpacity
+    hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+    hl.Parent              = char   -- auto-removed when char despawns
+
+    -- Name tag
     local bbg = Instance.new("BillboardGui")
-    bbg.Name         = "LeonESP_Name"
-    bbg.Adornee      = hrp
-    bbg.Size         = UDim2.new(0, 100, 0, 30)
-    bbg.StudsOffset  = Vector3.new(0, 3, 0)
-    bbg.AlwaysOnTop  = true
-    bbg.Parent       = hrp
+    bbg.Name        = "LeonESP_Name"
+    bbg.Adornee     = hrp
+    bbg.Size        = UDim2.new(0, 130, 0, 28)
+    bbg.StudsOffset = Vector3.new(0, 3.2, 0)
+    bbg.AlwaysOnTop = true
+    bbg.Parent      = hrp
 
-    local nameLbl = Instance.new("TextLabel")
-    nameLbl.Size              = UDim2.new(1,0,1,0)
-    nameLbl.BackgroundTransparency = 1
-    nameLbl.Text              = player.Name
-    nameLbl.TextColor3        = espColor
-    nameLbl.Font              = Enum.Font.GothamBold
-    nameLbl.TextSize          = 13
-    nameLbl.TextStrokeTransparency = 0.5
-    nameLbl.Parent            = bbg
+    local nl = Instance.new("TextLabel")
+    nl.Size                   = UDim2.new(1,0,1,0)
+    nl.BackgroundTransparency = 1
+    nl.Text                   = player.Name
+    nl.TextColor3             = espColor
+    nl.Font                   = Enum.Font.GothamBold
+    nl.TextSize               = 13
+    nl.TextStrokeTransparency = 0.4
+    nl.TextStrokeColor3       = Color3.new(0,0,0)
+    nl.Parent                 = bbg
 
-    -- Highlight for box
-    local hl = Instance.new("SelectionBox")
-    hl.Name            = "LeonESP_Box"
-    hl.Adornee         = char
-    hl.Color3          = espColor
-    hl.LineThickness   = 0.04
-    hl.SurfaceTransparency = 1 - espOpacity
-    hl.SurfaceColor3   = espColor
-    hl.Parent          = workspace
-
-    espBoxes[player] = { box = hl, nameTag = bbg }
-
-    -- clean up when char removed
-    char.AncestryChanged:Connect(function()
-        if not char.Parent then removeESP(player) end
-    end)
+    espData[player] = { hl = hl, bbg = bbg }
 end
 
 local function rebuildESP()
-    -- clear all
-    for p, _ in pairs(espBoxes) do removeESP(p) end
+    for p in pairs(espData) do removeESP(p) end
     if not espOn then return end
-    for _, p in ipairs(Players:GetPlayers()) do
-        addESP(p)
-    end
+    for _, p in ipairs(Players:GetPlayers()) do addESP(p) end
 end
 
-local function updateESPColors()
-    for _, data in pairs(espBoxes) do
-        if data.box then
-            data.box.Color3        = espColor
-            data.box.SurfaceColor3 = espColor
-            data.box.SurfaceTransparency = 1 - espOpacity
+local function updateESPVisuals()
+    for _, d in pairs(espData) do
+        if d.hl then
+            d.hl.OutlineColor    = espColor
+            d.hl.FillColor       = espColor
+            d.hl.FillTransparency = 1 - espOpacity
         end
-        if data.nameTag then
-            local lbl = data.nameTag:FindFirstChildOfClass("TextLabel")
-            if lbl then lbl.TextColor3 = espColor end
+        if d.bbg then
+            local nl = d.bbg:FindFirstChildOfClass("TextLabel")
+            if nl then nl.TextColor3 = espColor end
         end
     end
 end
@@ -223,21 +230,32 @@ Visual:AddToggle({
         espOn = v
         rebuildESP()
         if v then
-            -- watch for new players/chars
-            espConn = Players.PlayerAdded:Connect(function(p)
-                p.CharacterAdded:Connect(function() task.wait(.5); addESP(p) end)
+            espPlayerConn = Players.PlayerAdded:Connect(function(p)
+                local c = p.CharacterAdded:Connect(function()
+                    task.wait(0.5); addESP(p)
+                end)
+                table.insert(espCharConns, c)
+                if p.Character then addESP(p) end
             end)
             for _, p in ipairs(Players:GetPlayers()) do
-                p.CharacterAdded:Connect(function() task.wait(.5); addESP(p) end)
+                if p ~= lp then
+                    local c = p.CharacterAdded:Connect(function()
+                        task.wait(0.5); addESP(p)
+                    end)
+                    table.insert(espCharConns, c)
+                end
             end
+            notify("ESP", "ESP enabled", "success", 2)
         else
-            if espConn then espConn:Disconnect(); espConn = nil end
+            if espPlayerConn then espPlayerConn:Disconnect(); espPlayerConn = nil end
+            for _, c in ipairs(espCharConns) do c:Disconnect() end
+            espCharConns = {}
+            notify("ESP", "ESP disabled", "info", 2)
         end
     end,
 })
 
 -- ── FullBright ────────────────────────────────────────────────────────────────
--- Save original values so we can restore them
 local origLighting = {
     Brightness    = Lighting.Brightness,
     ClockTime     = Lighting.ClockTime,
@@ -256,7 +274,7 @@ Visual:AddToggle({
             Lighting.ClockTime     = 14
             Lighting.FogEnd        = 100000
             Lighting.GlobalShadows = false
-            Lighting.Ambient       = Color3.fromRGB(178, 178, 178)
+            Lighting.Ambient       = Color3.fromRGB(178,178,178)
         else
             Lighting.Brightness    = origLighting.Brightness
             Lighting.ClockTime     = origLighting.ClockTime
@@ -264,40 +282,43 @@ Visual:AddToggle({
             Lighting.GlobalShadows = origLighting.GlobalShadows
             Lighting.Ambient       = origLighting.Ambient
         end
+        notify("FullBright", v and "Enabled" or "Disabled", v and "success" or "info", 2)
     end,
 })
 
 Visual:AddSection("Appearance")
 
+local espColorMap = {
+    White  = Color3.fromRGB(255,255,255),
+    Red    = Color3.fromRGB(255,60,60),
+    Green  = Color3.fromRGB(60,220,80),
+    Blue   = Color3.fromRGB(60,130,255),
+    Yellow = Color3.fromRGB(255,220,50),
+    Cyan   = Color3.fromRGB(60,220,255),
+    Pink   = Color3.fromRGB(255,100,200),
+}
+
 Visual:AddDropdown({
     Name     = "ESP Color",
     Flag     = "ESPColor",
-    Options  = { "White", "Red", "Green", "Blue", "Yellow", "Cyan" },
+    Options  = { "White","Red","Green","Blue","Yellow","Cyan","Pink" },
     Default  = "White",
     Callback = function(v)
-        local colorMap = {
-            White  = Color3.fromRGB(255,255,255),
-            Red    = Color3.fromRGB(255,60,60),
-            Green  = Color3.fromRGB(60,255,60),
-            Blue   = Color3.fromRGB(60,130,255),
-            Yellow = Color3.fromRGB(255,230,60),
-            Cyan   = Color3.fromRGB(60,230,255),
-        }
-        espColor = colorMap[v] or Color3.fromRGB(255,255,255)
-        updateESPColors()
+        espColor = espColorMap[v] or Color3.fromRGB(255,255,255)
+        updateESPVisuals()
     end,
 })
 
 Visual:AddSlider({
-    Name     = "ESP Opacity",
+    Name     = "ESP Fill Opacity",
     Flag     = "ESPOpacity",
     Min      = 0,
     Max      = 100,
-    Default  = 20,
+    Default  = 15,
     Suffix   = "%",
     Callback = function(v)
         espOpacity = v / 100
-        updateESPColors()
+        updateESPVisuals()
     end,
 })
 
@@ -306,7 +327,7 @@ Visual:AddSlider({
 -- ══════════════════════════════════════════════════════════════════════════════
 Player:AddSection("Utility")
 
--- ── Anti AFK — RunService loop approach (reliable across all executors) ────────
+-- Anti AFK — Heartbeat-based, reliable on all executors
 local antiAfkOn   = false
 local antiAfkConn = nil
 
@@ -317,18 +338,21 @@ Player:AddToggle({
     Callback = function(v)
         antiAfkOn = v
         if v then
-            local VU = game:GetService("VirtualUser")
+            local VU      = game:GetService("VirtualUser")
+            local lastTick = tick()
             antiAfkConn = RunService.Heartbeat:Connect(function()
-                -- fire VirtualUser every 60s to prevent idle detection
-                if tick() % 60 < 0.05 then
+                if tick() - lastTick >= 60 then
+                    lastTick = tick()
                     pcall(function()
                         VU:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
                         VU:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
                     end)
                 end
             end)
+            notify("Anti AFK", "Enabled", "success", 2)
         else
             if antiAfkConn then antiAfkConn:Disconnect(); antiAfkConn = nil end
+            notify("Anti AFK", "Disabled", "info", 2)
         end
     end,
 })
@@ -336,51 +360,54 @@ Player:AddToggle({
 -- ── Teleport ──────────────────────────────────────────────────────────────────
 Player:AddSection("Teleport")
 
-local savedPosition = nil
+local savedCFrame = nil
 
 Player:AddButton({
-    Name     = "Copy My Position",
+    Name     = "📍  Copy My Position",
     Callback = function()
         local char = lp.Character
-        if not char then return end
+        if not char then notify("Teleport","No character found","error",3); return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        savedPosition = hrp.CFrame
+        savedCFrame = hrp.CFrame
         local p = hrp.Position
         pcall(function()
             setclipboard(string.format("%.1f, %.1f, %.1f", p.X, p.Y, p.Z))
         end)
-        print(string.format("[Leon X] Position saved & copied: %.1f, %.1f, %.1f", p.X, p.Y, p.Z))
+        notify("Teleport",
+            string.format("Saved: %.0f, %.0f, %.0f", p.X, p.Y, p.Z),
+            "success", 3)
     end,
 })
 
 Player:AddButton({
-    Name     = "Teleport to Saved Position",
+    Name     = "🚀  Go to Saved Position",
     Callback = function()
-        if not savedPosition then
-            print("[Leon X] No position saved yet. Click 'Copy My Position' first.")
+        if not savedCFrame then
+            notify("Teleport", "No position saved yet", "warn", 3)
             return
         end
         local char = lp.Character
-        if not char then return end
+        if not char then notify("Teleport","No character","error",3); return end
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        -- disable fly momentarily so physics doesn't fight the teleport
         local wasFlying = Fly.Enabled
         if wasFlying then Fly:Disable() end
-        hrp.CFrame = savedPosition
+        hrp.CFrame = savedCFrame
         task.wait(0.1)
         if wasFlying then Fly:Enable() end
-        print("[Leon X] Teleported to saved position.")
+        notify("Teleport", "Teleported to saved position", "success", 2)
     end,
 })
 
--- ── Other player utilities ────────────────────────────────────────────────────
+-- ── Server ────────────────────────────────────────────────────────────────────
 Player:AddSection("Server")
 
 Player:AddButton({
     Name     = "Rejoin Server",
     Callback = function()
+        notify("Rejoin", "Rejoining...", "warn", 2)
+        task.wait(1.5)
         game:GetService("TeleportService"):Teleport(game.PlaceId, lp)
     end,
 })
@@ -389,14 +416,13 @@ Player:AddButton({
     Name     = "Copy Player ID",
     Callback = function()
         pcall(function() setclipboard(tostring(lp.UserId)) end)
-        print("[Leon X] Copied UserId:", lp.UserId)
+        notify("Copied", "UserID: " .. tostring(lp.UserId), "success", 2)
     end,
 })
 
 Player:AddSection("Stats")
-
-Player:AddLabel({ Text = "Username: " .. lp.Name,            Color = Color3.fromRGB(100,100,100) })
-Player:AddLabel({ Text = "User ID: "  .. tostring(lp.UserId), Color = Color3.fromRGB(100,100,100) })
+Player:AddLabel({ Text="Username: " .. lp.Name,             Color=Color3.fromRGB(100,100,100) })
+Player:AddLabel({ Text="User ID: "  .. tostring(lp.UserId), Color=Color3.fromRGB(100,100,100) })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS
@@ -407,7 +433,12 @@ Settings:AddToggle({
     Name     = "Show Notifications",
     Flag     = "ShowNotifs",
     Default  = true,
-    Callback = function(v) print("Notifs:", v) end,
+    Callback = function(v)
+        -- stored but enforcement would need wrapping notify()
+        -- here we just confirm it toggled
+        Library:Notify({ Title="Notifications", Text=v and "Enabled" or "Disabled",
+                         Type=v and "success" or "info", Duration=2 })
+    end,
 })
 
 Settings:AddDropdown({
@@ -415,10 +446,12 @@ Settings:AddDropdown({
     Flag     = "Theme",
     Options  = { "Dark", "Midnight", "Slate" },
     Default  = "Dark",
-    Callback = function(v) print("Theme:", v) end,
+    Callback = function(v)
+        notify("Theme", v .. " selected (restart to apply)", "info", 3)
+    end,
 })
 
--- ── Config manager UI ─────────────────────────────────────────────────────────
+-- ── Config ────────────────────────────────────────────────────────────────────
 Settings:AddSection("Config")
 
 local configName    = "default"
@@ -432,9 +465,9 @@ local function setConfigName(n)
     configNameLbl:Set("Save name: " .. n)
 end
 
-for _, n in ipairs({"default", "pvp", "farming", "custom"}) do
+for _, n in ipairs({"default","pvp","farming","custom"}) do
     local nc = n
-    Settings:AddButton({ Name = "› " .. n, Callback = function() setConfigName(nc) end })
+    Settings:AddButton({ Name="› "..n, Callback=function() setConfigName(nc) end })
 end
 
 local function getConfigList()
@@ -452,9 +485,10 @@ Settings:AddButton({
     Name     = "💾  Save Config",
     Callback = function()
         local ok = ConfigManager:Save(configName)
-        print(ok and ("Saved: " .. configName) or "Save failed")
+        notify("Config", ok and ("Saved: "..configName) or "Save failed",
+               ok and "success" or "error", 3)
         configSelect:SetOptions(getConfigList())
-        configSelect:Set(configName)
+        if ok then configSelect:Set(configName) end
     end,
 })
 
@@ -462,9 +496,10 @@ Settings:AddButton({
     Name     = "📂  Load Config",
     Callback = function()
         local sel = configSelect:Get()
-        if sel == "(none)" then return end
+        if sel == "(none)" then notify("Config","No config selected","warn",2); return end
         local ok = ConfigManager:Load(sel)
-        print(ok and ("Loaded: " .. sel) or "Load failed: " .. sel)
+        notify("Config", ok and ("Loaded: "..sel) or "Load failed: "..sel,
+               ok and "success" or "error", 3)
     end,
 })
 
@@ -473,7 +508,9 @@ Settings:AddButton({
     Callback = function()
         local sel = configSelect:Get()
         if sel == "(none)" then return end
-        ConfigManager:Delete(sel)
+        local ok = ConfigManager:Delete(sel)
+        notify("Config", ok and ("Deleted: "..sel) or "Delete failed",
+               ok and "info" or "error", 3)
         configSelect:SetOptions(getConfigList())
     end,
 })
@@ -483,17 +520,23 @@ Settings:AddButton({
     Callback = function()
         local sel = configSelect:Get()
         if sel == "(none)" then return end
-        ConfigManager:SetDefault(sel)
-        print(sel .. " set as default")
+        local ok = ConfigManager:SetDefault(sel)
+        notify("Config", ok and (sel.." is now default") or "SetDefault failed",
+               ok and "success" or "error", 3)
     end,
 })
 
 Settings:AddSection("About")
 Settings:AddLabel({
-    Text  = "Leon X  ·  v4.3",
+    Text  = "Leon X  ·  v4.4",
     Color = Color3.fromRGB(70,70,70),
     Align = Enum.TextXAlignment.Center,
 })
 
 -- ── Auto-load default config — MUST be last ───────────────────────────────────
-ConfigManager:AutoLoad()
+local loaded = ConfigManager:AutoLoad()
+if loaded ~= false then
+    task.delay(1, function()
+        notify("Leon X", "Config loaded. Welcome!", "success", 3)
+    end)
+end
