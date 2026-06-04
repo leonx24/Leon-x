@@ -529,6 +529,68 @@ Player:AddButton({
     end,
 })
 
+-- ── Teleport to Player ────────────────────────────────────────────────────────
+-- Dropdown shows all players in server; refreshes on open
+local function getPlayerNames()
+    local names = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= lp then
+            table.insert(names, p.Name)
+        end
+    end
+    return #names > 0 and names or {"(no players)"}
+end
+
+local tpPlayerSelect = Player:AddDropdown({
+    Name    = "Select Player",
+    Options = getPlayerNames(),
+    Default = getPlayerNames()[1],
+})
+
+Player:AddButton({
+    Name     = "🔄  Refresh Player List",
+    Callback = function()
+        tpPlayerSelect:SetOptions(getPlayerNames())
+        notify("Teleport", "Player list refreshed", "info", 2)
+    end,
+})
+
+Player:AddButton({
+    Name     = "⚡  Teleport to Player",
+    Callback = function()
+        local targetName = tpPlayerSelect:Get()
+        if targetName == "(no players)" then
+            notify("Teleport", "No player selected", "warn", 2)
+            return
+        end
+        local target = Players:FindFirstChild(targetName)
+        if not target then
+            notify("Teleport", targetName .. " not found", "error", 3)
+            return
+        end
+        local targetChar = target.Character
+        if not targetChar then
+            notify("Teleport", targetName .. " has no character", "warn", 3)
+            return
+        end
+        local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+        if not targetHRP then return end
+
+        local myChar = lp.Character
+        if not myChar then return end
+        local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+        if not myHRP then return end
+
+        local wasFlying = Fly.Enabled
+        if wasFlying then Fly:Disable() end
+        -- offset slightly so we don't clip inside them
+        myHRP.CFrame = targetHRP.CFrame * CFrame.new(0, 0, 3)
+        task.wait(0.1)
+        if wasFlying then Fly:Enable() end
+        notify("Teleport", "Teleported to " .. targetName, "success", 2)
+    end,
+})
+
 -- ── Server ────────────────────────────────────────────────────────────────────
 Player:AddSection("Server")
 
@@ -583,20 +645,19 @@ Settings:AddDropdown({
 -- ── Config ────────────────────────────────────────────────────────────────────
 Settings:AddSection("Config")
 
-local configName    = "default"
-local configNameLbl = Settings:AddLabel({
-    Text  = "Save name: default",
-    Color = Color3.fromRGB(160,160,160),
+-- TextInput untuk nama config custom dari user
+local configNameInput = Settings:AddTextInput({
+    Name        = "Config Name",
+    Placeholder = "e.g. my-config",
+    Default     = "default",
+    Callback    = function(v)
+        -- live update label when user presses Enter
+    end,
 })
 
-local function setConfigName(n)
-    configName = n
-    configNameLbl:Set("Save name: " .. n)
-end
-
-for _, n in ipairs({"default","pvp","farming","custom"}) do
-    local nc = n
-    Settings:AddButton({ Name="› "..n, Callback=function() setConfigName(nc) end })
+local function getConfigName()
+    local v = configNameInput:Get()
+    return (v and v ~= "") and v or "default"
 end
 
 local function getConfigList()
@@ -613,11 +674,12 @@ local configSelect = Settings:AddDropdown({
 Settings:AddButton({
     Name     = "💾  Save Config",
     Callback = function()
-        local ok = ConfigManager:Save(configName)
-        notify("Config", ok and ("Saved: "..configName) or "Save failed",
+        local name = getConfigName()
+        local ok = ConfigManager:Save(name)
+        notify("Config", ok and ("Saved: "..name) or "Save failed",
                ok and "success" or "error", 3)
         configSelect:SetOptions(getConfigList())
-        if ok then configSelect:Set(configName) end
+        if ok then configSelect:Set(name) end
     end,
 })
 

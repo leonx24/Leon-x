@@ -696,6 +696,60 @@ local function mkColorPicker(parent, data)
     return api
 end
 
+local function mkTextInput(parent, data)
+    local cb          = data.Callback    or function() end
+    local placeholder = data.Placeholder or "Type here..."
+    local label       = data.Name        or "Input"
+    local current     = data.Default     or ""
+
+    local w = mkF(parent, C.Elevated)
+    w.Size = UDim2.new(1,0,0,42)
+    rnd(w,10); strk(w)
+
+    local nl = mkL(w, label, 13, C.Text, Enum.Font.GothamMedium)
+    nl.Size = UDim2.new(0,90,1,0); nl.Position = UDim2.new(0,14,0,0)
+
+    -- TextBox
+    local box = Instance.new("TextBox")
+    box.Size                  = UDim2.new(1,-110,0,26)
+    box.Position              = UDim2.new(0,104,0.5,-13)
+    box.BackgroundColor3      = C.Surface
+    box.BorderSizePixel       = 0
+    box.Text                  = current
+    box.PlaceholderText       = placeholder
+    box.PlaceholderColor3     = C.Sub
+    box.TextColor3            = C.Text
+    box.Font                  = Enum.Font.Gotham
+    box.TextSize              = 12
+    box.ClearTextOnFocus      = false
+    box.ClipsDescendants      = true
+    box.Parent                = w
+    rnd(box, 7); strk(box)
+
+    -- confirm on Enter or focus lost
+    local function confirm()
+        current = box.Text
+        cb(current)
+    end
+    box.FocusLost:Connect(function(enter)
+        if enter then confirm() end
+        -- dim placeholder when empty
+        if box.Text == "" then
+            box.TextColor3 = C.Sub
+        else
+            box.TextColor3 = C.Text
+        end
+    end)
+    box.Focused:Connect(function()
+        box.TextColor3 = C.Text
+    end)
+
+    local api = { Frame = w }
+    function api:Get() return box.Text end
+    function api:Set(v) box.Text = v; current = v end
+    return api
+end
+
 function Library:CreateTab(name)
     local btn = Instance.new("TextButton")
     btn.Size = UDim2.new(1,-12,0,36)
@@ -761,6 +815,7 @@ function Library:CreateTab(name)
     function Tab:AddKeybind(d)     return reg(d, mkKeybind(page,d))   end
     function Tab:AddLabel(d)       return mkLabel(page,d)             end
     function Tab:AddColorPicker(d) return mkColorPicker(page,d)       end
+    function Tab:AddTextInput(d)   return mkTextInput(page,d)         end
     return Tab
 end
 

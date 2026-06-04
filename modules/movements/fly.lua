@@ -1,5 +1,6 @@
 -- Leon X | Fly Module
--- BodyVelocity + BodyGyro — WASD + RMB drag to steer
+-- BodyVelocity approach — karakter tetap animasi normal (tidak freeze)
+-- RMB hanya memutar kamera (Roblox default), tidak menambah arah gerak
 
 local Fly = {}
 Fly.Name    = "Fly"
@@ -13,16 +14,16 @@ local lp         = Players.LocalPlayer
 
 local bv, bg, conn
 
--- Keyboard direction vectors (local to camera yaw)
+-- Keyboard mapping: key → arah lokal relatif kamera
 local KEYS = {
-    [Enum.KeyCode.W]           = Vector3.new( 0, 0,-1),
-    [Enum.KeyCode.S]           = Vector3.new( 0, 0, 1),
-    [Enum.KeyCode.A]           = Vector3.new(-1, 0, 0),
-    [Enum.KeyCode.D]           = Vector3.new( 1, 0, 0),
-    [Enum.KeyCode.Space]       = Vector3.new( 0, 1, 0),
-    [Enum.KeyCode.LeftControl] = Vector3.new( 0,-1, 0),
-    [Enum.KeyCode.Q]           = Vector3.new( 0,-1, 0),
-    [Enum.KeyCode.E]           = Vector3.new( 0, 1, 0),
+    [Enum.KeyCode.W]           = Vector3.new( 0, 0,-1),  -- maju
+    [Enum.KeyCode.S]           = Vector3.new( 0, 0, 1),  -- mundur
+    [Enum.KeyCode.A]           = Vector3.new(-1, 0, 0),  -- kiri
+    [Enum.KeyCode.D]           = Vector3.new( 1, 0, 0),  -- kanan
+    [Enum.KeyCode.Space]       = Vector3.new( 0, 1, 0),  -- naik
+    [Enum.KeyCode.LeftControl] = Vector3.new( 0,-1, 0),  -- turun
+    [Enum.KeyCode.Q]           = Vector3.new( 0,-1, 0),  -- turun (alt)
+    [Enum.KeyCode.E]           = Vector3.new( 0, 1, 0),  -- naik (alt)
 }
 
 function Fly:Enable()
@@ -33,18 +34,22 @@ function Fly:Enable()
     if not hrp or not hum then return end
 
     self.Enabled = true
-    hum.PlatformStand = true
 
+    -- TIDAK pakai PlatformStand supaya animasi karakter tetap jalan
+    -- hum.PlatformStand = false  (biarkan default)
+
+    -- BodyVelocity untuk override physics movement
     bv = Instance.new("BodyVelocity")
     bv.Velocity  = Vector3.zero
     bv.MaxForce  = Vector3.new(1e5, 1e5, 1e5)
     bv.P         = 1e4
     bv.Parent    = hrp
 
+    -- BodyGyro supaya karakter menghadap arah yang benar
     bg = Instance.new("BodyGyro")
-    bg.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
-    bg.P         = 1e4
-    bg.D         = 100
+    bg.MaxTorque = Vector3.new(0, 1e5, 0)   -- hanya yaw, bukan pitch/roll
+    bg.P         = 2e4
+    bg.D         = 200
     bg.CFrame    = hrp.CFrame
     bg.Parent    = hrp
 
@@ -52,6 +57,7 @@ function Fly:Enable()
         local char2 = lp.Character
         if not char2 then return end
         local hrp2 = char2:FindFirstChild("HumanoidRootPart")
+        local hum2 = char2:FindFirstChildOfClass("Humanoid")
         if not hrp2 or not bv or not bg then return end
 
         local cam   = workspace.CurrentCamera
@@ -62,9 +68,10 @@ function Fly:Enable()
         for key, vec in pairs(KEYS) do
             if UIS:IsKeyDown(key) then
                 if vec.Y ~= 0 then
-                    -- up/down is always world-space
+                    -- naik/turun: world-space, tidak ikut kamera pitch
                     dir = dir + vec
                 else
+                    -- horizontal: relatif ke arah kamera (yaw only)
                     local flat  = Vector3.new(camCF.LookVector.X,  0, camCF.LookVector.Z).Unit
                     local right = Vector3.new(camCF.RightVector.X, 0, camCF.RightVector.Z).Unit
                     if vec.Z ~= 0 then dir = dir + flat  * (-vec.Z) end
@@ -73,30 +80,46 @@ function Fly:Enable()
             end
         end
 
-        -- ── RMB held → fly in the direction the camera is looking ─────────────
-        -- (standard Roblox camera: RMB + drag rotates camera, so looking = moving)
-        if UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
-            -- use the full camera look vector (includes vertical pitch)
-            dir = dir + camCF.LookVector
-        end
+        -- ── RMB: HANYA memutar kamera, TIDAK menambah arah gerak ──────────────
+        -- (Roblox sudah handle rotasi kamera saat RMB ditahan secara default)
+        -- Tidak ada kode tambahan di sini untuk RMB
 
+        -- normalize agar diagonal tidak lebih cepat
         if dir.Magnitude > 0 then dir = dir.Unit end
 
         bv.Velocity = dir * self.Speed
 
-        -- gyro tracks camera yaw so character faces forward
-        local yaw = math.atan2(-camCF.LookVector.X, -camCF.LookVector.Z)
-        bg.CFrame  = CFrame.new(hrp2.Position) * CFrame.Angles(0, yaw, 0)
+        -- Animasi berjalan: set WalkDirection supaya Humanoid tahu kita bergerak
+        if hum2 then
+            if dir.Magnitude > 0 then
+                -- arahkan karakter ke arah gerak horizontal
+                local hDir = Vector3.new(dir.X, 0, dir.Z)
+                if hDir.Magnitude > 0 then
+                    hum2.AutoRotate = false
+                    local yaw = math.atan2(-hDir.X, -hDir.Z)
+                    bg.CFrame = CFrame.new(hrp2.Position) * CFrame.Angles(0, yaw, 0)
+                end
+            else
+                -- diam: hadap ke arah kamera
+                hum2.AutoRotate = false
+                local yaw = math.atan2(-camCF.LookVector.X, -camCF.LookVector.Z)
+                bg.CFrame = CFrame.new(hrp2.Position) * CFrame.Angles(0, yaw, 0)
+            end
+        end
     end)
 end
 
 function Fly:Disable()
     self.Enabled = false
+
     local char = lp.Character
     if char then
         local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.PlatformStand = false end
+        if hum then
+            hum.AutoRotate = true   -- kembalikan auto rotate
+        end
     end
+
     if conn then conn:Disconnect(); conn = nil end
     if bv   then bv:Destroy();     bv   = nil end
     if bg   then bg:Destroy();     bg   = nil end
