@@ -474,18 +474,34 @@ local function mkDropdown(parent, data)
     ar.Size = UDim2.new(0,18,1,0)
     ar.Position = UDim2.new(1,-22,0,0)
     local itemH = 34
-    local fullH = math.min(#opts*itemH+8, 180)
-    -- list floats on Screen so it's never clipped by Win
-    local List = mkF(Screen, C.Surface)
-    List.Size = UDim2.new(0,10,0,0)
-    List.Visible = false
-    List.ZIndex = 20
-    List.ClipsDescendants = true
+    local maxVisibleH = 180   -- max height sebelum scroll
+    local fullH = math.min(#opts*itemH+8, maxVisibleH)
+
+    -- list floats on Screen — pakai ScrollingFrame supaya bisa di-scroll
+    local List = Instance.new("ScrollingFrame")
+    List.Size                  = UDim2.new(0,10,0,0)
+    List.CanvasSize            = UDim2.new(0,0,0,0)
+    List.ScrollBarThickness    = 3
+    List.ScrollBarImageColor3  = C.Border
+    List.ScrollingDirection    = Enum.ScrollingDirection.Y
+    List.BackgroundColor3      = C.Surface
+    List.BorderSizePixel       = 0
+    List.Visible               = false
+    List.ZIndex                = 20
+    List.ClipsDescendants      = true
+    List.ElasticBehavior       = Enum.ElasticBehavior.Never
+    List.Parent                = Screen
     rnd(List, 10); strk(List)
+
     local ll = Instance.new("UIListLayout")
     ll.SortOrder = Enum.SortOrder.LayoutOrder
-    ll.Parent = List
+    ll.Parent    = List
     pdg(List, 4, 0, 0, 4)
+
+    -- auto-update CanvasSize as items are added
+    ll:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        List.CanvasSize = UDim2.new(0,0,0, ll.AbsoluteContentSize.Y + 8)
+    end)
     for _, opt in ipairs(opts) do
         local it = Instance.new("TextButton")
         it.Size = UDim2.new(1,0,0,itemH)
@@ -518,9 +534,13 @@ local function mkDropdown(parent, data)
         open=true
         local ap = w.AbsolutePosition
         local as = w.AbsoluteSize
+        -- recalculate height based on current item count
+        local contentH = #opts * itemH + 8
+        fullH = math.min(contentH, maxVisibleH)
         List.Position = UDim2.new(0,ap.X,0,ap.Y+as.Y+4)
         List.Size = UDim2.new(0,as.X,0,0)
         List.Visible = true
+        List.CanvasPosition = Vector2.zero   -- reset scroll to top
         tw(ar,.15,{Rotation=90})
         tw(List,.2,{Size=UDim2.new(0,as.X,0,fullH)})
     end
@@ -540,9 +560,8 @@ local function mkDropdown(parent, data)
     function api:Set(v) cur=v; vl.Text=v end
     function api:Get() return cur end
     function api:SetOptions(newOpts)
-        -- rebuild the floating list with new options
         opts = newOpts
-        fullH = math.min(#opts*itemH+8, 180)
+        fullH = math.min(#opts*itemH+8, maxVisibleH)
         -- destroy old items
         for _, child in ipairs(List:GetChildren()) do
             if child:IsA("TextButton") then child:Destroy() end
@@ -570,7 +589,6 @@ local function mkDropdown(parent, data)
                 cb(opt)
             end)
         end
-        -- reset selection to first option
         if #opts > 0 then
             cur = opts[1]; vl.Text = opts[1]
         end
