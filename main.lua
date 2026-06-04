@@ -81,22 +81,39 @@ Movement:AddSlider({
 
 Movement:AddSection("Misc")
 
+local infJumpEnabled = false
+
 Movement:AddToggle({
     Name    = "Infinite Jump",
     Flag    = "InfiniteJump",
     Default = false,
     Callback = function(v)
+        infJumpEnabled = v
         _G.InfJump = v
     end,
 })
 
+-- Infinite jump listener — single connection, checks upvalue directly
 game:GetService("UserInputService").JumpRequest:Connect(function()
-    if _G.InfJump then
-        local char = game.Players.LocalPlayer.Character
-        if char then
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
-        end
+    if not infJumpEnabled then return end
+    local char = game.Players.LocalPlayer.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum and hum:GetState() ~= Enum.HumanoidStateType.Jumping then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- ── Keybind listener — wired once at startup, key is read at press time ────────
+local flyKey = Enum.KeyCode.F   -- tracks current keybind
+local UIS2   = game:GetService("UserInputService")
+
+UIS2.InputBegan:Connect(function(i, gp)
+    if gp then return end
+    if i.KeyCode == flyKey then
+        local newState = not Fly.Enabled
+        flyToggle:Set(newState)
+        if newState then Fly:Enable() else Fly:Disable() end
     end
 end)
 
@@ -105,14 +122,8 @@ Movement:AddKeybind({
     Flag    = "FlyKeybind",
     Default = Enum.KeyCode.F,
     Callback = function(key)
-        game:GetService("UserInputService").InputBegan:Connect(function(i, gp)
-            if gp then return end
-            if i.KeyCode == key then
-                local newState = not Fly.Enabled
-                flyToggle:Set(newState)
-                if newState then Fly:Enable() else Fly:Disable() end
-            end
-        end)
+        -- just update the tracked key — listener above handles the rest
+        flyKey = key
     end,
 })
 
@@ -288,9 +299,9 @@ Settings:AddButton({
     Callback = function()
         local ok = ConfigManager:Save(configName)
         print(ok and ("Saved: " .. configName) or "Save failed")
-        -- refresh dropdown options
         local newList = getConfigList()
-        configSelect:Set(newList[1])
+        configSelect:SetOptions(newList)
+        configSelect:Set(configName)
     end,
 })
 
@@ -312,7 +323,7 @@ Settings:AddButton({
         local ok = ConfigManager:Delete(sel)
         print(ok and ("Deleted: " .. sel) or "Delete failed: " .. sel)
         local newList = getConfigList()
-        configSelect:Set(newList[1])
+        configSelect:SetOptions(newList)
     end,
 })
 

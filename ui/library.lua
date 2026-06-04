@@ -539,6 +539,42 @@ local function mkDropdown(parent, data)
     local api = {Frame=w}
     function api:Set(v) cur=v; vl.Text=v end
     function api:Get() return cur end
+    function api:SetOptions(newOpts)
+        -- rebuild the floating list with new options
+        opts = newOpts
+        fullH = math.min(#opts*itemH+8, 180)
+        -- destroy old items
+        for _, child in ipairs(List:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        -- rebuild
+        for _, opt in ipairs(opts) do
+            local it = Instance.new("TextButton")
+            it.Size = UDim2.new(1,0,0,itemH)
+            it.BackgroundColor3 = C.Surface
+            it.Text = ""
+            it.AutoButtonColor = false
+            it.BorderSizePixel = 0
+            it.ZIndex = 21
+            it.Parent = List
+            local il = mkL(it, opt, 12, C.Text, Enum.Font.Gotham)
+            il.Size = UDim2.new(1,-20,1,0)
+            il.Position = UDim2.new(0,12,0,0)
+            il.ZIndex = 21
+            hvr(it, C.Surface, C.Elevated, C.Press)
+            it.MouseButton1Click:Connect(function()
+                cur=opt; vl.Text=opt; open=false
+                tw(ar,.15,{Rotation=0})
+                tw(List,.15,{Size=UDim2.new(0,List.Size.X.Offset,0,0)})
+                task.delay(.16, function() List.Visible=false end)
+                cb(opt)
+            end)
+        end
+        -- reset selection to first option
+        if #opts > 0 then
+            cur = opts[1]; vl.Text = opts[1]
+        end
+    end
     return api
 end
 
