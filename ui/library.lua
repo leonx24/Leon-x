@@ -185,16 +185,19 @@ local function reg(data, api)
     return api
 end
 
--- drag
+-- drag (Mouse + Touch)
 do
     local on,ds,sp = false,nil,nil
+    local function isTap(i)
+        return i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch
+    end
     Top.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            on=true; ds=i.Position; sp=Win.Position
-        end
+        if isTap(i) then on=true; ds=i.Position; sp=Win.Position end
     end)
     UIS.InputChanged:Connect(function(i)
-        if on and i.UserInputType == Enum.UserInputType.MouseMovement then
+        if on and (i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch) then
             local d = i.Position-ds
             local nx,ny = sp.X.Offset+d.X, sp.Y.Offset+d.Y
             Win.Position = UDim2.new(sp.X.Scale,nx,sp.Y.Scale,ny)
@@ -202,7 +205,7 @@ do
         end
     end)
     UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then on=false end
+        if isTap(i) then on=false end
     end)
 end
 
@@ -231,13 +234,16 @@ task.defer(syncRes)
 
 do
     local on,rs,ss = false,nil,nil
+    local function isTap(i)
+        return i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch
+    end
     ResBtn.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
-            on=true; rs=i.Position; ss=Win.Size
-        end
+        if isTap(i) then on=true; rs=i.Position; ss=Win.Size end
     end)
     UIS.InputChanged:Connect(function(i)
-        if on and i.UserInputType == Enum.UserInputType.MouseMovement then
+        if on and (i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch) then
             local d = i.Position-rs
             local nw = math.clamp(ss.X.Offset+d.X, 480, 1400)
             local nh = math.clamp(ss.Y.Offset+d.Y, 300, 900)
@@ -246,7 +252,7 @@ do
         end
     end)
     UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then on=false end
+        if isTap(i) then on=false end
     end)
 end
 
@@ -281,20 +287,26 @@ end
 
 do
     local on,ds,fp,mv = false,nil,nil,false
+    -- support both Mouse and Touch
+    local function isTap(i)
+        return i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch
+    end
     Float.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isTap(i) then
             on=true; mv=false; ds=i.Position; fp=Float.Position
         end
     end)
     UIS.InputChanged:Connect(function(i)
-        if on and i.UserInputType == Enum.UserInputType.MouseMovement then
+        if on and (i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch) then
             local d = i.Position-ds
-            if math.abs(d.X)>4 or math.abs(d.Y)>4 then mv=true end
+            if math.abs(d.X)>6 or math.abs(d.Y)>6 then mv=true end
             Float.Position = UDim2.new(fp.X.Scale,fp.X.Offset+d.X,fp.Y.Scale,fp.Y.Offset+d.Y)
         end
     end)
     UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 and on then
+        if isTap(i) and on then
             on=false
             if not mv then showWin() end
             task.wait(); mv=false
