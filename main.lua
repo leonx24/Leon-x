@@ -271,7 +271,7 @@ Set:AddButton({ Name="⭐  Set as Default", Callback=function()
     N("Config", ok and s.." is default" or "Failed", ok and "success" or "error",3) end })
 
 Set:AddSection("About")
-Set:AddLabel({ Text="Leon X  ·  v5.0", Color=Color3.fromRGB(70,70,70), Align=Enum.TextXAlignment.Center })
+Set:AddLabel({ Text="Leon X  ·  v1.0", Color=Color3.fromRGB(70,70,70), Align=Enum.TextXAlignment.Center })
 
 -- ── Boot ──────────────────────────────────────────────────────────────────────
 ConfigMgr:AutoLoad()

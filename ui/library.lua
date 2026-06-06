@@ -78,6 +78,7 @@ local R = 12
 local BG = mkF(Screen, C.Border)
 BG.Size = UDim2.new(0,662,0,422)
 BG.Position = UDim2.new(0.5,-331,0.5,-211)
+BG.Visible = false   -- hidden until splash finishes
 rnd(BG, R)
 
 local Win = mkF(Screen, C.BG)
@@ -85,6 +86,7 @@ Win.Name = "Win"
 Win.Size = UDim2.new(0,660,0,420)
 Win.Position = UDim2.new(0.5,-330,0.5,-210)
 Win.ClipsDescendants = true
+Win.Visible = false   -- hidden until splash finishes
 rnd(Win, R)
 
 -- topbar
@@ -104,7 +106,7 @@ local TitleL = mkL(Top,"Leon X",15,C.Text,Enum.Font.GothamBold)
 TitleL.Size = UDim2.new(0,80,1,0)
 TitleL.Position = UDim2.new(0,30,0,0)
 
-local VerL = mkL(Top,"v4.1",11,C.Sub,Enum.Font.Gotham)
+local VerL = mkL(Top,"v1.0",11,C.Sub,Enum.Font.Gotham)
 VerL.Size = UDim2.new(0,40,1,0)
 VerL.Position = UDim2.new(0,110,0,0)
 
@@ -127,6 +129,8 @@ end
 
 local BtnX = mkWinBtn("×", C.Red)
 local BtnM = mkWinBtn("−", C.Elevated)
+BtnX.Visible = false   -- hidden until splash finishes
+BtnM.Visible = false
 hvr(BtnX, C.Red, C.RedH, Color3.fromRGB(215,55,55))
 hvr(BtnM, C.Elevated, C.Hover, C.Press)
 
@@ -231,6 +235,7 @@ ResBtn.TextSize = 12
 ResBtn.AutoButtonColor = false
 ResBtn.BorderSizePixel = 0
 ResBtn.ZIndex = 5
+ResBtn.Visible = false   -- hidden until splash finishes
 ResBtn.Parent = Screen
 rnd(ResBtn, 5)
 
@@ -1248,6 +1253,9 @@ do
                 -- fill bar to 100%
                 tw(self._splashBar, 0.2, { Size = UDim2.new(1, 0, 1, 0) })
                 task.wait(0.25)
+                -- reveal main window first, then fade out splash card together
+                BtnX.Visible = true; BtnM.Visible = true; ResBtn.Visible = true
+                Win.Visible = true; BG.Visible = true
                 -- fade out card
                 tw(c, 0.45, { BackgroundTransparency = 1 })
                 for _, child in ipairs(c:GetDescendants()) do
