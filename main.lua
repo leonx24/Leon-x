@@ -22,12 +22,14 @@ local Noclip      = load("modules/movements/noclip.lua");      Library:SetSplash
 local AntiRagdoll = load("modules/movements/antiragdoll.lua"); Library:SetSplashProgress(0.38)
 local Invisible   = load("modules/movements/invisible.lua");   Library:SetSplashProgress(0.42)
 local FreeCam     = load("modules/movements/freecam.lua");     Library:SetSplashProgress(0.47)
+local ClickTP     = load("modules/movements/clickteleport.lua");Library:SetSplashProgress(0.50)
 local ESP         = load("modules/visuals/esp.lua");           Library:SetSplashProgress(0.53)
 local Tracer      = load("modules/visuals/tracer.lua");        Library:SetSplashProgress(0.58)
 local FullBright  = load("modules/visuals/fullbright.lua");    Library:SetSplashProgress(0.62)
 local PerfStats   = load("modules/visuals/perfstats.lua");     Library:SetSplashProgress(0.67)
 local AntiAFK     = load("modules/player/antiafk.lua");        Library:SetSplashProgress(0.72)
-local AntiFling   = load("modules/player/antifling.lua");      Library:SetSplashProgress(0.77)
+local InfStamina  = load("modules/player/infinitestamina.lua");Library:SetSplashProgress(0.75)
+local AntiFling   = load("modules/player/antifling.lua");      Library:SetSplashProgress(0.79)
 local Rejoin      = load("modules/player/rejoin.lua");         Library:SetSplashProgress(0.82)
 local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.87)
 local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.93)
@@ -114,6 +116,14 @@ UIS.InputBegan:Connect(function(i, gp)
     if s then FreeCam:Enable() else FreeCam:Disable() end
 end)
 
+Mov:AddSection("Click Teleport")
+
+local ctToggle = Mov:AddToggle({ Name="Click Teleport", Flag="ClickTP", Default=false,
+    Callback=function(v)
+        if v then ClickTP:Enable() else ClickTP:Disable() end
+        N("Click Teleport", v and "Enabled — click to tp" or "Disabled", v and "success" or "info", 2)
+    end })
+
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -177,6 +187,10 @@ Ply:AddSection("Utility")
 Ply:AddToggle({ Name="Anti AFK", Flag="AntiAFK", Default=false,
     Callback=function(v) if v then AntiAFK:Enable() else AntiAFK:Disable() end
         N("Anti AFK", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddToggle({ Name="Infinite Stamina", Flag="InfStamina", Default=false,
+    Callback=function(v) if v then InfStamina:Enable() else InfStamina:Disable() end
+        N("Infinite Stamina", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
     Callback=function(v) if v then GodMode:Enable() else GodMode:Disable() end

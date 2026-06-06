@@ -65,7 +65,7 @@ local function buildGui()
     pill.BorderSizePixel        = 0
     pill.AnchorPoint            = Vector2.new(0.5, 0)
     pill.Position               = UDim2.new(0.5, 0, 0, 10)
-    pill.Size                   = UDim2.new(0, 300, 0, 26)
+    pill.Size                   = UDim2.new(0, 380, 0, 26)
     pill.Parent                 = root
 
     local corner = Instance.new("UICorner")
@@ -145,6 +145,10 @@ function PerfStats:_startLoop(label)
 
         local pc = #Players:GetPlayers()
 
+        -- local clock (HH:MM)
+        local t = os.date("*t")
+        local clock = string.format("%02d:%02d", t.hour, t.min)
+
         local fc
         if fps >= 50 then fc = "rgb(100,220,100)"
         elseif fps >= 30 then fc = "rgb(255,200,50)"
@@ -154,8 +158,9 @@ function PerfStats:_startLoop(label)
             '<font color="%s">%d FPS</font>  '..
             '<font color="rgb(170,170,170)">%d ms</font>  '..
             '<font color="rgb(110,170,255)">%d ms ping</font>  '..
-            '<font color="rgb(190,190,190)">%d players</font>',
-            fc, fps, ms, pingCache, pc
+            '<font color="rgb(190,190,190)">%d players</font>  '..
+            '<font color="rgb(140,140,140)">%s</font>',
+            fc, fps, ms, pingCache, pc, clock
         )
     end)
 end
