@@ -254,6 +254,9 @@ Ply:AddLabel({ Text="User ID: " ..tostring(lp.UserId), Color=Color3.fromRGB(100,
 -- ══════════════════════════════════════════════════════════════════════════════
 Set:AddSection("Interface")
 
+Set:AddKeybind({ Name="Toggle UI Key", Flag="ToggleKey", Default=Enum.KeyCode.O,
+    Callback=function(k) Library:SetToggleKey(k); N("Toggle Key","Set to "..k.Name) end })
+
 Set:AddDropdown({ Name="Theme", Flag="Theme",
     Options={"Dark","Midnight","Rose","Emerald","Amber","Violet"}, Default="Dark",
     Callback=function(v) Library:SetTheme(v); N("Theme",v.." applied","success") end })

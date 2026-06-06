@@ -585,6 +585,23 @@ local function hideWin()
     BtnX.Visible=false; BtnM.Visible=false; ResBtn.Visible=false
 end
 
+-- expose for external keybind wiring
+function Library:Show() showWin() end
+function Library:Hide() hideWin() end
+function Library:IsVisible() return Win.Visible end
+
+-- toggle open/close keybind (default O, configurable via SetToggleKey)
+Library._toggleKey = Enum.KeyCode.O
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode ~= Library._toggleKey then return end
+    if Win.Visible then hideWin() else showWin() end
+end)
+
+function Library:SetToggleKey(keyCode)
+    self._toggleKey = keyCode
+end
+
 do
     local on,ds,fp,mv = false,nil,nil,false
     -- support both Mouse and Touch
