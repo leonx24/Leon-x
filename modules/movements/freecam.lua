@@ -1,6 +1,6 @@
 -- Leon X | FreeCam
--- Detaches camera from character — WASD to move, RMB + drag to look
--- E/Space = up | Q/Ctrl = down | Shift = slow | Scroll = adjust speed
+-- Detaches camera — WASD moves camera, character stays frozen
+-- RMB + drag = look | E/Space = up | Q/Ctrl = down | Shift = slow | Scroll = speed
 
 local FreeCam = {}
 FreeCam.Name    = "FreeCam"
@@ -15,69 +15,68 @@ local lp         = Players.LocalPlayer
 local renderConn = nil
 local scrollConn = nil
 local rmbConn    = nil
+local rmbEndConn = nil
 
-local prevCamType    = nil
-local prevMouseBeh   = nil
-
--- freeze character so WASD doesn't move it
-local frozenConn     = nil
-local frozenCFrame   = nil
-
-local function freezeCharacter()
-    local char = lp.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hrp or not hum then return end
-
-    frozenCFrame = hrp.CFrame
-
-    hum.WalkSpeed    = 0
-    hum.JumpPower    = 0
-    hum.AutoRotate   = false
-    hrp.Anchored     = true
-
-    -- disable humanoid entirely so PlayerModule stops sending movement
-    hum:ChangeState(Enum.HumanoidStateType.Physics)
-end
-
-local function unfreezeCharacter()
-    local char = lp.Character
-    if not char then return end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    local hum = char:FindFirstChildOfClass("Humanoid")
-    if hrp then hrp.Anchored = false end
-    if hum then
-        hum.WalkSpeed  = 16
-        hum.JumpPower  = 50
-        hum.AutoRotate = true
-        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-    end
-    frozenCFrame = nil
-end
+local prevCamType  = nil
+local savedWS      = 16
+local savedJP      = 50
 
 -- camera state
-local camCF     = CFrame.new(0, 10, 0)
-local pitch     = 0
-local yaw       = 0
+local camCF    = CFrame.new(0, 10, 0)
+local pitch    = 0
+local yaw      = 0
+local MAX_PITCH = math.rad(89)
+local SENS      = 0.4
 
-local SHIFT_MULT = 0.25
-local MAX_PITCH  = math.rad(89)
-local SENS       = 0.35   -- mouse sensitivity (degrees per pixel)
-
--- decompose a CFrame into our pitch/yaw representation
 local function decomposeCamera(cf)
-    local lv    = cf.LookVector
-    pitch       = math.asin(math.clamp(-lv.Y, -1, 1))
-    yaw         = math.atan2(-lv.X, -lv.Z)
-    camCF       = cf
+    local lv = cf.LookVector
+    pitch = math.asin(math.clamp(-lv.Y, -1, 1))
+    yaw   = math.atan2(-lv.X, -lv.Z)
+    camCF = cf
 end
 
--- called each frame to write back to the camera
-local function applyCamera()
-    local camera = workspace.CurrentCamera
-    if camera then
-        camera.CFrame = camCF
+-- Block character movement by disabling PlayerModule controls
+-- This is the reliable way — PlayerModule is a LocalScript under PlayerScripts
+local function disableControls()
+    local ok = pcall(function()
+        local pm = lp:WaitForChild("PlayerScripts", 3)
+                    :WaitForChild("PlayerModule", 3)
+        local controls = require(pm):GetControls()
+        controls:Disable()
+    end)
+    -- fallback if require not allowed: zero walkspeed + anchor HRP
+    if not ok then
+        local char = lp.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then
+            savedWS = hum.WalkSpeed
+            savedJP = hum.JumpPower
+            hum.WalkSpeed = 0
+            hum.JumpPower = 0
+        end
+        if hrp then hrp.Anchored = true end
+    end
+end
+
+local function enableControls()
+    local ok = pcall(function()
+        local pm = lp:WaitForChild("PlayerScripts", 3)
+                    :WaitForChild("PlayerModule", 3)
+        local controls = require(pm):GetControls()
+        controls:Enable()
+    end)
+    if not ok then
+        local char = lp.Character
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hrp then hrp.Anchored = false end
+        if hum then
+            hum.WalkSpeed = savedWS
+            hum.JumpPower = savedJP
+        end
     end
 end
 
@@ -85,42 +84,30 @@ function FreeCam:Enable()
     if self.Enabled then return end
     self.Enabled = true
 
-    local camera = workspace.CurrentCamera
-    if not camera then self.Enabled = false; return end
+    local cam = workspace.CurrentCamera
+    if not cam then self.Enabled = false; return end
 
-    -- save state
-    prevCamType  = camera.CameraType
-    prevMouseBeh = UIS.MouseBehavior
+    prevCamType       = cam.CameraType
+    cam.CameraType    = Enum.CameraType.Scriptable
+    decomposeCamera(cam.CFrame)
 
-    -- start from current camera position
-    decomposeCamera(camera.CFrame)
+    -- stop character from moving
+    disableControls()
 
-    -- override camera
-    camera.CameraType = Enum.CameraType.Scriptable
-
-    -- freeze character so WASD doesn't move it
-    freezeCharacter()
-
-    -- RMB: lock mouse while held for delta reads
+    -- RMB lock for mouse delta
     rmbConn = UIS.InputBegan:Connect(function(input, gp)
         if gp then return end
         if input.UserInputType == Enum.UserInputType.MouseButton2 then
             UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
         end
     end)
-
-    local rmbEndConn
     rmbEndConn = UIS.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton2 then
             UIS.MouseBehavior = Enum.MouseBehavior.Default
         end
     end)
 
-    -- store both so we can disconnect later
-    -- wrap them together via a table
-    FreeCam._rmbEnd = rmbEndConn
-
-    -- scroll to change speed
+    -- scroll = speed
     scrollConn = UIS.InputChanged:Connect(function(input)
         if not self.Enabled then return end
         if input.UserInputType == Enum.UserInputType.MouseWheel then
@@ -128,46 +115,43 @@ function FreeCam:Enable()
         end
     end)
 
-    -- main render loop
+    -- main loop
     renderConn = RunService.RenderStepped:Connect(function(dt)
         if not self.Enabled then return end
-        local cam = workspace.CurrentCamera
-        if not cam then return end
+        local camera = workspace.CurrentCamera
+        if not camera then return end
 
-        -- mouse look only while RMB held
-        local rmb = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
-        if rmb then
-            local delta = UIS:GetMouseDelta()  -- only non-zero when mouse is locked
-            yaw   = yaw   - math.rad(delta.X * SENS)
-            pitch = math.clamp(pitch - math.rad(delta.Y * SENS), -MAX_PITCH, MAX_PITCH)
+        -- look
+        if UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then
+            local d = UIS:GetMouseDelta()
+            yaw   = yaw   - math.rad(d.X * SENS)
+            pitch = math.clamp(pitch - math.rad(d.Y * SENS), -MAX_PITCH, MAX_PITCH)
         end
 
-        -- rebuild orientation from yaw + pitch
         local rot   = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
         local fwd   = rot.LookVector
         local right = rot.RightVector
 
-        -- movement
-        local speed = self.Speed
+        -- speed
+        local spd = self.Speed
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.RightShift) then
-            speed = speed * SHIFT_MULT
+            spd = spd * 0.25
         end
 
+        -- movement (consume input so it doesn't reach character)
         local move = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + fwd         end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - fwd         end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + right       end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - right       end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + fwd          end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - fwd          end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + right        end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - right        end
         if UIS:IsKeyDown(Enum.KeyCode.E)
-        or UIS:IsKeyDown(Enum.KeyCode.Space)     then move = move + Vector3.yAxis end
+        or UIS:IsKeyDown(Enum.KeyCode.Space)        then move = move + Vector3.yAxis end
         if UIS:IsKeyDown(Enum.KeyCode.Q)
-        or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.yAxis end
+        or UIS:IsKeyDown(Enum.KeyCode.LeftControl)  then move = move - Vector3.yAxis end
 
         if move.Magnitude > 0 then move = move.Unit end
-
-        local newPos = camCF.Position + move * speed * dt
-        camCF        = CFrame.new(newPos) * rot
-        cam.CFrame   = camCF
+        camCF          = CFrame.new(camCF.Position + move * spd * dt) * rot
+        camera.CFrame  = camCF
     end)
 end
 
@@ -175,34 +159,27 @@ function FreeCam:Disable()
     if not self.Enabled then return end
     self.Enabled = false
 
-    -- disconnect all
-    if renderConn      then renderConn:Disconnect();      renderConn      = nil end
-    if scrollConn      then scrollConn:Disconnect();      scrollConn      = nil end
-    if rmbConn         then rmbConn:Disconnect();         rmbConn         = nil end
-    if FreeCam._rmbEnd then FreeCam._rmbEnd:Disconnect(); FreeCam._rmbEnd = nil end
+    if renderConn  then renderConn:Disconnect();  renderConn  = nil end
+    if scrollConn  then scrollConn:Disconnect();  scrollConn  = nil end
+    if rmbConn     then rmbConn:Disconnect();     rmbConn     = nil end
+    if rmbEndConn  then rmbEndConn:Disconnect();  rmbEndConn  = nil end
 
-    -- unfreeze character
-    unfreezeCharacter()
-
-    -- restore mouse
     UIS.MouseBehavior = Enum.MouseBehavior.Default
 
-    -- restore camera
-    local camera = workspace.CurrentCamera
-    if camera then
-        camera.CameraType = prevCamType or Enum.CameraType.Custom
+    enableControls()
+
+    local cam = workspace.CurrentCamera
+    if cam then
+        cam.CameraType = prevCamType or Enum.CameraType.Custom
         local char = lp.Character
         if char then
             local subj = char:FindFirstChildOfClass("Humanoid")
                       or char:FindFirstChild("HumanoidRootPart")
-            if subj then
-                camera.CameraSubject = subj
-            end
+            if subj then cam.CameraSubject = subj end
         end
     end
 
-    prevCamType  = nil
-    prevMouseBeh = nil
+    prevCamType = nil
 end
 
 function FreeCam:Toggle()
