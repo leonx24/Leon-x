@@ -1137,22 +1137,13 @@ end
 
 -- ── Splash / loading screen ───────────────────────────────────────────────────
 do
-    local Splash = Instance.new("Frame")
-    Splash.Name                   = "Splash"
-    Splash.Size                   = UDim2.new(1, 0, 1, 0)
-    Splash.Position               = UDim2.new(0, 0, 0, 0)
-    Splash.BackgroundColor3       = Color3.fromRGB(6, 6, 6)
-    Splash.BackgroundTransparency = 0
-    Splash.BorderSizePixel        = 0
-    Splash.ZIndex                 = 200
-    Splash.Parent                 = Screen
-
-    -- centered card
-    local card = mkF(Splash, C.Surface)
+    -- card parented directly to Screen — no fullscreen overlay, game stays visible
+    local card = mkF(Screen, C.Surface)
+    card.Name        = "SplashCard"
     card.Size        = UDim2.new(0, 240, 0, 136)
     card.AnchorPoint = Vector2.new(0.5, 0.5)
     card.Position    = UDim2.new(0.5, 0, 0.5, 0)
-    card.ZIndex      = 201
+    card.ZIndex      = 200
     rnd(card, 14)
     strk(card, C.Border)
 
@@ -1161,41 +1152,41 @@ do
     logoDot.Size        = UDim2.new(0, 8, 0, 8)
     logoDot.Position    = UDim2.new(0, 20, 0, 26)
     logoDot.AnchorPoint = Vector2.new(0, 0.5)
-    logoDot.ZIndex      = 202
+    logoDot.ZIndex      = 201
     rnd(logoDot, 4)
 
     local titleSp = mkL(card, "Leon X", 17, C.Text, Enum.Font.GothamBold)
     titleSp.Size     = UDim2.new(1, -46, 0, 22)
     titleSp.Position = UDim2.new(0, 36, 0, 16)
-    titleSp.ZIndex   = 202
+    titleSp.ZIndex   = 201
 
     local verSp = mkL(card, "v5.0", 11, C.Sub, Enum.Font.Gotham)
     verSp.Size     = UDim2.new(0, 40, 0, 16)
     verSp.Position = UDim2.new(0, 36, 0, 38)
-    verSp.ZIndex   = 202
+    verSp.ZIndex   = 201
 
     local statusL = mkL(card, "Initializing...", 11, C.Dim, Enum.Font.Gotham)
     statusL.Size     = UDim2.new(1, -24, 0, 16)
     statusL.Position = UDim2.new(0, 14, 0, 68)
-    statusL.ZIndex   = 202
+    statusL.ZIndex   = 201
 
     local barBg = mkF(card, C.Elevated)
     barBg.Size     = UDim2.new(1, -28, 0, 3)
     barBg.Position = UDim2.new(0, 14, 1, -18)
-    barBg.ZIndex   = 202
+    barBg.ZIndex   = 201
     rnd(barBg, 2)
 
     local barFill = mkF(barBg, C.Accent)
     barFill.Size   = UDim2.new(0, 0, 1, 0)
-    barFill.ZIndex = 203
+    barFill.ZIndex = 202
     rnd(barFill, 2)
 
     local dotsL = mkL(card, "●  ○  ○", 9, C.Sub, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
     dotsL.Size     = UDim2.new(1, 0, 0, 14)
     dotsL.Position = UDim2.new(0, 0, 0, 92)
-    dotsL.ZIndex   = 202
+    dotsL.ZIndex   = 201
 
-    -- card entrance animation
+    -- entrance: scale up + fade in
     card.BackgroundTransparency = 1
     card.Size = UDim2.new(0, 200, 0, 110)
     tw(card, 0.35, { BackgroundTransparency = 0, Size = UDim2.new(0, 240, 0, 136) })
@@ -1209,7 +1200,7 @@ do
         end
     end
 
-    -- dot animation loop
+    -- animated dots + status text
     local dotFrames = { "●  ○  ○", "○  ●  ○", "○  ○  ●", "●  ○  ○" }
     local steps = {
         "Initializing...",
@@ -1218,13 +1209,13 @@ do
         "Wiring features...",
         "Almost ready...",
     }
-    local dotIdx   = 1
-    local stepIdx  = 1
+    local dotIdx  = 1
+    local stepIdx = 1
 
     task.spawn(function()
         local lastDot  = tick()
         local lastStep = tick()
-        while Splash and Splash.Parent do
+        while card and card.Parent do
             local now = tick()
             if now - lastDot >= 0.28 then
                 lastDot = now
@@ -1240,8 +1231,8 @@ do
         end
     end)
 
-    Library._splash    = Splash
-    Library._splashBar = barFill
+    Library._splashCard = card
+    Library._splashBar  = barFill
 
     function Library:SetSplashProgress(pct)
         pcall(function()
@@ -1252,12 +1243,14 @@ do
     function Library:HideSplash()
         task.spawn(function()
             pcall(function()
-                local sp = self._splash
-                if not sp or not sp.Parent then return end
+                local c = self._splashCard
+                if not c or not c.Parent then return end
+                -- fill bar to 100%
                 tw(self._splashBar, 0.2, { Size = UDim2.new(1, 0, 1, 0) })
                 task.wait(0.25)
-                tw(sp, 0.5, { BackgroundTransparency = 1 })
-                for _, child in ipairs(sp:GetDescendants()) do
+                -- fade out card
+                tw(c, 0.45, { BackgroundTransparency = 1 })
+                for _, child in ipairs(c:GetDescendants()) do
                     pcall(function()
                         if child:IsA("TextLabel") then
                             tw(child, 0.35, { TextTransparency = 1 })
@@ -1266,10 +1259,10 @@ do
                         end
                     end)
                 end
-                task.wait(0.55)
-                pcall(function() sp:Destroy() end)
-                self._splash    = nil
-                self._splashBar = nil
+                task.wait(0.5)
+                pcall(function() c:Destroy() end)
+                self._splashCard = nil
+                self._splashBar  = nil
             end)
         end)
     end
