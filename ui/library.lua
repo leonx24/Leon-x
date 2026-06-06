@@ -156,7 +156,7 @@ Library._onToggleChanged = function(_)
     updateActiveCount()
 end
 
--- window buttons on Screen (not inside Win, so not clipped)
+-- window buttons — parented to Top so they auto-follow the window
 local function mkWinBtn(icon, bg)
     local b = Instance.new("TextButton")
     b.Size = UDim2.new(0,24,0,24)
@@ -168,27 +168,22 @@ local function mkWinBtn(icon, bg)
     b.AutoButtonColor = false
     b.BorderSizePixel = 0
     b.ZIndex = 5
-    b.Parent = Screen
+    b.Parent = Top   -- inside topbar, not Screen
     rnd(b, 6)
     return b
 end
 
 local BtnX = mkWinBtn("×", C.Red)
 local BtnM = mkWinBtn("−", C.Elevated)
+-- anchor to right side of topbar
+BtnX.AnchorPoint = Vector2.new(1, 0.5)
+BtnX.Position    = UDim2.new(1, -8, 0.5, 0)
+BtnM.AnchorPoint = Vector2.new(1, 0.5)
+BtnM.Position    = UDim2.new(1, -38, 0.5, 0)
 BtnX.Visible = false   -- hidden until splash finishes
 BtnM.Visible = false
 hvr(BtnX, C.Red, C.RedH, Color3.fromRGB(215,55,55))
 hvr(BtnM, C.Elevated, C.Hover, C.Press)
-
-local function syncBtns()
-    local p = Win.AbsolutePosition
-    local s = Win.AbsoluteSize
-    BtnX.Position = UDim2.new(0, p.X+s.X-38,    0, p.Y+7)
-    BtnM.Position = UDim2.new(0, p.X+s.X-38-30, 0, p.Y+7)
-end
-Win:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncBtns)
-Win:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncBtns)
-task.defer(syncBtns)
 
 -- sidebar
 local Side = mkF(Win, C.Surface)
@@ -487,8 +482,11 @@ do
 end
 
 -- resize handle — corner triangle indicator
+-- resize handle — parented to Win, anchored to bottom-right corner
 local ResBtn = Instance.new("TextButton")
 ResBtn.Size = UDim2.new(0,18,0,18)
+ResBtn.AnchorPoint = Vector2.new(1,1)
+ResBtn.Position = UDim2.new(1,-2,1,-2)
 ResBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
 ResBtn.BackgroundTransparency = 1
 ResBtn.Text = ""
@@ -496,7 +494,7 @@ ResBtn.AutoButtonColor = false
 ResBtn.BorderSizePixel = 0
 ResBtn.ZIndex = 5
 ResBtn.Visible = false
-ResBtn.Parent = Screen
+ResBtn.Parent = Win   -- inside Win, auto-follows window size
 
 -- two diagonal lines to form a resize corner indicator
 local function mkDiagLine(parent, x1,y1,x2,y2)
@@ -513,17 +511,8 @@ local function mkDiagLine(parent, x1,y1,x2,y2)
     f.Parent = parent
     return f
 end
-mkDiagLine(ResBtn, 2,14, 14,2)   -- main diagonal
-mkDiagLine(ResBtn, 7,14, 14,7)   -- second shorter line
-
-local function syncRes()
-    local p = Win.AbsolutePosition
-    local s = Win.AbsoluteSize
-    ResBtn.Position = UDim2.new(0, p.X+s.X-20, 0, p.Y+s.Y-20)
-end
-Win:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncRes)
-Win:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncRes)
-task.defer(syncRes)
+mkDiagLine(ResBtn, 2,14, 14,2)
+mkDiagLine(ResBtn, 7,14, 14,7)
 
 do
     local on,rs,ss = false,nil,nil
