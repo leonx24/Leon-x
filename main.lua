@@ -25,6 +25,7 @@ local Tracer      = load("modules/visuals/tracer.lua")
 local FullBright  = load("modules/visuals/fullbright.lua")
 local PerfStats   = load("modules/visuals/perfstats.lua")
 local AntiAFK     = load("modules/player/antiafk.lua")
+local AntiFling   = load("modules/player/antifling.lua")
 local Rejoin      = load("modules/player/rejoin.lua")
 local Teleport    = load("modules/player/teleport.lua")
 -- AutoFarm: removed from UI
@@ -170,6 +171,13 @@ Ply:AddSection("Utility")
 Ply:AddToggle({ Name="Anti AFK", Flag="AntiAFK", Default=false,
     Callback=function(v) if v then AntiAFK:Enable() else AntiAFK:Disable() end
         N("Anti AFK", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddToggle({ Name="Anti Fling", Flag="AntiFling", Default=false,
+    Callback=function(v) if v then AntiFling:Enable() else AntiFling:Disable() end
+        N("Anti Fling", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddSlider({ Name="Fling Threshold", Flag="FlingThreshold", Min=100, Max=1000, Default=200, Suffix=" stud/s",
+    Callback=function(v) AntiFling:SetThreshold(v) end })
 
 Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
     Callback=function(v) if v then GodMode:Enable() else GodMode:Disable() end
