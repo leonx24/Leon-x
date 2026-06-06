@@ -566,6 +566,7 @@ local function mkToggle(parent, data)
     rnd(knob, 7)
     hvr(row, C.Elevated, C.Hover, C.Press)
     local function set(v, silent)
+        local prev = on
         on = v
         if on then
             tw(track,.18,{BackgroundColor3=C.OnTrack})
@@ -574,12 +575,12 @@ local function mkToggle(parent, data)
             tw(track,.18,{BackgroundColor3=C.OffTrack})
             tw(knob,.18,{Position=UDim2.new(0,3,0.5,-7),BackgroundColor3=C.Dim})
         end
+        -- always update counter when value actually changed
+        if prev ~= on and data.Flag and Library._onToggleChanged then
+            Library._onToggleChanged(on)
+        end
         if not silent then
             cb(on)
-            -- update active counter if this toggle has a flag
-            if data.Flag and Library._onToggleChanged then
-                Library._onToggleChanged(on)
-            end
         end
     end
     row.MouseButton1Click:Connect(function() set(not on) end)
