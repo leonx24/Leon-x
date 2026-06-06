@@ -1,106 +1,133 @@
 -- Leon X | FreeCam
--- Detaches camera from character and lets you fly it freely with WASD + mouse
--- Q/E = down/up | Shift = slow | RMB hold = look around | scroll = speed
+-- Detaches camera from character — WASD to move, RMB + drag to look
+-- E/Space = up | Q/Ctrl = down | Shift = slow | Scroll = adjust speed
 
 local FreeCam = {}
 FreeCam.Name    = "FreeCam"
 FreeCam.Enabled = false
 FreeCam.Speed   = 40
 
-local Players       = game:GetService("Players")
-local UIS           = game:GetService("UserInputService")
-local RunService    = game:GetService("RunService")
-local ContextAction = game:GetService("ContextActionService")
-local lp            = Players.LocalPlayer
+local Players    = game:GetService("Players")
+local UIS        = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local lp         = Players.LocalPlayer
 
-local camera        = workspace.CurrentCamera
-local prevCamType   = nil
-local prevCamCFrame = nil
-local renderConn    = nil
-local scrollConn    = nil
+local renderConn = nil
+local scrollConn = nil
+local rmbConn    = nil
 
--- internal camera state
-local camCF   = CFrame.new(0, 10, 0)   -- current camera CFrame
-local pitch   = 0                       -- vertical look angle (radians)
-local yaw     = 0                       -- horizontal look angle (radians)
-local lastMouse = nil                   -- Vector2 mouse position last frame
+local prevCamType    = nil
+local prevMouseBeh   = nil
 
-local SHIFT_MULT = 0.25   -- speed multiplier when shift held
+-- camera state
+local camCF     = CFrame.new(0, 10, 0)
+local pitch     = 0
+local yaw       = 0
+
+local SHIFT_MULT = 0.25
 local MAX_PITCH  = math.rad(89)
+local SENS       = 0.35   -- mouse sensitivity (degrees per pixel)
 
-local function updateFromCF(cf)
-    -- decompose current CFrame to extract yaw/pitch so mouse delta works correctly
-    local _, ry, _ = cf:ToEulerAnglesYXZ()
-    local look = cf.LookVector
-    pitch = math.asin(-look.Y)
-    yaw   = ry
-    camCF = cf
+-- decompose a CFrame into our pitch/yaw representation
+local function decomposeCamera(cf)
+    local lv    = cf.LookVector
+    pitch       = math.asin(math.clamp(-lv.Y, -1, 1))
+    yaw         = math.atan2(-lv.X, -lv.Z)
+    camCF       = cf
+end
+
+-- called each frame to write back to the camera
+local function applyCamera()
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.CFrame = camCF
+    end
 end
 
 function FreeCam:Enable()
     if self.Enabled then return end
     self.Enabled = true
 
-    camera = workspace.CurrentCamera
+    local camera = workspace.CurrentCamera
+    if not camera then self.Enabled = false; return end
 
-    -- save & override camera type
-    prevCamType   = camera.CameraType
-    prevCamCFrame = camera.CFrame
+    -- save state
+    prevCamType  = camera.CameraType
+    prevMouseBeh = UIS.MouseBehavior
+
+    -- start from current camera position
+    decomposeCamera(camera.CFrame)
+
+    -- override camera
     camera.CameraType = Enum.CameraType.Scriptable
 
-    -- start from where the camera currently is
-    updateFromCF(camera.CFrame)
+    -- RMB: lock mouse while held for delta reads
+    rmbConn = UIS.InputBegan:Connect(function(input, gp)
+        if gp then return end
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            UIS.MouseBehavior = Enum.MouseBehavior.LockCurrentPosition
+        end
+    end)
 
-    -- hide mouse cursor change — we use RMB drag for look
-    -- (no cursor lock needed; just capture delta while RMB held)
+    local rmbEndConn
+    rmbEndConn = UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton2 then
+            UIS.MouseBehavior = Enum.MouseBehavior.Default
+        end
+    end)
 
+    -- store both so we can disconnect later
+    -- wrap them together via a table
+    FreeCam._rmbEnd = rmbEndConn
+
+    -- scroll to change speed
+    scrollConn = UIS.InputChanged:Connect(function(input)
+        if not self.Enabled then return end
+        if input.UserInputType == Enum.UserInputType.MouseWheel then
+            self.Speed = math.clamp(self.Speed + input.Position.Z * 5, 5, 500)
+        end
+    end)
+
+    -- main render loop
     renderConn = RunService.RenderStepped:Connect(function(dt)
         if not self.Enabled then return end
+        local cam = workspace.CurrentCamera
+        if not cam then return end
 
-        -- ── mouse look (RMB held) ─────────────────────────────────────────
+        -- mouse look only while RMB held
         local rmb = UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2)
         if rmb then
-            local delta = UIS:GetMouseDelta()
-            yaw   = yaw   - math.rad(delta.X * 0.3)
-            pitch = pitch - math.rad(delta.Y * 0.3)
-            pitch = math.clamp(pitch, -MAX_PITCH, MAX_PITCH)
+            local delta = UIS:GetMouseDelta()  -- only non-zero when mouse is locked
+            yaw   = yaw   - math.rad(delta.X * SENS)
+            pitch = math.clamp(pitch - math.rad(delta.Y * SENS), -MAX_PITCH, MAX_PITCH)
         end
 
-        -- ── build orientation ─────────────────────────────────────────────
-        local rot = CFrame.Angles(0, yaw, 0) * CFrame.Angles(pitch, 0, 0)
+        -- rebuild orientation from yaw + pitch
+        local rot   = CFrame.fromEulerAnglesYXZ(pitch, yaw, 0)
         local fwd   = rot.LookVector
         local right = rot.RightVector
 
-        -- ── movement ──────────────────────────────────────────────────────
+        -- movement
         local speed = self.Speed
         if UIS:IsKeyDown(Enum.KeyCode.LeftShift) or UIS:IsKeyDown(Enum.KeyCode.RightShift) then
             speed = speed * SHIFT_MULT
         end
 
         local move = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + fwd  end
-        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - fwd  end
-        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + right end
-        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - right end
-        if UIS:IsKeyDown(Enum.KeyCode.E) or UIS:IsKeyDown(Enum.KeyCode.Space) then
-            move = move + Vector3.new(0, 1, 0)
-        end
-        if UIS:IsKeyDown(Enum.KeyCode.Q) or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then
-            move = move + Vector3.new(0, -1, 0)
-        end
+        if UIS:IsKeyDown(Enum.KeyCode.W) then move = move + fwd         end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then move = move - fwd         end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then move = move + right       end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then move = move - right       end
+        if UIS:IsKeyDown(Enum.KeyCode.E)
+        or UIS:IsKeyDown(Enum.KeyCode.Space)     then move = move + Vector3.yAxis end
+        if UIS:IsKeyDown(Enum.KeyCode.Q)
+        or UIS:IsKeyDown(Enum.KeyCode.LeftControl) then move = move - Vector3.yAxis end
 
         if move.Magnitude > 0 then move = move.Unit end
-        local pos = camCF.Position + move * speed * dt
 
-        camCF             = CFrame.new(pos) * rot
-        camera.CFrame     = camCF
-    end)
-
-    -- scroll to adjust speed
-    scrollConn = UIS.InputChanged:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseWheel then
-            self.Speed = math.clamp(self.Speed + input.Position.Z * 5, 5, 500)
-        end
+        local newPos = camCF.Position + move * speed * dt
+        camCF        = CFrame.new(newPos) * rot
+        cam.CFrame   = camCF
     end)
 end
 
@@ -108,19 +135,31 @@ function FreeCam:Disable()
     if not self.Enabled then return end
     self.Enabled = false
 
-    if renderConn then renderConn:Disconnect(); renderConn = nil end
-    if scrollConn then scrollConn:Disconnect(); scrollConn = nil end
+    -- disconnect all
+    if renderConn      then renderConn:Disconnect();      renderConn      = nil end
+    if scrollConn      then scrollConn:Disconnect();      scrollConn      = nil end
+    if rmbConn         then rmbConn:Disconnect();         rmbConn         = nil end
+    if FreeCam._rmbEnd then FreeCam._rmbEnd:Disconnect(); FreeCam._rmbEnd = nil end
+
+    -- restore mouse
+    UIS.MouseBehavior = Enum.MouseBehavior.Default
 
     -- restore camera
-    camera = workspace.CurrentCamera
-    if prevCamType then
-        camera.CameraType = prevCamType
-        prevCamType = nil
+    local camera = workspace.CurrentCamera
+    if camera then
+        camera.CameraType = prevCamType or Enum.CameraType.Custom
+        local char = lp.Character
+        if char then
+            local subj = char:FindFirstChildOfClass("Humanoid")
+                      or char:FindFirstChild("HumanoidRootPart")
+            if subj then
+                camera.CameraSubject = subj
+            end
+        end
     end
-    -- return to character camera
-    if lp.Character then
-        camera.CameraSubject = lp.Character:FindFirstChildOfClass("Humanoid") or lp.Character:FindFirstChild("HumanoidRootPart")
-    end
+
+    prevCamType  = nil
+    prevMouseBeh = nil
 end
 
 function FreeCam:Toggle()
