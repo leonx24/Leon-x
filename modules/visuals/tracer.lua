@@ -1,59 +1,161 @@
 -- Leon X | Tracer
--- Draws smooth lines from bottom-center of screen to each player's HumanoidRootPart
--- Uses Drawing API for crisp anti-aliased lines (no rotated Frame artifacts)
+-- Draws lines from bottom-center of screen to each player's HumanoidRootPart
+-- Uses Drawing API if available, falls back to rotated Frames
 
 local Tracer = {}
-Tracer.Name        = "Tracer"
-Tracer.Enabled     = false
-Tracer.Color       = Color3.fromRGB(255, 255, 255)
-Tracer.Opacity     = 1.0    -- 0.0 to 1.0
-Tracer.Thickness   = 1.5
+Tracer.Name      = "Tracer"
+Tracer.Enabled   = false
+Tracer.Color     = Color3.fromRGB(255, 255, 255)
+Tracer.Opacity   = 1.0   -- 0.0–1.0
+Tracer.Thickness = 2
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local lp         = Players.LocalPlayer
 
-local lines      = {}   -- [player] = Drawing Line object
 local updateConn = nil
+local lines      = {}   -- [player] = line object (Drawing or Frame)
 
--- Drawing API is available in most executors
--- Each line is a Drawing.new("Line") object
+-- ── detect which renderer to use ─────────────────────────────────────────────
+local useDrawing = false
+do
+    local ok = pcall(function()
+        local test = Drawing.new("Line")
+        test:Remove()
+    end)
+    useDrawing = ok
+end
+
+-- ── Drawing renderer ─────────────────────────────────────────────────────────
+local function drawingCreate()
+    local l = Drawing.new("Line")
+    l.Visible      = false
+    l.Color        = Tracer.Color
+    l.Thickness    = Tracer.Thickness
+    l.Transparency = 1 - Tracer.Opacity
+    l.ZIndex       = 5
+    return l
+end
+
+local function drawingUpdate(l, x1, y1, x2, y2)
+    l.From         = Vector2.new(x1, y1)
+    l.To           = Vector2.new(x2, y2)
+    l.Color        = Tracer.Color
+    l.Thickness    = Tracer.Thickness
+    l.Transparency = 1 - Tracer.Opacity
+    l.Visible      = true
+end
+
+local function drawingHide(l)
+    l.Visible = false
+end
+
+local function drawingRemove(l)
+    pcall(function() l:Remove() end)
+end
+
+-- ── Frame renderer ────────────────────────────────────────────────────────────
+local tracerGui = nil
+
+local function getGui()
+    if tracerGui and tracerGui.Parent then return tracerGui end
+    if tracerGui then pcall(function() tracerGui:Destroy() end) end
+    local pg = lp:FindFirstChildOfClass("PlayerGui")
+    if not pg then return nil end
+    local sg = Instance.new("ScreenGui")
+    sg.Name           = "LeonTracer"
+    sg.ResetOnSpawn   = false
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    sg.DisplayOrder   = 998
+    sg.IgnoreGuiInset = true
+    sg.Parent         = pg
+    tracerGui = sg
+    return sg
+end
+
+local function frameCreate()
+    local gui = getGui()
+    if not gui then return nil end
+    local f = Instance.new("Frame")
+    f.BackgroundColor3   = Tracer.Color
+    f.BorderSizePixel    = 0
+    f.AnchorPoint        = Vector2.new(0.5, 0.5)
+    f.BackgroundTransparency = 1 - Tracer.Opacity
+    f.ZIndex             = 5
+    f.Parent             = gui
+    return f
+end
+
+local function frameUpdate(f, x1, y1, x2, y2)
+    if not f or not f.Parent then return false end
+    local dx  = x2 - x1
+    local dy  = y2 - y1
+    local len = math.sqrt(dx * dx + dy * dy)
+    if len < 1 then f.Visible = false; return true end
+    local cx = (x1 + x2) / 2
+    local cy = (y1 + y2) / 2
+    f.Position               = UDim2.new(0, cx, 0, cy)
+    f.Size                   = UDim2.new(0, len, 0, math.max(1, Tracer.Thickness))
+    f.Rotation               = math.deg(math.atan2(dy, dx))
+    f.BackgroundColor3       = Tracer.Color
+    f.BackgroundTransparency = 1 - Tracer.Opacity
+    f.Visible                = true
+    return true
+end
+
+local function frameHide(f)
+    if f and f.Parent then f.Visible = false end
+end
+
+local function frameRemove(f)
+    pcall(function() f:Destroy() end)
+end
+
+-- ── unified helpers ───────────────────────────────────────────────────────────
+local function createLine()
+    if useDrawing then return drawingCreate() end
+    return frameCreate()
+end
+
+local function updateLine(l, x1, y1, x2, y2)
+    if not l then return false end
+    if useDrawing then
+        drawingUpdate(l, x1, y1, x2, y2)
+        return true
+    end
+    return frameUpdate(l, x1, y1, x2, y2)
+end
+
+local function hideLine(l)
+    if not l then return end
+    if useDrawing then drawingHide(l) else frameHide(l) end
+end
 
 local function removeLine(player)
     if lines[player] then
-        pcall(function() lines[player]:Remove() end)
+        if useDrawing then drawingRemove(lines[player])
+        else frameRemove(lines[player]) end
         lines[player] = nil
     end
 end
 
-local function getOrCreateLine(player)
-    local line = lines[player]
-    if line then return line end
-
-    line = Drawing.new("Line")
-    line.Visible   = false
-    line.Color     = Tracer.Color
-    line.Thickness = Tracer.Thickness
-    line.Transparency = 1 - Tracer.Opacity   -- Drawing transparency: 0=opaque, 1=invisible
-    line.ZIndex    = 5
-    lines[player]  = line
-    return line
-end
-
+-- ── main update ───────────────────────────────────────────────────────────────
 local function updateTracers()
     local camera = workspace.CurrentCamera
     if not camera then return end
 
     local vp      = camera.ViewportSize
     local originX = vp.X / 2
-    local originY = vp.Y   -- bottom-center of screen
+    local originY = vp.Y  -- bottom-center
 
-    -- hide lines for players who left or lost character
+    -- collect stale players safely (can't modify table while iterating)
+    local toRemove = {}
     for p in pairs(lines) do
         if not p or not p.Parent or not p.Character then
-            removeLine(p)
+            toRemove[#toRemove + 1] = p
         end
     end
+    for _, p in ipairs(toRemove) do removeLine(p) end
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player == lp then continue end
@@ -66,23 +168,27 @@ local function updateTracers()
 
         local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
         if not onScreen then
-            -- hide but keep object alive
-            if lines[player] then lines[player].Visible = false end
+            hideLine(lines[player])
             continue
         end
 
-        local line = getOrCreateLine(player)
-        line.From         = Vector2.new(originX, originY)
-        line.To           = Vector2.new(screenPos.X, screenPos.Y)
-        line.Color        = Tracer.Color
-        line.Thickness    = Tracer.Thickness
-        line.Transparency = 1 - Tracer.Opacity
-        line.Visible      = true
+        -- create line object if needed
+        if not lines[player] then
+            lines[player] = createLine()
+        end
+
+        if not updateLine(lines[player], originX, originY, screenPos.X, screenPos.Y) then
+            -- frame became invalid (gui was destroyed), recreate
+            lines[player] = createLine()
+            updateLine(lines[player], originX, originY, screenPos.X, screenPos.Y)
+        end
     end
 end
 
+-- ── public API ────────────────────────────────────────────────────────────────
 function Tracer:Enable()
     self.Enabled = true
+    if not useDrawing then getGui() end
     if updateConn then updateConn:Disconnect(); updateConn = nil end
     updateConn = RunService.RenderStepped:Connect(function()
         if not self.Enabled then return end
@@ -93,7 +199,13 @@ end
 function Tracer:Disable()
     self.Enabled = false
     if updateConn then updateConn:Disconnect(); updateConn = nil end
-    for p in pairs(lines) do removeLine(p) end
+    local toRemove = {}
+    for p in pairs(lines) do toRemove[#toRemove + 1] = p end
+    for _, p in ipairs(toRemove) do removeLine(p) end
+    if tracerGui then
+        pcall(function() tracerGui:Destroy() end)
+        tracerGui = nil
+    end
 end
 
 function Tracer:Toggle()
@@ -102,25 +214,34 @@ end
 
 function Tracer:SetColor(color)
     self.Color = color
-    for _, line in pairs(lines) do
-        if line then pcall(function() line.Color = color end) end
+    for _, l in pairs(lines) do
+        if l then pcall(function()
+            if useDrawing then l.Color = color
+            else l.BackgroundColor3 = color end
+        end) end
     end
 end
 
--- opacity: 0–100 (percentage)
+-- pct: 0–100
 function Tracer:SetOpacity(pct)
     self.Opacity = math.clamp(pct / 100, 0, 1)
     local trans = 1 - self.Opacity
-    for _, line in pairs(lines) do
-        if line then pcall(function() line.Transparency = trans end) end
+    for _, l in pairs(lines) do
+        if l then pcall(function()
+            if useDrawing then l.Transparency = trans
+            else l.BackgroundTransparency = trans end
+        end) end
     end
 end
 
--- thickness: 1–5
+-- v: 1–8
 function Tracer:SetThickness(v)
-    self.Thickness = math.clamp(v, 0.5, 8)
-    for _, line in pairs(lines) do
-        if line then pcall(function() line.Thickness = self.Thickness end) end
+    self.Thickness = math.clamp(v, 1, 8)
+    for _, l in pairs(lines) do
+        if l then pcall(function()
+            if useDrawing then l.Thickness = self.Thickness
+            else l.Size = UDim2.new(0, l.Size.X.Offset, 0, self.Thickness) end
+        end) end
     end
 end
 
