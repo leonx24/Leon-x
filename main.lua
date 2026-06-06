@@ -1,4 +1,4 @@
--- Leon X | main.lua v5.0
+-- Leon X | main.lua v1.0
 -- UI wiring only — all logic lives in module files
 
 local BASE    = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"

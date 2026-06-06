@@ -1,4 +1,4 @@
--- Leon X UI Library v4.1
+-- Leon X UI Library v1.0
 local Library = {}
 
 local Players      = game:GetService("Players")
@@ -228,10 +228,10 @@ end
 local ResBtn = Instance.new("TextButton")
 ResBtn.Size = UDim2.new(0,20,0,20)
 ResBtn.BackgroundColor3 = C.Elevated
-ResBtn.Text = "⤡"
+ResBtn.Text = "//"
 ResBtn.TextColor3 = C.Dim
 ResBtn.Font = Enum.Font.GothamBold
-ResBtn.TextSize = 12
+ResBtn.TextSize = 11
 ResBtn.AutoButtonColor = false
 ResBtn.BorderSizePixel = 0
 ResBtn.ZIndex = 5
@@ -1165,7 +1165,7 @@ do
     titleSp.Position = UDim2.new(0, 36, 0, 16)
     titleSp.ZIndex   = 201
 
-    local verSp = mkL(card, "v5.0", 11, C.Sub, Enum.Font.Gotham)
+    local verSp = mkL(card, "v1.0", 11, C.Sub, Enum.Font.Gotham)
     verSp.Size     = UDim2.new(0, 40, 0, 16)
     verSp.Position = UDim2.new(0, 36, 0, 38)
     verSp.ZIndex   = 201
