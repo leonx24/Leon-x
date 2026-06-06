@@ -163,6 +163,12 @@ Vis:AddDropdown({ Name="Tracer Color", Flag="TracerColor",
     Options={"White","Red","Green","Blue","Yellow","Cyan"}, Default="White",
     Callback=function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end })
 
+Vis:AddSlider({ Name="Tracer Opacity", Flag="TracerOpacity", Min=0, Max=100, Default=100, Suffix="%",
+    Callback=function(v) Tracer:SetOpacity(v) end })
+
+Vis:AddSlider({ Name="Tracer Thickness", Flag="TracerThickness", Min=1, Max=8, Default=2,
+    Callback=function(v) Tracer:SetThickness(v) end })
+
 -- ══════════════════════════════════════════════════════════════════════════════
 -- PLAYER
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -172,16 +178,18 @@ Ply:AddToggle({ Name="Anti AFK", Flag="AntiAFK", Default=false,
     Callback=function(v) if v then AntiAFK:Enable() else AntiAFK:Disable() end
         N("Anti AFK", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
+Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
+    Callback=function(v) if v then GodMode:Enable() else GodMode:Disable() end
+        N("God Mode", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddSection("Protection")
+
 Ply:AddToggle({ Name="Anti Fling", Flag="AntiFling", Default=false,
     Callback=function(v) if v then AntiFling:Enable() else AntiFling:Disable() end
         N("Anti Fling", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Ply:AddSlider({ Name="Fling Threshold", Flag="FlingThreshold", Min=100, Max=1000, Default=200, Suffix=" stud/s",
     Callback=function(v) AntiFling:SetThreshold(v) end })
-
-Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
-    Callback=function(v) if v then GodMode:Enable() else GodMode:Disable() end
-        N("God Mode", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Ply:AddSection("Teleport")
 

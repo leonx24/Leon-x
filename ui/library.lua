@@ -175,6 +175,7 @@ Content.Position = UDim2.new(0,153,0,46)
 
 local Pages = {}
 Library._first = true
+Library._currentTheme = "Dark"
 Library.Registry = {}   -- Flag → component api, populated by Tab:Add* when Flag is set
 
 -- internal helper: register a component api if data.Flag is provided
@@ -184,6 +185,16 @@ local function reg(data, api)
     end
     return api
 end
+
+-- Theme pseudo-component so ConfigManager can save/load the active theme
+Library.Registry["Theme"] = {
+    Get = function() return Library._currentTheme end,
+    Set = function(_, v)
+        if type(v) == "string" then
+            Library:SetTheme(v)
+        end
+    end,
+}
 
 -- drag (Mouse + Touch)
 do
@@ -979,6 +990,8 @@ end
 function Library:SetTheme(name)
     local t = THEMES[name]
     if not t then return end
+
+    Library._currentTheme = name   -- track active theme for config save
 
     -- build a color map: old color value → new color value
     -- based on current C vs new theme
