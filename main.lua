@@ -17,14 +17,16 @@ local InfJump     = load("modules/movements/infinitejump.lua")
 local Noclip      = load("modules/movements/noclip.lua")
 local AntiRagdoll = load("modules/movements/antiragdoll.lua")
 local Invisible   = load("modules/movements/invisible.lua")
-local AutoWalk    = load("modules/movements/autowalk.lua")
+-- AutoWalk: loaded but not shown in UI (disabled for now)
+-- local AutoWalk = load("modules/movements/autowalk.lua")
 local ESP         = load("modules/visuals/esp.lua")
 local Tracer      = load("modules/visuals/tracer.lua")
 local FullBright  = load("modules/visuals/fullbright.lua")
 local AntiAFK     = load("modules/player/antiafk.lua")
 local Rejoin      = load("modules/player/rejoin.lua")
 local Teleport    = load("modules/player/teleport.lua")
-local AutoFarm    = load("modules/player/autofarm.lua")
+-- AutoFarm: removed from UI
+-- local AutoFarm = load("modules/player/autofarm.lua")
 local GodMode     = load("modules/player/godmode.lua")
 
 ConfigMgr:Init(Library)
@@ -87,15 +89,6 @@ Mov:AddToggle({ Name="Invisible (local)", Flag="Invisible", Default=false,
     Callback=function(v) if v then Invisible:Enable() else Invisible:Disable() end
         N("Invisible", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
-Mov:AddSection("Auto Walk")
-
-Mov:AddToggle({ Name="Auto Walk", Flag="AutoWalk", Default=false,
-    Callback=function(v) if v then AutoWalk:Enable() else AutoWalk:Disable() end
-        N("Auto Walk", v and "Started" or "Stopped", v and "success" or "info") end })
-
-Mov:AddSlider({ Name="Auto Walk Speed", Flag="AutoWalkSpeed", Min=8, Max=100, Default=16, Suffix=" stud/s",
-    Callback=function(v) AutoWalk:SetSpeed(v) end })
-
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -153,18 +146,6 @@ Ply:AddToggle({ Name="Anti AFK", Flag="AntiAFK", Default=false,
 Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
     Callback=function(v) if v then GodMode:Enable() else GodMode:Disable() end
         N("God Mode", v and "Enabled" or "Disabled", v and "success" or "info") end })
-
-Ply:AddSection("Auto Farm")
-
-Ply:AddToggle({ Name="Auto Farm", Flag="AutoFarm", Default=false,
-    Callback=function(v) if v then AutoFarm:Enable() else AutoFarm:Disable() end
-        N("Auto Farm", v and "Enabled" or "Disabled", v and "success" or "info") end })
-
-Ply:AddSlider({ Name="Farm Range", Flag="FarmRange", Min=5, Max=80, Default=20, Suffix=" stud",
-    Callback=function(v) AutoFarm:SetRange(v) end })
-
-Ply:AddSlider({ Name="Farm Interval", Flag="FarmInterval", Min=1, Max=30, Default=3, Suffix=" 00ms",
-    Callback=function(v) AutoFarm:SetInterval(v / 10) end })
 
 Ply:AddSection("Teleport")
 
