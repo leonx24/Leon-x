@@ -1,22 +1,22 @@
 -- Leon X | ClickTeleport
--- Left-click on any surface to teleport character there
--- Shows a brief marker at destination before teleporting
+-- Mouse: left-click on any surface to teleport
+-- Mobile: tap on any surface to teleport (Touch input)
 
 local ClickTeleport = {}
 ClickTeleport.Name    = "ClickTeleport"
 ClickTeleport.Enabled = false
 
-local Players  = game:GetService("Players")
-local UIS      = game:GetService("UserInputService")
-local RunService = game:GetService("RunService")
-local lp       = Players.LocalPlayer
+local Players    = game:GetService("Players")
+local UIS        = game:GetService("UserInputService")
+local lp         = Players.LocalPlayer
 
 local clickConn  = nil
-local marker     = nil   -- visual indicator at target
+local marker     = nil
+
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 local function getMarker()
     if marker and marker.Parent then return marker end
-    -- simple semi-transparent cylinder at ground level
     local m = Instance.new("Part")
     m.Name          = "LeonTPMarker"
     m.Shape         = Enum.PartType.Cylinder
@@ -47,30 +47,39 @@ local function doTeleport(hitPos, hitNormal)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
-    -- offset upward so character stands on surface
     local charHalfHeight = 3.0
     local dest = hitPos + hitNormal * charHalfHeight
 
-    -- show marker briefly at destination
     local m = getMarker()
-    -- lay flat on the surface
     m.CFrame = CFrame.new(hitPos + hitNormal * 0.2)
               * CFrame.fromEulerAnglesYXZ(0, 0, math.pi / 2)
     m.Transparency = 0.2
 
-    -- small flash then teleport
     task.spawn(function()
         task.wait(0.08)
-        hrp.CFrame = CFrame.new(dest) * CFrame.Angles(0, hrp.CFrame:ToEulerAnglesYXZ(), 0)
-        -- keep yaw, reset pitch/roll
         local _, ry, _ = hrp.CFrame:ToEulerAnglesYXZ()
         hrp.CFrame = CFrame.new(dest) * CFrame.fromEulerAnglesYXZ(0, ry, 0)
-        -- fade marker out
         task.wait(0.12)
         pcall(function() m.Transparency = 1 end)
         task.wait(0.1)
         removeMarker()
     end)
+end
+
+local function tryTeleportFromScreen(screenX, screenY)
+    local camera = workspace.CurrentCamera
+    if not camera then return end
+
+    local unitRay = camera:ScreenPointToRay(screenX, screenY)
+    local params  = RaycastParams.new()
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local char = lp.Character
+    if char then params.FilterDescendantsInstances = { char } end
+
+    local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 2000, params)
+    if result then
+        doTeleport(result.Position, result.Normal)
+    end
 end
 
 function ClickTeleport:Enable()
@@ -80,25 +89,22 @@ function ClickTeleport:Enable()
     clickConn = UIS.InputBegan:Connect(function(input, gameProcessed)
         if not self.Enabled then return end
         if gameProcessed then return end
-        if input.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
 
-        local camera = workspace.CurrentCamera
-        if not camera then return end
-
-        -- raycast from camera through mouse position
-        local unitRay = camera:ScreenPointToRay(input.Position.X, input.Position.Y)
-        local raycastParams = RaycastParams.new()
-        raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-        -- exclude local character from raycast
-        local char = lp.Character
-        if char then
-            raycastParams.FilterDescendantsInstances = { char }
+        -- handle both mouse click and touch tap
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            tryTeleportFromScreen(input.Position.X, input.Position.Y)
+        elseif input.UserInputType == Enum.UserInputType.Touch then
+            -- on mobile, wait a tiny moment to distinguish tap from drag/scroll
+            local startPos = input.Position
+            task.delay(0.15, function()
+                if not self.Enabled then return end
+                -- check the touch didn't move much (i.e. it was a tap not a swipe)
+                local moved = (input.Position - startPos).Magnitude
+                if moved < 20 then
+                    tryTeleportFromScreen(startPos.X, startPos.Y)
+                end
+            end)
         end
-
-        local result = workspace:Raycast(unitRay.Origin, unitRay.Direction * 2000, raycastParams)
-        if not result then return end
-
-        doTeleport(result.Position, result.Normal)
     end)
 end
 
