@@ -175,7 +175,7 @@ SideDiv.Size = UDim2.new(0,1,1,0)
 SideDiv.Position = UDim2.new(1,0,0,0)
 
 local SideScroll = Instance.new("ScrollingFrame")
-SideScroll.Size = UDim2.new(1,0,1,0)
+SideScroll.Size = UDim2.new(1,0,1,-44)
 SideScroll.CanvasSize = UDim2.new(0,0,0,0)
 SideScroll.ScrollBarThickness = 0
 SideScroll.BackgroundTransparency = 1
@@ -192,6 +192,50 @@ SideLL:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
     SideScroll.CanvasSize = UDim2.new(0,0,0,SideLL.AbsoluteContentSize.Y+20)
 end)
 
+-- search box at bottom of sidebar
+local SearchBox = mkF(Side, C.Elevated)
+SearchBox.Name            = "SearchBox"
+SearchBox.Size            = UDim2.new(1,-8,0,30)
+SearchBox.Position        = UDim2.new(0,4,1,-38)
+SearchBox.BorderSizePixel = 0
+rnd(SearchBox, 8)
+strk(SearchBox)
+
+local SearchIcon = mkL(SearchBox, "🔍", 12, C.Sub, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+SearchIcon.Size     = UDim2.new(0,22,1,0)
+SearchIcon.Position = UDim2.new(0,4,0,0)
+
+local SearchInput = Instance.new("TextBox")
+SearchInput.Size              = UDim2.new(1,-30,1,-6)
+SearchInput.Position          = UDim2.new(0,26,0,3)
+SearchInput.BackgroundTransparency = 1
+SearchInput.BorderSizePixel   = 0
+SearchInput.Text              = ""
+SearchInput.PlaceholderText   = "Search..."
+SearchInput.PlaceholderColor3 = C.Sub
+SearchInput.TextColor3        = C.Text
+SearchInput.Font               = Enum.Font.Gotham
+SearchInput.TextSize           = 11
+SearchInput.ClearTextOnFocus   = false
+SearchInput.TextXAlignment     = Enum.TextXAlignment.Left
+SearchInput.Parent             = SearchBox
+
+local function doSearch(query)
+    query = query:lower():gsub("%s+", "")
+    for _, entry in ipairs(Library._allComponents) do
+        if query == "" then
+            entry.frame.Visible = true
+        else
+            local name = entry.name:lower():gsub("%s+", "")
+            entry.frame.Visible = name:find(query, 1, true) ~= nil
+        end
+    end
+end
+
+SearchInput:GetPropertyChangedSignal("Text"):Connect(function()
+    doSearch(SearchInput.Text)
+end)
+
 -- content area
 local Content = mkF(Win, C.BG)
 Content.BackgroundTransparency = 1
@@ -202,6 +246,8 @@ local Pages = {}
 Library._first = true
 Library._currentTheme = "Dark"
 Library.Registry = {}   -- Flag → component api, populated by Tab:Add* when Flag is set
+Library._allComponents = {}  -- {frame, name, page} for search
+Library.PanicKey = Enum.KeyCode.Delete
 
 -- internal helper: register a component api if data.Flag is provided
 local function reg(data, api)
@@ -388,7 +434,88 @@ do
 end
 
 BtnM.MouseButton1Click:Connect(hideWin)
+
+-- Panic key: disable all active toggles + hide window
+Library._panicKey = Enum.KeyCode.Delete
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode ~= Library._panicKey then return end
+    -- hide window
+    hideWin()
+    -- disable all active toggles via their callbacks
+    for flag, api in pairs(Library.Registry) do
+        if api.Get and api.Callback then
+            local ok, val = pcall(function() return api:Get() end)
+            if ok and val == true then
+                pcall(function() api:Set(false) end)
+                pcall(function() api.Callback(false) end)
+            end
+        end
+    end
+end)
+
+function Library:SetPanicKey(keyCode)
+    self._panicKey = keyCode
+end
 BtnX.MouseButton1Click:Connect(function() Screen:Destroy() end)
+
+-- ── Tooltip system ────────────────────────────────────────────────────────────
+local Tooltip = mkF(Screen, C.Surface)
+Tooltip.Name              = "Tooltip"
+Tooltip.Size              = UDim2.new(0, 160, 0, 28)
+Tooltip.BackgroundTransparency = 1
+Tooltip.BorderSizePixel   = 0
+Tooltip.ZIndex            = 50
+Tooltip.Visible           = false
+Tooltip.Parent            = Screen
+rnd(Tooltip, 6)
+local _tStroke = Instance.new("UIStroke")
+_tStroke.Color     = C.Border
+_tStroke.Thickness = 1
+_tStroke.Parent    = Tooltip
+
+local TooltipLabel = mkL(Tooltip, "", 11, C.Text, Enum.Font.Gotham, Enum.TextXAlignment.Left)
+TooltipLabel.Size          = UDim2.new(1, -12, 1, -8)
+TooltipLabel.Position      = UDim2.new(0, 6, 0, 4)
+TooltipLabel.TextWrapped   = true
+TooltipLabel.ZIndex        = 51
+
+local _tooltipThread = nil
+
+local function addTooltip(frame, text)
+    frame.MouseEnter:Connect(function()
+        _tooltipThread = task.delay(0.5, function()
+            _tooltipThread = nil
+            -- measure text to set height
+            local maxW = 200
+            TooltipLabel.Text = text
+            Tooltip.Size = UDim2.new(0, maxW, 0, 28)
+            -- allow label to wrap and measure
+            task.defer(function()
+                local boundsY = TooltipLabel.TextBounds.Y
+                local h = math.max(28, boundsY + 12)
+                -- position near cursor
+                local mp = UIS:GetMouseLocation()
+                local sw = workspace.CurrentCamera.ViewportSize.X
+                local sh = workspace.CurrentCamera.ViewportSize.Y
+                local px = math.clamp(mp.X + 12, 0, sw - maxW - 4)
+                local py = math.clamp(mp.Y + 16, 0, sh - h - 4)
+                Tooltip.Size     = UDim2.new(0, maxW, 0, h)
+                Tooltip.Position = UDim2.new(0, px, 0, py)
+                Tooltip.BackgroundTransparency = 0
+                Tooltip.Visible  = true
+            end)
+        end)
+    end)
+    frame.MouseLeave:Connect(function()
+        if _tooltipThread then
+            task.cancel(_tooltipThread)
+            _tooltipThread = nil
+        end
+        Tooltip.Visible = false
+        Tooltip.BackgroundTransparency = 1
+    end)
+end
 
 -- components
 
@@ -459,6 +586,8 @@ local function mkToggle(parent, data)
     local api = {Frame=row}
     function api:Set(v) set(v,true) end
     function api:Get() return on end
+    addTooltip(row, data.Desc or data.Name or "Toggle")
+    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent})
     return api
 end
 
@@ -483,6 +612,8 @@ local function mkButton(parent, data)
     end)
     local api = {Frame=b}
     function api:SetText(t) b.Text=t end
+    addTooltip(b, data.Desc or data.Name or "Button")
+    table.insert(Library._allComponents, {frame=b, name=data.Name or "", page=parent})
     return api
 end
 
@@ -544,6 +675,8 @@ local function mkSlider(parent, data)
     local api = {Frame=w}
     function api:Set(v) upd((math.clamp(v,mn,mx)-mn)/(mx-mn)) end
     function api:Get() return cur end
+    addTooltip(w, data.Desc or data.Name or "Slider")
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
     return api
 end
 
@@ -691,6 +824,8 @@ local function mkDropdown(parent, data)
             cur = opts[1]; vl.Text = opts[1]
         end
     end
+    addTooltip(w, data.Desc or data.Name or "Dropdown")
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
     return api
 end
 
@@ -737,6 +872,7 @@ local function mkKeybind(parent, data)
         kb.TextColor3 = C.Dim
     end
     function api:Get() return cur end
+    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent})
     return api
 end
 
@@ -747,6 +883,7 @@ local function mkLabel(parent, data)
     l.BorderSizePixel = 0
     local api = {Frame=l}
     function api:Set(t) l.Text=t end
+    table.insert(Library._allComponents, {frame=l, name=data.Text or "", page=parent})
     return api
 end
 
@@ -809,6 +946,7 @@ local function mkColorPicker(parent, data)
     local api = {Frame=w}
     function api:Set(c) cur=c; swatch.BackgroundColor3=c end
     function api:Get() return cur end
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
     return api
 end
 
@@ -863,6 +1001,7 @@ local function mkTextInput(parent, data)
     local api = { Frame = w }
     function api:Get() return box.Text end
     function api:Set(v) box.Text = v; current = v end
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
     return api
 end
 

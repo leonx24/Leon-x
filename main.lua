@@ -253,6 +253,9 @@ Set:AddDropdown({ Name="Theme", Flag="Theme",
     Options={"Dark","Midnight","Rose","Emerald","Amber","Violet"}, Default="Dark",
     Callback=function(v) Library:SetTheme(v); N("Theme",v.." applied","success") end })
 
+Set:AddKeybind({ Name="Panic Key", Flag="PanicKey", Default=Enum.KeyCode.End,
+    Callback=function(k) Library:SetPanicKey(k); N("Panic Key","Set to "..k.Name) end })
+
 Set:AddToggle({ Name="Show Notifications", Flag="ShowNotifs", Default=true,
     Callback=function(v) Library:Notify({Title="Notifications",
         Text=v and "Enabled" or "Disabled", Type=v and "success" or "info", Duration=2}) end })
