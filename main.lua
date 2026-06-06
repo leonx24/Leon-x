@@ -26,7 +26,8 @@ local ClickTP     = load("modules/movements/clickteleport.lua");Library:SetSplas
 local ESP         = load("modules/visuals/esp.lua");           Library:SetSplashProgress(0.53)
 local Tracer      = load("modules/visuals/tracer.lua");        Library:SetSplashProgress(0.58)
 local FullBright  = load("modules/visuals/fullbright.lua");    Library:SetSplashProgress(0.62)
-local PerfStats   = load("modules/visuals/perfstats.lua");     Library:SetSplashProgress(0.67)
+local PerfStats   = load("modules/visuals/perfstats.lua");     Library:SetSplashProgress(0.65)
+local RemoveFog   = load("modules/visuals/removefog.lua");     Library:SetSplashProgress(0.67)
 local AntiAFK     = load("modules/player/antiafk.lua");        Library:SetSplashProgress(0.72)
 local InfStamina  = load("modules/player/infinitestamina.lua");Library:SetSplashProgress(0.75)
 local AntiFling   = load("modules/player/antifling.lua");      Library:SetSplashProgress(0.79)
@@ -140,6 +141,10 @@ Vis:AddToggle({ Name="ESP", Flag="ESP", Default=false,
 Vis:AddToggle({ Name="FullBright", Flag="FullBright", Default=false,
     Callback=function(v) if v then FullBright:Enable() else FullBright:Disable() end
         N("FullBright", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Vis:AddToggle({ Name="Remove Fog", Flag="RemoveFog", Default=false,
+    Callback=function(v) if v then RemoveFog:Enable() else RemoveFog:Disable() end
+        N("Remove Fog", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Vis:AddSection("Appearance")
 

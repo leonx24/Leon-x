@@ -71,27 +71,41 @@ Screen.Name = "LeonX"
 Screen.ResetOnSpawn = false
 Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Screen.DisplayOrder = 999
+Screen.IgnoreGuiInset = true   -- prevent safe-area cutoff on mobile
 Screen.Parent = gui
+
+-- ── Responsive sizing ─────────────────────────────────────────────────────────
+-- On mobile screens smaller than the default 640×410, scale the window down
+-- so it fits within 90% of the viewport with a minimum of 320×260.
+local vp       = workspace.CurrentCamera.ViewportSize
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+local maxW     = math.floor(vp.X * (isMobile and 0.94 or 1))
+local maxH     = math.floor(vp.Y * (isMobile and 0.88 or 1))
+local WIN_W    = math.clamp(640, 320, maxW)
+local WIN_H    = math.clamp(isMobile and math.min(410, maxH) or 410, 260, maxH)
+-- sidebar and topbar scale proportionally
+local SIDE_W   = math.floor(WIN_W * (130/640))   -- ~130px on desktop
+local TOP_H    = 40
 
 -- border frame
 local R = 12
 local BG = mkF(Screen, C.Border)
-BG.Size = UDim2.new(0,642,0,412)
-BG.Position = UDim2.new(0.5,-321,0.5,-206)
+BG.Size = UDim2.new(0, WIN_W+2, 0, WIN_H+2)
+BG.Position = UDim2.new(0.5, -(WIN_W+2)/2, 0.5, -(WIN_H+2)/2)
 BG.Visible = false
 rnd(BG, R)
 
 local Win = mkF(Screen, C.BG)
 Win.Name = "Win"
-Win.Size = UDim2.new(0,640,0,410)
-Win.Position = UDim2.new(0.5,-320,0.5,-205)
+Win.Size = UDim2.new(0, WIN_W, 0, WIN_H)
+Win.Position = UDim2.new(0.5, -WIN_W/2, 0.5, -WIN_H/2)
 Win.ClipsDescendants = true
 Win.Visible = false
 rnd(Win, R)
 
--- topbar (40px — tighter, more modern)
+-- topbar
 local Top = mkF(Win, C.BG)
-Top.Size = UDim2.new(1,0,0,40)
+Top.Size = UDim2.new(1,0,0,TOP_H)
 
 local TopDiv = mkF(Top, C.Border)
 TopDiv.Size = UDim2.new(1,0,0,1)
@@ -176,10 +190,10 @@ Win:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncBtns)
 Win:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncBtns)
 task.defer(syncBtns)
 
--- sidebar (130px — tighter)
+-- sidebar
 local Side = mkF(Win, C.Surface)
-Side.Size = UDim2.new(0,130,1,-40)
-Side.Position = UDim2.new(0,0,0,40)
+Side.Size = UDim2.new(0, SIDE_W, 1, -TOP_H)
+Side.Position = UDim2.new(0, 0, 0, TOP_H)
 
 local SideDiv = mkF(Side, C.Border)
 SideDiv.Size = UDim2.new(0,1,1,0)
@@ -392,8 +406,8 @@ end)
 -- content area
 local Content = mkF(Win, C.BG)
 Content.BackgroundTransparency = 1
-Content.Size = UDim2.new(1,-131,1,-40)
-Content.Position = UDim2.new(0,131,0,40)
+Content.Size = UDim2.new(1, -(SIDE_W+1), 1, -TOP_H)
+Content.Position = UDim2.new(0, SIDE_W+1, 0, TOP_H)
 
 -- ── Search results page (needs Content to exist first) ────────────────────────
 SearchPage = Instance.new("ScrollingFrame")
@@ -524,8 +538,8 @@ do
         if on and (i.UserInputType == Enum.UserInputType.MouseMovement
                 or i.UserInputType == Enum.UserInputType.Touch) then
             local d = i.Position-rs
-            local nw = math.clamp(ss.X.Offset+d.X, 480, 1400)
-            local nh = math.clamp(ss.Y.Offset+d.Y, 300, 900)
+            local nw = math.clamp(ss.X.Offset+d.X, isMobile and 280 or 480, 1400)
+            local nh = math.clamp(ss.Y.Offset+d.Y, isMobile and 220 or 300, 900)
             Win.Size = UDim2.new(0,nw,0,nh)
             BG.Size  = UDim2.new(0,nw+2,0,nh+2)
         end

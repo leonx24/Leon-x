@@ -30,7 +30,8 @@ No file uses `require()`. All inter-file dependencies are resolved via `loadstri
 | `modules/player/antiafk.lua` | ⚠️ Stub | Empty module shell |
 | `modules/player/rejoin.lua` | ⚠️ Stub | Empty module shell |
 | `modules/visuals/esp.lua` | ⚠️ Stub | Empty module shell |
-| `modules/visuals/fullbright.lua` | ⚠️ Stub | Empty module shell |
+| `modules/visuals/fullbright.lua` | ✅ Complete | Fullbright + fog removal |
+| `modules/visuals/removefog.lua` | ✅ Complete | Remove fog + Atmosphere |
 | `core/modulemanager.lua` | ✅ Defined | Not wired to main.lua |
 | `core/animations.lua` | ✅ Defined | Not used by library.lua |
 | `core/services.lua` | ✅ Defined | Not imported anywhere |
