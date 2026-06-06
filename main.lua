@@ -19,9 +19,11 @@ local AntiRagdoll = load("modules/movements/antiragdoll.lua")
 local Invisible   = load("modules/movements/invisible.lua")
 -- AutoWalk: loaded but not shown in UI (disabled for now)
 -- local AutoWalk = load("modules/movements/autowalk.lua")
+local FreeCam     = load("modules/movements/freecam.lua")
 local ESP         = load("modules/visuals/esp.lua")
 local Tracer      = load("modules/visuals/tracer.lua")
 local FullBright  = load("modules/visuals/fullbright.lua")
+local PerfStats   = load("modules/visuals/perfstats.lua")
 local AntiAFK     = load("modules/player/antiafk.lua")
 local Rejoin      = load("modules/player/rejoin.lua")
 local Teleport    = load("modules/player/teleport.lua")
@@ -89,10 +91,36 @@ Mov:AddToggle({ Name="Invisible (local)", Flag="Invisible", Default=false,
     Callback=function(v) if v then Invisible:Enable() else Invisible:Disable() end
         N("Invisible", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
+Mov:AddSection("Camera")
+
+local fcKey = Enum.KeyCode.V
+local fcToggle = Mov:AddToggle({ Name="Free Cam", Flag="FreeCam", Default=false,
+    Callback=function(v)
+        if v then FreeCam:Enable() else FreeCam:Disable() end
+        N("Free Cam", v and "Enabled" or "Disabled", v and "success" or "info")
+    end })
+
+Mov:AddSlider({ Name="Free Cam Speed", Flag="FreeCamSpeed", Min=5, Max=300, Default=40, Suffix=" stud/s",
+    Callback=function(v) FreeCam:SetSpeed(v) end })
+
+Mov:AddKeybind({ Name="FreeCam Keybind", Flag="FreeCamKeybind", Default=Enum.KeyCode.V,
+    Callback=function(k) fcKey = k; N("FreeCam Keybind", "Set to "..k.Name) end })
+
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= fcKey then return end
+    local s = not FreeCam.Enabled
+    fcToggle:Set(s)
+    if s then FreeCam:Enable() else FreeCam:Disable() end
+end)
+
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL
 -- ══════════════════════════════════════════════════════════════════════════════
 Vis:AddSection("Rendering")
+
+Vis:AddToggle({ Name="Perf Stats (HUD)", Flag="PerfStats", Default=true,
+    Callback=function(v) if v then PerfStats:Enable() else PerfStats:Disable() end
+        N("Perf Stats", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Vis:AddToggle({ Name="ESP", Flag="ESP", Default=false,
     Callback=function(v) if v then ESP:Enable() else ESP:Disable() end
@@ -231,4 +259,5 @@ Set:AddLabel({ Text="Leon X  ·  v5.0", Color=Color3.fromRGB(70,70,70), Align=En
 
 -- ── Boot ──────────────────────────────────────────────────────────────────────
 ConfigMgr:AutoLoad()
+PerfStats:Enable()   -- show HUD immediately on execute
 task.delay(1, function() N("Leon X","Welcome!","success",3) end)
