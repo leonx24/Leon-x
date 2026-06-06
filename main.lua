@@ -19,10 +19,13 @@ local AntiRagdoll = load("modules/movements/antiragdoll.lua")
 local Invisible   = load("modules/movements/invisible.lua")
 local AutoWalk    = load("modules/movements/autowalk.lua")
 local ESP         = load("modules/visuals/esp.lua")
+local Tracer      = load("modules/visuals/tracer.lua")
 local FullBright  = load("modules/visuals/fullbright.lua")
 local AntiAFK     = load("modules/player/antiafk.lua")
 local Rejoin      = load("modules/player/rejoin.lua")
 local Teleport    = load("modules/player/teleport.lua")
+local AutoFarm    = load("modules/player/autofarm.lua")
+local GodMode     = load("modules/player/godmode.lua")
 
 ConfigMgr:Init(Library)
 
@@ -120,6 +123,24 @@ Vis:AddDropdown({ Name="ESP Color", Flag="ESPColor",
 Vis:AddSlider({ Name="ESP Fill Opacity", Flag="ESPOpacity", Min=0, Max=100, Default=15, Suffix="%",
     Callback=function(v) ESP:SetOpacity(v) end })
 
+Vis:AddDropdown({ Name="ESP Show Mode", Flag="ESPMode",
+    Options={"Both","Body","Name"}, Default="Both",
+    Callback=function(v) ESP:SetShowMode(v) end })
+
+Vis:AddSection("Tracer")
+
+Vis:AddToggle({ Name="Player Tracer", Flag="Tracer", Default=false,
+    Callback=function(v) if v then Tracer:Enable() else Tracer:Disable() end
+        N("Tracer", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+local TC = { White=Color3.fromRGB(255,255,255), Red=Color3.fromRGB(255,60,60),
+             Green=Color3.fromRGB(60,220,80),   Blue=Color3.fromRGB(60,130,255),
+             Yellow=Color3.fromRGB(255,220,50), Cyan=Color3.fromRGB(60,220,255) }
+
+Vis:AddDropdown({ Name="Tracer Color", Flag="TracerColor",
+    Options={"White","Red","Green","Blue","Yellow","Cyan"}, Default="White",
+    Callback=function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end })
+
 -- ══════════════════════════════════════════════════════════════════════════════
 -- PLAYER
 -- ══════════════════════════════════════════════════════════════════════════════
@@ -128,6 +149,22 @@ Ply:AddSection("Utility")
 Ply:AddToggle({ Name="Anti AFK", Flag="AntiAFK", Default=false,
     Callback=function(v) if v then AntiAFK:Enable() else AntiAFK:Disable() end
         N("Anti AFK", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
+    Callback=function(v) if v then GodMode:Enable() else GodMode:Disable() end
+        N("God Mode", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddSection("Auto Farm")
+
+Ply:AddToggle({ Name="Auto Farm", Flag="AutoFarm", Default=false,
+    Callback=function(v) if v then AutoFarm:Enable() else AutoFarm:Disable() end
+        N("Auto Farm", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddSlider({ Name="Farm Range", Flag="FarmRange", Min=5, Max=80, Default=20, Suffix=" stud",
+    Callback=function(v) AutoFarm:SetRange(v) end })
+
+Ply:AddSlider({ Name="Farm Interval", Flag="FarmInterval", Min=1, Max=30, Default=3, Suffix=" 00ms",
+    Callback=function(v) AutoFarm:SetInterval(v / 10) end })
 
 Ply:AddSection("Teleport")
 
