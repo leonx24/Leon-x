@@ -661,10 +661,11 @@ Settings:AddToggle({
 Settings:AddDropdown({
     Name     = "Theme",
     Flag     = "Theme",
-    Options  = { "Dark", "Midnight", "Slate" },
+    Options  = { "Dark", "Midnight", "Rose", "Emerald", "Amber", "Violet" },
     Default  = "Dark",
     Callback = function(v)
-        notify("Theme", v .. " selected (restart to apply)", "info", 3)
+        Library:SetTheme(v)
+        notify("Theme", v .. " applied", "success", 2)
     end,
 })
 

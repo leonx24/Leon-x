@@ -854,7 +854,178 @@ function Library:CreateTab(name)
     return Tab
 end
 
--- ── Notification system ──────────────────────────────────────────────────────
+-- ── Theme system ──────────────────────────────────────────────────────────────
+local THEMES = {
+    -- ── Dark (default) ─ pure black monochrome
+    Dark = {
+        BG       = Color3.fromRGB(11, 11, 11),
+        Surface  = Color3.fromRGB(17, 17, 17),
+        Elevated = Color3.fromRGB(23, 23, 23),
+        Border   = Color3.fromRGB(36, 36, 36),
+        Accent   = Color3.fromRGB(255,255,255),
+        Dim      = Color3.fromRGB(130,130,130),
+        Text     = Color3.fromRGB(228,228,228),
+        Sub      = Color3.fromRGB(95, 95, 95),
+        OffTrack = Color3.fromRGB(44, 44, 44),
+        OnTrack  = Color3.fromRGB(210,210,210),
+        Hover    = Color3.fromRGB(29, 29, 29),
+        Press    = Color3.fromRGB(38, 38, 38),
+        Red      = Color3.fromRGB(170,40, 40),
+        RedH     = Color3.fromRGB(205,58, 58),
+    },
+    -- ── Midnight ─ deep navy blue, electric blue accent
+    Midnight = {
+        BG       = Color3.fromRGB(6,   8,  16),
+        Surface  = Color3.fromRGB(10,  13, 25),
+        Elevated = Color3.fromRGB(15,  19, 38),
+        Border   = Color3.fromRGB(30,  40, 75),
+        Accent   = Color3.fromRGB(80, 150,255),
+        Dim      = Color3.fromRGB(70,  95,160),
+        Text     = Color3.fromRGB(200,215,255),
+        Sub      = Color3.fromRGB(65,  85,145),
+        OffTrack = Color3.fromRGB(22,  28, 55),
+        OnTrack  = Color3.fromRGB(80, 150,255),
+        Hover    = Color3.fromRGB(16,  21, 42),
+        Press    = Color3.fromRGB(22,  28, 55),
+        Red      = Color3.fromRGB(180, 50, 50),
+        RedH     = Color3.fromRGB(215, 70, 70),
+    },
+    -- ── Rose ─ dark charcoal with soft rose/pink accent
+    Rose = {
+        BG       = Color3.fromRGB(12, 10, 12),
+        Surface  = Color3.fromRGB(20, 16, 20),
+        Elevated = Color3.fromRGB(28, 22, 28),
+        Border   = Color3.fromRGB(55, 38, 50),
+        Accent   = Color3.fromRGB(240,100,140),
+        Dim      = Color3.fromRGB(160, 80,110),
+        Text     = Color3.fromRGB(245,220,230),
+        Sub      = Color3.fromRGB(130, 90,110),
+        OffTrack = Color3.fromRGB(48,  34, 44),
+        OnTrack  = Color3.fromRGB(240,100,140),
+        Hover    = Color3.fromRGB(30,  24, 30),
+        Press    = Color3.fromRGB(42,  32, 40),
+        Red      = Color3.fromRGB(200, 55, 75),
+        RedH     = Color3.fromRGB(230, 75, 95),
+    },
+    -- ── Emerald ─ deep forest green, neon mint accent
+    Emerald = {
+        BG       = Color3.fromRGB(8,  13, 10),
+        Surface  = Color3.fromRGB(12, 19, 15),
+        Elevated = Color3.fromRGB(17, 27, 21),
+        Border   = Color3.fromRGB(28, 50, 36),
+        Accent   = Color3.fromRGB(50, 220,130),
+        Dim      = Color3.fromRGB(50, 140, 90),
+        Text     = Color3.fromRGB(200,240,220),
+        Sub      = Color3.fromRGB(55, 110, 80),
+        OffTrack = Color3.fromRGB(20,  38, 28),
+        OnTrack  = Color3.fromRGB(50, 220,130),
+        Hover    = Color3.fromRGB(14,  22, 17),
+        Press    = Color3.fromRGB(20,  32, 24),
+        Red      = Color3.fromRGB(200, 60, 60),
+        RedH     = Color3.fromRGB(230, 80, 80),
+    },
+    -- ── Amber ─ dark warm brown, golden yellow accent
+    Amber = {
+        BG       = Color3.fromRGB(13, 10,  6),
+        Surface  = Color3.fromRGB(20, 16,  9),
+        Elevated = Color3.fromRGB(28, 22, 12),
+        Border   = Color3.fromRGB(55, 42, 18),
+        Accent   = Color3.fromRGB(255,190, 50),
+        Dim      = Color3.fromRGB(160,120, 40),
+        Text     = Color3.fromRGB(250,235,200),
+        Sub      = Color3.fromRGB(130, 98, 45),
+        OffTrack = Color3.fromRGB(48,  36, 15),
+        OnTrack  = Color3.fromRGB(255,190, 50),
+        Hover    = Color3.fromRGB(28,  22, 10),
+        Press    = Color3.fromRGB(40,  30, 14),
+        Red      = Color3.fromRGB(200, 60, 40),
+        RedH     = Color3.fromRGB(230, 80, 55),
+    },
+    -- ── Violet ─ deep purple, lavender accent
+    Violet = {
+        BG       = Color3.fromRGB(10,  8, 16),
+        Surface  = Color3.fromRGB(16, 12, 26),
+        Elevated = Color3.fromRGB(22, 17, 38),
+        Border   = Color3.fromRGB(48, 32, 75),
+        Accent   = Color3.fromRGB(165,110,255),
+        Dim      = Color3.fromRGB(110, 75,175),
+        Text     = Color3.fromRGB(230,220,255),
+        Sub      = Color3.fromRGB(95,  70,155),
+        OffTrack = Color3.fromRGB(35,  24, 58),
+        OnTrack  = Color3.fromRGB(165,110,255),
+        Hover    = Color3.fromRGB(18,  14, 30),
+        Press    = Color3.fromRGB(28,  20, 48),
+        Red      = Color3.fromRGB(195, 55,100),
+        RedH     = Color3.fromRGB(225, 75,120),
+    },
+}
+
+-- Tracked instances for live recolor
+-- Each entry: { instance, property, colorKey }
+local _tracked = {}
+
+local function track(inst, prop, key)
+    table.insert(_tracked, {inst, prop, key})
+end
+
+-- Wrap mkF and mkL to auto-track color properties
+local _origMkF = mkF
+local function mkFT(parent, bg, key)
+    local f = _origMkF(parent, bg)
+    if key then track(f, "BackgroundColor3", key) end
+    return f
+end
+
+function Library:SetTheme(name)
+    local t = THEMES[name]
+    if not t then return end
+
+    -- build a color map: old color value → new color value
+    -- based on current C vs new theme
+    local colorMap = {}
+    for k, newColor in pairs(t) do
+        local oldColor = C[k]
+        if oldColor then
+            -- use string key as lookup (Color3 not hashable directly)
+            local key = string.format("%.3f,%.3f,%.3f",
+                oldColor.R, oldColor.G, oldColor.B)
+            colorMap[key] = newColor
+        end
+    end
+
+    -- update C table to new theme values
+    for k, v in pairs(t) do C[k] = v end
+
+    -- helper to remap a color
+    local function remap(col)
+        if not col then return nil end
+        local k = string.format("%.3f,%.3f,%.3f", col.R, col.G, col.B)
+        return colorMap[k]
+    end
+
+    -- traverse ALL descendants of Screen and recolor
+    for _, inst in ipairs(Screen:GetDescendants()) do
+        pcall(function()
+            if inst:IsA("Frame") or inst:IsA("ScrollingFrame")
+            or inst:IsA("TextButton") or inst:IsA("TextBox") then
+                local mapped = remap(inst.BackgroundColor3)
+                if mapped then inst.BackgroundColor3 = mapped end
+            end
+            if inst:IsA("TextLabel") or inst:IsA("TextButton")
+            or inst:IsA("TextBox") then
+                local mapped = remap(inst.TextColor3)
+                if mapped then inst.TextColor3 = mapped end
+            end
+            if inst:IsA("UIStroke") then
+                local mapped = remap(inst.Color)
+                if mapped then inst.Color = mapped end
+            end
+        end)
+    end
+
+    -- also recolor floating dropdown lists (parented to Screen directly)
+    -- already covered by Screen:GetDescendants()
+end
 -- Container stacks toasts bottom-right, parented to Screen
 local NotifContainer = Instance.new("Frame")
 NotifContainer.Name              = "NotifContainer"
