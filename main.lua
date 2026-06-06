@@ -39,10 +39,10 @@ ConfigMgr:Init(Library)
 local function N(t,m,k,d) Library:Notify({Title=t,Text=m,Type=k or "info",Duration=d or 2}) end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
-local Mov = Library:CreateTab("Movement")
-local Vis = Library:CreateTab("Visual")
-local Ply = Library:CreateTab("Player")
-local Set = Library:CreateTab("Settings")
+local Mov = Library:CreateTab("Movement", "🏃")
+local Vis = Library:CreateTab("Visual",   "👁")
+local Ply = Library:CreateTab("Player",   "👤")
+local Set = Library:CreateTab("Settings", "⚙")
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT

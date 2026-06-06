@@ -73,25 +73,25 @@ Screen.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 Screen.DisplayOrder = 999
 Screen.Parent = gui
 
--- border frame (same radius as Win, 1px larger each side = clean border)
+-- border frame
 local R = 12
 local BG = mkF(Screen, C.Border)
-BG.Size = UDim2.new(0,662,0,422)
-BG.Position = UDim2.new(0.5,-331,0.5,-211)
-BG.Visible = false   -- hidden until splash finishes
+BG.Size = UDim2.new(0,642,0,412)
+BG.Position = UDim2.new(0.5,-321,0.5,-206)
+BG.Visible = false
 rnd(BG, R)
 
 local Win = mkF(Screen, C.BG)
 Win.Name = "Win"
-Win.Size = UDim2.new(0,660,0,420)
-Win.Position = UDim2.new(0.5,-330,0.5,-210)
+Win.Size = UDim2.new(0,640,0,410)
+Win.Position = UDim2.new(0.5,-320,0.5,-205)
 Win.ClipsDescendants = true
-Win.Visible = false   -- hidden until splash finishes
+Win.Visible = false
 rnd(Win, R)
 
--- topbar
+-- topbar (40px — tighter, more modern)
 local Top = mkF(Win, C.BG)
-Top.Size = UDim2.new(1,0,0,46)
+Top.Size = UDim2.new(1,0,0,40)
 
 local TopDiv = mkF(Top, C.Border)
 TopDiv.Size = UDim2.new(1,0,0,1)
@@ -102,28 +102,49 @@ Dot.Size = UDim2.new(0,7,0,7)
 Dot.Position = UDim2.new(0,16,0.5,-3)
 rnd(Dot, 4)
 
-local TitleL = mkL(Top,"Leon X",15,C.Text,Enum.Font.GothamBold)
+local TitleL = mkL(Top,"Leon X",14,C.Text,Enum.Font.GothamBold)
 TitleL.Size = UDim2.new(0,80,1,0)
 TitleL.Position = UDim2.new(0,30,0,0)
 
-local VerL = mkL(Top,"v1.0",11,C.Sub,Enum.Font.Gotham)
-VerL.Size = UDim2.new(0,40,1,0)
-VerL.Position = UDim2.new(0,110,0,0)
+local VerL = mkL(Top,"v1.0",10,C.Sub,Enum.Font.Gotham)
+VerL.Size = UDim2.new(0,36,1,0)
+VerL.Position = UDim2.new(0,108,0,0)
+
+-- active features counter in topbar
+local ActiveL = mkL(Top,"",10,C.Dim,Enum.Font.Gotham,Enum.TextXAlignment.Right)
+ActiveL.Size = UDim2.new(0,80,1,0)
+ActiveL.Position = UDim2.new(1,-168,0,0)   -- left of window buttons
+
+-- track active toggle count
+Library._activeCount = 0
+local function updateActiveCount()
+    if Library._activeCount > 0 then
+        ActiveL.Text = Library._activeCount .. " active"
+        ActiveL.TextColor3 = C.Accent
+    else
+        ActiveL.Text = ""
+    end
+end
+Library._onToggleChanged = function(isOn)
+    Library._activeCount = Library._activeCount + (isOn and 1 or -1)
+    if Library._activeCount < 0 then Library._activeCount = 0 end
+    updateActiveCount()
+end
 
 -- window buttons on Screen (not inside Win, so not clipped)
 local function mkWinBtn(icon, bg)
     local b = Instance.new("TextButton")
-    b.Size = UDim2.new(0,26,0,26)
+    b.Size = UDim2.new(0,24,0,24)
     b.BackgroundColor3 = bg
     b.Text = icon
     b.TextColor3 = Color3.new(1,1,1)
     b.Font = Enum.Font.GothamBold
-    b.TextSize = 15
+    b.TextSize = 14
     b.AutoButtonColor = false
     b.BorderSizePixel = 0
     b.ZIndex = 5
     b.Parent = Screen
-    rnd(b, 7)
+    rnd(b, 6)
     return b
 end
 
@@ -137,17 +158,17 @@ hvr(BtnM, C.Elevated, C.Hover, C.Press)
 local function syncBtns()
     local p = Win.AbsolutePosition
     local s = Win.AbsoluteSize
-    BtnX.Position = UDim2.new(0, p.X+s.X-42,    0, p.Y+10)
-    BtnM.Position = UDim2.new(0, p.X+s.X-42-34, 0, p.Y+10)
+    BtnX.Position = UDim2.new(0, p.X+s.X-38,    0, p.Y+7)
+    BtnM.Position = UDim2.new(0, p.X+s.X-38-30, 0, p.Y+7)
 end
 Win:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncBtns)
 Win:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncBtns)
 task.defer(syncBtns)
 
--- sidebar
+-- sidebar (130px — tighter)
 local Side = mkF(Win, C.Surface)
-Side.Size = UDim2.new(0,152,1,-46)
-Side.Position = UDim2.new(0,0,0,46)
+Side.Size = UDim2.new(0,130,1,-40)
+Side.Position = UDim2.new(0,0,0,40)
 
 local SideDiv = mkF(Side, C.Border)
 SideDiv.Size = UDim2.new(0,1,1,0)
@@ -174,8 +195,8 @@ end)
 -- content area
 local Content = mkF(Win, C.BG)
 Content.BackgroundTransparency = 1
-Content.Size = UDim2.new(1,-153,1,-46)
-Content.Position = UDim2.new(0,153,0,46)
+Content.Size = UDim2.new(1,-131,1,-40)
+Content.Position = UDim2.new(0,131,0,40)
 
 local Pages = {}
 Library._first = true
@@ -228,25 +249,40 @@ do
     end)
 end
 
--- resize button on Screen
+-- resize handle — corner triangle indicator
 local ResBtn = Instance.new("TextButton")
-ResBtn.Size = UDim2.new(0,20,0,20)
-ResBtn.BackgroundColor3 = C.Elevated
-ResBtn.Text = "//"
-ResBtn.TextColor3 = C.Dim
-ResBtn.Font = Enum.Font.GothamBold
-ResBtn.TextSize = 11
+ResBtn.Size = UDim2.new(0,18,0,18)
+ResBtn.BackgroundColor3 = Color3.fromRGB(0,0,0)
+ResBtn.BackgroundTransparency = 1
+ResBtn.Text = ""
 ResBtn.AutoButtonColor = false
 ResBtn.BorderSizePixel = 0
 ResBtn.ZIndex = 5
-ResBtn.Visible = false   -- hidden until splash finishes
+ResBtn.Visible = false
 ResBtn.Parent = Screen
-rnd(ResBtn, 5)
+
+-- two diagonal lines to form a resize corner indicator
+local function mkDiagLine(parent, x1,y1,x2,y2)
+    local dx = x2-x1; local dy = y2-y1
+    local len = math.sqrt(dx*dx+dy*dy)
+    local f = Instance.new("Frame")
+    f.BackgroundColor3 = C.Dim
+    f.BorderSizePixel = 0
+    f.AnchorPoint = Vector2.new(0.5,0.5)
+    f.Size = UDim2.new(0,len,0,1)
+    f.Position = UDim2.new(0,(x1+x2)/2,0,(y1+y2)/2)
+    f.Rotation = math.deg(math.atan2(dy,dx))
+    f.ZIndex = 6
+    f.Parent = parent
+    return f
+end
+mkDiagLine(ResBtn, 2,14, 14,2)   -- main diagonal
+mkDiagLine(ResBtn, 7,14, 14,7)   -- second shorter line
 
 local function syncRes()
     local p = Win.AbsolutePosition
     local s = Win.AbsoluteSize
-    ResBtn.Position = UDim2.new(0, p.X+s.X-24, 0, p.Y+s.Y-24)
+    ResBtn.Position = UDim2.new(0, p.X+s.X-20, 0, p.Y+s.Y-20)
 end
 Win:GetPropertyChangedSignal("AbsolutePosition"):Connect(syncRes)
 Win:GetPropertyChangedSignal("AbsoluteSize"):Connect(syncRes)
@@ -278,21 +314,38 @@ end
 
 -- float pill (minimized state)
 local Float = Instance.new("TextButton")
-Float.Size = UDim2.new(0,44,0,44)
-Float.Position = UDim2.new(0,18,0.5,-22)
+Float.Size = UDim2.new(0,52,0,36)
+Float.Position = UDim2.new(0,18,0.5,-18)
 Float.BackgroundColor3 = C.Surface
-Float.Text = "LX"
-Float.TextColor3 = C.Text
-Float.Font = Enum.Font.GothamBold
-Float.TextSize = 13
+Float.Text = ""
 Float.AutoButtonColor = false
 Float.BorderSizePixel = 0
 Float.Visible = false
 Float.ZIndex = 5
 Float.Parent = Screen
-rnd(Float, 12)
+rnd(Float, 10)
 strk(Float)
 hvr(Float, C.Surface, C.Elevated, C.Press)
+
+local FloatTitle = mkL(Float, "LX", 12, C.Text, Enum.Font.GothamBold, Enum.TextXAlignment.Center)
+FloatTitle.Size = UDim2.new(1,0,0,16)
+FloatTitle.Position = UDim2.new(0,0,0,6)
+
+local FloatCount = mkL(Float, "", 9, C.Dim, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+FloatCount.Size = UDim2.new(1,0,0,12)
+FloatCount.Position = UDim2.new(0,0,0,20)
+
+-- hook active count updates to also refresh Float pill
+local _origToggleChanged = Library._onToggleChanged
+Library._onToggleChanged = function(isOn)
+    _origToggleChanged(isOn)
+    if Library._activeCount > 0 then
+        FloatCount.Text = Library._activeCount .. " on"
+        FloatCount.TextColor3 = C.Accent
+    else
+        FloatCount.Text = ""
+    end
+end
 
 local function showWin()
     Win.Visible=true; BG.Visible=true
@@ -342,19 +395,21 @@ BtnX.MouseButton1Click:Connect(function() Screen:Destroy() end)
 local function mkSection(parent, name)
     local w = mkF(parent, C.BG)
     w.BackgroundTransparency = 1
-    w.Size = UDim2.new(1,0,0,22)
+    w.Size = UDim2.new(1,0,0,24)
     local line = mkF(w, C.Border)
     line.Size = UDim2.new(1,0,0,1)
     line.Position = UDim2.new(0,0,0.5,0)
     local pill = mkF(w, C.BG)
-    pill.AnchorPoint = Vector2.new(0.5,0.5)
-    pill.Position = UDim2.new(0.5,0,0.5,0)
-    pill.Size = UDim2.new(0,60,1,0)
-    local t = mkL(pill, name, 10, C.Sub, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+    pill.AnchorPoint = Vector2.new(0,0.5)
+    pill.Position = UDim2.new(0,0,0.5,0)
+    pill.Size = UDim2.new(0,80,1,0)
+    -- uppercase section name, slightly brighter
+    local t = mkL(pill, name:upper(), 10, C.Dim, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
     t.Size = UDim2.new(1,0,1,0)
+    t.Position = UDim2.new(0,4,0,0)
     task.defer(function()
         if t.TextBounds.X > 0 then
-            pill.Size = UDim2.new(0, t.TextBounds.X+16, 1, 0)
+            pill.Size = UDim2.new(0, t.TextBounds.X+10, 1, 0)
         end
     end)
     return w
@@ -392,7 +447,13 @@ local function mkToggle(parent, data)
             tw(track,.18,{BackgroundColor3=C.OffTrack})
             tw(knob,.18,{Position=UDim2.new(0,3,0.5,-7),BackgroundColor3=C.Dim})
         end
-        if not silent then cb(on) end
+        if not silent then
+            cb(on)
+            -- update active counter if this toggle has a flag
+            if data.Flag and Library._onToggleChanged then
+                Library._onToggleChanged(on)
+            end
+        end
     end
     row.MouseButton1Click:Connect(function() set(not on) end)
     local api = {Frame=row}
@@ -805,23 +866,30 @@ local function mkTextInput(parent, data)
     return api
 end
 
-function Library:CreateTab(name)
+function Library:CreateTab(name, icon)
+    icon = icon or ""
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1,-12,0,36)
+    btn.Size = UDim2.new(1,-10,0,34)
     btn.BackgroundColor3 = C.Surface
     btn.Text = ""
     btn.AutoButtonColor = false
     btn.BorderSizePixel = 0
     btn.Parent = SideScroll
-    rnd(btn, 9)
+    rnd(btn, 8)
     local bar = mkF(btn, C.Accent)
-    bar.Size = UDim2.new(0,3,0,18)
-    bar.Position = UDim2.new(0,0,0.5,-9)
+    bar.Size = UDim2.new(0,3,0,16)
+    bar.Position = UDim2.new(0,0,0.5,-8)
     bar.BackgroundTransparency = 1
     rnd(bar, 2)
-    local bl = mkL(btn, name, 13, C.Sub, Enum.Font.GothamMedium)
-    bl.Size = UDim2.new(1,-14,1,0)
-    bl.Position = UDim2.new(0,14,0,0)
+    -- icon label
+    local il = mkL(btn, icon, 14, C.Sub, Enum.Font.GothamBold)
+    il.Size = UDim2.new(0,22,1,0)
+    il.Position = UDim2.new(0,12,0,0)
+    il.TextXAlignment = Enum.TextXAlignment.Center
+    -- tab name label
+    local bl = mkL(btn, name, 12, C.Sub, Enum.Font.GothamMedium)
+    bl.Size = UDim2.new(1,-38,1,0)
+    bl.Position = UDim2.new(0,36,0,0)
     local page = Instance.new("ScrollingFrame")
     page.Size = UDim2.new(1,0,1,0)
     page.CanvasSize = UDim2.new(0,0,0,0)
@@ -839,18 +907,20 @@ function Library:CreateTab(name)
     pl:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         page.CanvasSize = UDim2.new(0,0,0,pl.AbsoluteContentSize.Y+28)
     end)
-    Pages[name] = {page=page, btn=btn, bar=bar, lbl=bl}
+    Pages[name] = {page=page, btn=btn, bar=bar, lbl=bl, ico=il}
     local function activate()
         for _,v in pairs(Pages) do
             v.page.Visible = false
             tw(v.btn,.15,{BackgroundColor3=C.Surface})
             tw(v.bar,.15,{BackgroundTransparency=1})
             tw(v.lbl,.15,{TextColor3=C.Sub})
+            if v.ico then tw(v.ico,.15,{TextColor3=C.Sub}) end
         end
         page.Visible = true
         tw(btn,.15,{BackgroundColor3=C.Elevated})
         tw(bar,.15,{BackgroundTransparency=0})
         tw(bl,.15,{TextColor3=C.Text})
+        if il then tw(il,.15,{TextColor3=C.Accent}) end
     end
     if Library._first then
         Library._first = false
@@ -858,6 +928,7 @@ function Library:CreateTab(name)
         btn.BackgroundColor3 = C.Elevated
         bar.BackgroundTransparency = 0
         bl.TextColor3 = C.Text
+        if il then il.TextColor3 = C.Accent end
     end
     btn.MouseButton1Click:Connect(activate)
     hvr(btn, C.Surface, C.Hover, C.Press)
