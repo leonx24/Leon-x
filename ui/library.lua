@@ -442,18 +442,23 @@ local function mkSlider(parent, data)
         cb(cur)
     end
     local sl = false
+    local function isTouchOrMouse1(i)
+        return i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch
+    end
     trackBg.InputBegan:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then
+        if isTouchOrMouse1(i) then
             sl=true; upd((i.Position.X-trackBg.AbsolutePosition.X)/trackBg.AbsoluteSize.X)
         end
     end)
     UIS.InputChanged:Connect(function(i)
-        if sl and i.UserInputType == Enum.UserInputType.MouseMovement then
+        if sl and (i.UserInputType == Enum.UserInputType.MouseMovement
+                or i.UserInputType == Enum.UserInputType.Touch) then
             upd((i.Position.X-trackBg.AbsolutePosition.X)/trackBg.AbsoluteSize.X)
         end
     end)
     UIS.InputEnded:Connect(function(i)
-        if i.UserInputType == Enum.UserInputType.MouseButton1 then sl=false end
+        if isTouchOrMouse1(i) then sl=false end
     end)
     local api = {Frame=w}
     function api:Set(v) upd((math.clamp(v,mn,mx)-mn)/(mx-mn)) end

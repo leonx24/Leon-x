@@ -50,15 +50,24 @@ Movement:AddSlider({
     Callback = function(v) Fly:SetSpeed(v) end,
 })
 
+-- persisted values — deklarasi SEBELUM semua callback yang pakai mereka
+local _walkSpeed   = 16
+local _jumpPower   = 50
+local _speedHackOn = false
+
 Movement:AddToggle({
     Name     = "Speed Hack",
     Flag     = "SpeedHack",
     Default  = false,
     Callback = function(v)
+        _speedHackOn = v
         local char = lp.Character
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.WalkSpeed = v and 60 or 16 end
+        if hum then
+            hum.WalkSpeed = v and 60 or 16
+            if v then _walkSpeed = 60 end
+        end
         notify("Speed Hack", v and "Enabled (60)" or "Disabled", v and "success" or "info", 2)
     end,
 })
@@ -71,6 +80,7 @@ Movement:AddSlider({
     Default  = 16,
     Suffix   = " stud/s",
     Callback = function(v)
+        _walkSpeed = v
         local char = lp.Character
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -85,12 +95,28 @@ Movement:AddSlider({
     Max      = 500,
     Default  = 50,
     Callback = function(v)
+        _jumpPower = v
         local char = lp.Character
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.JumpPower = v end
+        if hum then
+            hum.JumpPower  = v
+            hum.JumpHeight = v * 0.05
+        end
     end,
 })
+
+-- re-apply setelah respawn
+lp.CharacterAdded:Connect(function(char)
+    task.wait(0.3)
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    if _walkSpeed ~= 16 then hum.WalkSpeed = _walkSpeed end
+    if _jumpPower ~= 50 then
+        hum.JumpPower  = _jumpPower
+        hum.JumpHeight = _jumpPower * 0.05
+    end
+end)
 
 Movement:AddSection("Misc")
 
