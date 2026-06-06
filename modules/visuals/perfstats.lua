@@ -65,8 +65,8 @@ local function buildGui()
     pill.BackgroundColor3        = Color3.fromRGB(8, 8, 8)
     pill.BackgroundTransparency  = 0.2
     pill.BorderSizePixel         = 0
-    pill.AnchorPoint             = Vector2.new(0, 0)
-    pill.Position                = UDim2.new(0, 10, 0, 10)
+    pill.AnchorPoint             = Vector2.new(0.5, 0)
+    pill.Position                = UDim2.new(0.5, 0, 0, 10)
     pill.Size                    = UDim2.new(0, 300, 0, 26)
     pill.Parent                  = sg
 

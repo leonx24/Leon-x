@@ -19,6 +19,41 @@ local rmbConn    = nil
 local prevCamType    = nil
 local prevMouseBeh   = nil
 
+-- freeze character so WASD doesn't move it
+local frozenConn     = nil
+local frozenCFrame   = nil
+
+local function freezeCharacter()
+    local char = lp.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hrp or not hum then return end
+
+    -- record position to anchor it
+    frozenCFrame = hrp.CFrame
+
+    -- disable movement: zero WalkSpeed and anchor
+    hum.WalkSpeed    = 0
+    hum.JumpPower    = 0
+    hum.AutoRotate   = false
+    hrp.Anchored     = true
+end
+
+local function unfreezeCharacter()
+    local char = lp.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hrp then hrp.Anchored = false end
+    if hum then
+        hum.WalkSpeed  = 16
+        hum.JumpPower  = 50
+        hum.AutoRotate = true
+    end
+    frozenCFrame = nil
+end
+
 -- camera state
 local camCF     = CFrame.new(0, 10, 0)
 local pitch     = 0
@@ -60,6 +95,9 @@ function FreeCam:Enable()
 
     -- override camera
     camera.CameraType = Enum.CameraType.Scriptable
+
+    -- freeze character so WASD doesn't move it
+    freezeCharacter()
 
     -- RMB: lock mouse while held for delta reads
     rmbConn = UIS.InputBegan:Connect(function(input, gp)
@@ -140,6 +178,9 @@ function FreeCam:Disable()
     if scrollConn      then scrollConn:Disconnect();      scrollConn      = nil end
     if rmbConn         then rmbConn:Disconnect();         rmbConn         = nil end
     if FreeCam._rmbEnd then FreeCam._rmbEnd:Disconnect(); FreeCam._rmbEnd = nil end
+
+    -- unfreeze character
+    unfreezeCharacter()
 
     -- restore mouse
     UIS.MouseBehavior = Enum.MouseBehavior.Default
