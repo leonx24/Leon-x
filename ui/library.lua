@@ -115,19 +115,30 @@ local ActiveL = mkL(Top,"",10,C.Dim,Enum.Font.Gotham,Enum.TextXAlignment.Right)
 ActiveL.Size = UDim2.new(0,80,1,0)
 ActiveL.Position = UDim2.new(1,-168,0,0)   -- left of window buttons
 
--- track active toggle count
+-- track active toggle count — recount from scratch to avoid drift
 Library._activeCount = 0
 local function updateActiveCount()
-    if Library._activeCount > 0 then
-        ActiveL.Text = Library._activeCount .. " active"
+    -- recount all active toggles from Registry (source of truth)
+    local count = 0
+    for _, api in pairs(Library.Registry) do
+        if api.Get then
+            local ok, val = pcall(function() return api:Get() end)
+            if ok and val == true then
+                count = count + 1
+            end
+        end
+    end
+    Library._activeCount = count
+    if count > 0 then
+        ActiveL.Text = count .. " active"
         ActiveL.TextColor3 = C.Accent
     else
         ActiveL.Text = ""
+        ActiveL.TextColor3 = C.Dim
     end
 end
-Library._onToggleChanged = function(isOn)
-    Library._activeCount = Library._activeCount + (isOn and 1 or -1)
-    if Library._activeCount < 0 then Library._activeCount = 0 end
+Library._onToggleChanged = function(_)
+    -- ignore the passed value, always recount for accuracy
     updateActiveCount()
 end
 
@@ -220,14 +231,156 @@ SearchInput.ClearTextOnFocus   = false
 SearchInput.TextXAlignment     = Enum.TextXAlignment.Left
 SearchInput.Parent             = SearchBox
 
+-- ── Global Search state (SearchPage created after Content below) ──────────────
+Library._searchActive   = false
+Library._preSearchTab   = nil
+Library._movedFrames    = {}
+Library._searchHeaders  = {}
+
+local SearchPage          -- forward declaration, initialized after Content
+local NoResultsLabel      -- forward declaration
+local SearchPageLayout    -- forward declaration
+
+local function restoreMovedFrames()
+    for _, entry in ipairs(Library._movedFrames) do
+        pcall(function()
+            entry.frame.Parent      = entry.originalParent
+            entry.frame.LayoutOrder = entry.originalOrder
+            entry.frame.Visible     = true
+        end)
+    end
+    Library._movedFrames = {}
+    for _, h in ipairs(Library._searchHeaders) do
+        pcall(function() h:Destroy() end)
+    end
+    Library._searchHeaders = {}
+    if NoResultsLabel then NoResultsLabel.Visible = false end
+end
+
+local function captureCurrentTab(Pages)
+    for _, v in pairs(Pages) do
+        if v.page.Visible then
+            local captured = v
+            Library._preSearchTab = function()
+                for _, vv in pairs(Pages) do
+                    vv.page.Visible = false
+                    tw(vv.btn,.15,{BackgroundColor3=C.Surface})
+                    tw(vv.bar,.15,{BackgroundTransparency=1})
+                    tw(vv.lbl,.15,{TextColor3=C.Sub})
+                    if vv.ico then tw(vv.ico,.15,{TextColor3=C.Sub}) end
+                end
+                captured.page.Visible = true
+                tw(captured.btn,.15,{BackgroundColor3=C.Elevated})
+                tw(captured.bar,.15,{BackgroundTransparency=0})
+                tw(captured.lbl,.15,{TextColor3=C.Text})
+                if captured.ico then tw(captured.ico,.15,{TextColor3=C.Accent}) end
+            end
+            return
+        end
+    end
+end
+
+-- section header for search results grouped by tab
+local function mkSearchHeader(tabName)
+    local h = mkF(SearchPage, C.BG)
+    h.BackgroundTransparency = 1
+    h.Size = UDim2.new(1,0,0,24)
+    local line = mkF(h, C.Border)
+    line.Size = UDim2.new(1,0,0,1)
+    line.Position = UDim2.new(0,0,0.5,0)
+    local pill = mkF(h, C.BG)
+    pill.AnchorPoint = Vector2.new(0,0.5)
+    pill.Position    = UDim2.new(0,0,0.5,0)
+    pill.Size        = UDim2.new(0,80,1,0)
+    local t = mkL(pill, tabName:upper(), 10, C.Dim, Enum.Font.GothamBold, Enum.TextXAlignment.Left)
+    t.Size     = UDim2.new(1,0,1,0)
+    t.Position = UDim2.new(0,4,0,0)
+    task.defer(function()
+        if t.TextBounds.X > 0 then
+            pill.Size = UDim2.new(0, t.TextBounds.X+10, 1, 0)
+        end
+    end)
+    return h
+end
+
+-- doSearch is defined here but captures Pages by upvalue set below
+local _Pages  -- forward ref to Pages table
 local function doSearch(query)
-    query = query:lower():gsub("%s+", "")
+    query = query:match("^%s*(.-)%s*$"):lower()
+    if not _Pages then return end
+
+    -- ── clear search ─────────────────────────────────────────────────────────
+    if query == "" then
+        if Library._searchActive then
+            Library._searchActive = false
+            restoreMovedFrames()
+            if SearchPage then SearchPage.Visible = false end
+            if Library._preSearchTab then
+                Library._preSearchTab()
+                Library._preSearchTab = nil
+            end
+        end
+        return
+    end
+
+    -- ── entering search mode ──────────────────────────────────────────────────
+    if not Library._searchActive then
+        Library._searchActive = true
+        captureCurrentTab(_Pages)
+        for _, v in pairs(_Pages) do
+            v.page.Visible = false
+            tw(v.btn,.15,{BackgroundColor3=C.Surface})
+            tw(v.bar,.15,{BackgroundTransparency=1})
+            tw(v.lbl,.15,{TextColor3=C.Sub})
+            if v.ico then tw(v.ico,.15,{TextColor3=C.Sub}) end
+        end
+    else
+        restoreMovedFrames()
+    end
+
+    -- ── collect matches grouped by tab ────────────────────────────────────────
+    local tabOrder = {}
+    local tabMap   = {}
     for _, entry in ipairs(Library._allComponents) do
-        if query == "" then
-            entry.frame.Visible = true
-        else
-            local name = entry.name:lower():gsub("%s+", "")
-            entry.frame.Visible = name:find(query, 1, true) ~= nil
+        local ename = entry.name:lower()
+        if ename:find(query, 1, true) then
+            local tname = entry.tabName or "Other"
+            if not tabMap[tname] then
+                tabMap[tname] = {}
+                table.insert(tabOrder, tname)
+            end
+            table.insert(tabMap[tname], entry)
+        end
+    end
+
+    if SearchPage then
+        SearchPage.Visible = true
+        SearchPage.CanvasPosition = Vector2.zero
+    end
+
+    if #tabOrder == 0 then
+        if NoResultsLabel then NoResultsLabel.Visible = true end
+        return
+    end
+    if NoResultsLabel then NoResultsLabel.Visible = false end
+
+    local order = 0
+    for _, tname in ipairs(tabOrder) do
+        local header = mkSearchHeader(tname)
+        header.LayoutOrder = order
+        order = order + 1
+        table.insert(Library._searchHeaders, header)
+
+        for _, entry in ipairs(tabMap[tname]) do
+            table.insert(Library._movedFrames, {
+                frame          = entry.frame,
+                originalParent = entry.frame.Parent,
+                originalOrder  = entry.frame.LayoutOrder,
+            })
+            entry.frame.Visible     = true
+            entry.frame.Parent      = SearchPage
+            entry.frame.LayoutOrder = order
+            order = order + 1
         end
     end
 end
@@ -242,7 +395,31 @@ Content.BackgroundTransparency = 1
 Content.Size = UDim2.new(1,-131,1,-40)
 Content.Position = UDim2.new(0,131,0,40)
 
+-- ── Search results page (needs Content to exist first) ────────────────────────
+SearchPage = Instance.new("ScrollingFrame")
+SearchPage.Size                 = UDim2.new(1,0,1,0)
+SearchPage.CanvasSize           = UDim2.new(0,0,0,0)
+SearchPage.ScrollBarThickness   = 2
+SearchPage.ScrollBarImageColor3 = C.Border
+SearchPage.BackgroundTransparency = 1
+SearchPage.BorderSizePixel      = 0
+SearchPage.Visible              = false
+SearchPage.Parent               = Content
+SearchPageLayout = Instance.new("UIListLayout")
+SearchPageLayout.Padding        = UDim.new(0,8)
+SearchPageLayout.SortOrder      = Enum.SortOrder.LayoutOrder
+SearchPageLayout.Parent         = SearchPage
+pdg(SearchPage, 14, 14, 14, 14)
+SearchPageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    SearchPage.CanvasSize = UDim2.new(0,0,0, SearchPageLayout.AbsoluteContentSize.Y+28)
+end)
+NoResultsLabel = mkL(SearchPage, "No results", 13, C.Sub, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+NoResultsLabel.Size       = UDim2.new(1,0,0,40)
+NoResultsLabel.LayoutOrder = 9999
+NoResultsLabel.Visible    = false
+
 local Pages = {}
+_Pages = Pages   -- wire forward ref so doSearch can access Pages
 Library._first = true
 Library._currentTheme = "Dark"
 Library.Registry = {}   -- Flag → component api, populated by Tab:Add* when Flag is set
@@ -385,8 +562,9 @@ FloatCount.Position = UDim2.new(0,0,0,20)
 local _origToggleChanged = Library._onToggleChanged
 Library._onToggleChanged = function(isOn)
     _origToggleChanged(isOn)
-    if Library._activeCount > 0 then
-        FloatCount.Text = Library._activeCount .. " on"
+    local count = Library._activeCount
+    if count > 0 then
+        FloatCount.Text = count .. " on"
         FloatCount.TextColor3 = C.Accent
     else
         FloatCount.Text = ""
@@ -588,7 +766,7 @@ local function mkToggle(parent, data)
     function api:Set(v) set(v,true) end
     function api:Get() return on end
     addTooltip(row, data.Desc or data.Name or "Toggle")
-    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -614,7 +792,7 @@ local function mkButton(parent, data)
     local api = {Frame=b}
     function api:SetText(t) b.Text=t end
     addTooltip(b, data.Desc or data.Name or "Button")
-    table.insert(Library._allComponents, {frame=b, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=b, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -677,7 +855,7 @@ local function mkSlider(parent, data)
     function api:Set(v) upd((math.clamp(v,mn,mx)-mn)/(mx-mn)) end
     function api:Get() return cur end
     addTooltip(w, data.Desc or data.Name or "Slider")
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -826,7 +1004,7 @@ local function mkDropdown(parent, data)
         end
     end
     addTooltip(w, data.Desc or data.Name or "Dropdown")
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -873,7 +1051,7 @@ local function mkKeybind(parent, data)
         kb.TextColor3 = C.Dim
     end
     function api:Get() return cur end
-    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -884,7 +1062,7 @@ local function mkLabel(parent, data)
     l.BorderSizePixel = 0
     local api = {Frame=l}
     function api:Set(t) l.Text=t end
-    table.insert(Library._allComponents, {frame=l, name=data.Text or "", page=parent})
+    table.insert(Library._allComponents, {frame=l, name=data.Text or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -947,7 +1125,7 @@ local function mkColorPicker(parent, data)
     local api = {Frame=w}
     function api:Set(c) cur=c; swatch.BackgroundColor3=c end
     function api:Get() return cur end
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1002,7 +1180,7 @@ local function mkTextInput(parent, data)
     local api = { Frame = w }
     function api:Get() return box.Text end
     function api:Set(v) box.Text = v; current = v end
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent})
+    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1070,18 +1248,61 @@ function Library:CreateTab(name, icon)
         bl.TextColor3 = C.Text
         if il then il.TextColor3 = C.Accent end
     end
-    btn.MouseButton1Click:Connect(activate)
+    btn.MouseButton1Click:Connect(function()
+        -- if search is active, clear it first then activate this tab
+        if Library._searchActive then
+            SearchInput.Text = ""
+            -- doSearch("") will run via the Text signal, but we need to ensure
+            -- we activate THIS tab, not the previously captured one
+            Library._searchActive = false
+            restoreMovedFrames()
+            SearchPage.Visible = false
+            Library._preSearchTab = nil
+        end
+        activate()
+    end)
     hvr(btn, C.Surface, C.Hover, C.Press)
     local Tab = {}
+    local tabName = name   -- captured in closure for component registration
+    Library._currentTabName = tabName   -- also set global for legacy compat
+    local function addComp(frame, cname)
+        table.insert(Library._allComponents, {frame=frame, name=cname or "", page=page, tabName=tabName})
+    end
+    Library._addComp = addComp   -- expose so mk* functions can use it via override
+
     function Tab:AddSection(n)     return mkSection(page,n)           end
-    function Tab:AddToggle(d)      return reg(d, mkToggle(page,d))    end
-    function Tab:AddButton(d)      return mkButton(page,d)            end
-    function Tab:AddSlider(d)      return reg(d, mkSlider(page,d))    end
-    function Tab:AddDropdown(d)    return reg(d, mkDropdown(page,d))  end
-    function Tab:AddKeybind(d)     return reg(d, mkKeybind(page,d))   end
-    function Tab:AddLabel(d)       return mkLabel(page,d)             end
-    function Tab:AddColorPicker(d) return mkColorPicker(page,d)       end
-    function Tab:AddTextInput(d)   return mkTextInput(page,d)         end
+    function Tab:AddToggle(d)
+        Library._currentTabName = tabName
+        return reg(d, mkToggle(page,d))
+    end
+    function Tab:AddButton(d)
+        Library._currentTabName = tabName
+        return mkButton(page,d)
+    end
+    function Tab:AddSlider(d)
+        Library._currentTabName = tabName
+        return reg(d, mkSlider(page,d))
+    end
+    function Tab:AddDropdown(d)
+        Library._currentTabName = tabName
+        return reg(d, mkDropdown(page,d))
+    end
+    function Tab:AddKeybind(d)
+        Library._currentTabName = tabName
+        return reg(d, mkKeybind(page,d))
+    end
+    function Tab:AddLabel(d)
+        Library._currentTabName = tabName
+        return mkLabel(page,d)
+    end
+    function Tab:AddColorPicker(d)
+        Library._currentTabName = tabName
+        return mkColorPicker(page,d)
+    end
+    function Tab:AddTextInput(d)
+        Library._currentTabName = tabName
+        return mkTextInput(page,d)
+    end
     return Tab
 end
 
