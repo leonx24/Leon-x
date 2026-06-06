@@ -1135,4 +1135,144 @@ function Library:Notify(data)
     end)
 end
 
+-- ── Splash / loading screen ───────────────────────────────────────────────────
+do
+    local Splash = Instance.new("Frame")
+    Splash.Name                   = "Splash"
+    Splash.Size                   = UDim2.new(1, 0, 1, 0)
+    Splash.Position               = UDim2.new(0, 0, 0, 0)
+    Splash.BackgroundColor3       = Color3.fromRGB(6, 6, 6)
+    Splash.BackgroundTransparency = 0
+    Splash.BorderSizePixel        = 0
+    Splash.ZIndex                 = 200
+    Splash.Parent                 = Screen
+
+    -- centered card
+    local card = mkF(Splash, C.Surface)
+    card.Size        = UDim2.new(0, 240, 0, 136)
+    card.AnchorPoint = Vector2.new(0.5, 0.5)
+    card.Position    = UDim2.new(0.5, 0, 0.5, 0)
+    card.ZIndex      = 201
+    rnd(card, 14)
+    strk(card, C.Border)
+
+    -- logo dot
+    local logoDot = mkF(card, C.Accent)
+    logoDot.Size        = UDim2.new(0, 8, 0, 8)
+    logoDot.Position    = UDim2.new(0, 20, 0, 26)
+    logoDot.AnchorPoint = Vector2.new(0, 0.5)
+    logoDot.ZIndex      = 202
+    rnd(logoDot, 4)
+
+    local titleSp = mkL(card, "Leon X", 17, C.Text, Enum.Font.GothamBold)
+    titleSp.Size     = UDim2.new(1, -46, 0, 22)
+    titleSp.Position = UDim2.new(0, 36, 0, 16)
+    titleSp.ZIndex   = 202
+
+    local verSp = mkL(card, "v5.0", 11, C.Sub, Enum.Font.Gotham)
+    verSp.Size     = UDim2.new(0, 40, 0, 16)
+    verSp.Position = UDim2.new(0, 36, 0, 38)
+    verSp.ZIndex   = 202
+
+    local statusL = mkL(card, "Initializing...", 11, C.Dim, Enum.Font.Gotham)
+    statusL.Size     = UDim2.new(1, -24, 0, 16)
+    statusL.Position = UDim2.new(0, 14, 0, 68)
+    statusL.ZIndex   = 202
+
+    local barBg = mkF(card, C.Elevated)
+    barBg.Size     = UDim2.new(1, -28, 0, 3)
+    barBg.Position = UDim2.new(0, 14, 1, -18)
+    barBg.ZIndex   = 202
+    rnd(barBg, 2)
+
+    local barFill = mkF(barBg, C.Accent)
+    barFill.Size   = UDim2.new(0, 0, 1, 0)
+    barFill.ZIndex = 203
+    rnd(barFill, 2)
+
+    local dotsL = mkL(card, "●  ○  ○", 9, C.Sub, Enum.Font.GothamMedium, Enum.TextXAlignment.Center)
+    dotsL.Size     = UDim2.new(1, 0, 0, 14)
+    dotsL.Position = UDim2.new(0, 0, 0, 92)
+    dotsL.ZIndex   = 202
+
+    -- card entrance animation
+    card.BackgroundTransparency = 1
+    card.Size = UDim2.new(0, 200, 0, 110)
+    tw(card, 0.35, { BackgroundTransparency = 0, Size = UDim2.new(0, 240, 0, 136) })
+    for _, child in ipairs(card:GetDescendants()) do
+        if child:IsA("TextLabel") then
+            child.TextTransparency = 1
+            tw(child, 0.4, { TextTransparency = 0 })
+        elseif child:IsA("Frame") then
+            child.BackgroundTransparency = 1
+            tw(child, 0.4, { BackgroundTransparency = 0 })
+        end
+    end
+
+    -- dot animation loop
+    local dotFrames = { "●  ○  ○", "○  ●  ○", "○  ○  ●", "●  ○  ○" }
+    local steps = {
+        "Initializing...",
+        "Loading UI engine...",
+        "Fetching modules...",
+        "Wiring features...",
+        "Almost ready...",
+    }
+    local dotIdx   = 1
+    local stepIdx  = 1
+
+    task.spawn(function()
+        local lastDot  = tick()
+        local lastStep = tick()
+        while Splash and Splash.Parent do
+            local now = tick()
+            if now - lastDot >= 0.28 then
+                lastDot = now
+                dotIdx = (dotIdx % #dotFrames) + 1
+                pcall(function() dotsL.Text = dotFrames[dotIdx] end)
+            end
+            if now - lastStep >= 0.85 then
+                lastStep = now
+                stepIdx = (stepIdx % #steps) + 1
+                pcall(function() statusL.Text = steps[stepIdx] end)
+            end
+            task.wait(0.05)
+        end
+    end)
+
+    Library._splash    = Splash
+    Library._splashBar = barFill
+
+    function Library:SetSplashProgress(pct)
+        pcall(function()
+            tw(self._splashBar, 0.2, { Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0) })
+        end)
+    end
+
+    function Library:HideSplash()
+        task.spawn(function()
+            pcall(function()
+                local sp = self._splash
+                if not sp or not sp.Parent then return end
+                tw(self._splashBar, 0.2, { Size = UDim2.new(1, 0, 1, 0) })
+                task.wait(0.25)
+                tw(sp, 0.5, { BackgroundTransparency = 1 })
+                for _, child in ipairs(sp:GetDescendants()) do
+                    pcall(function()
+                        if child:IsA("TextLabel") then
+                            tw(child, 0.35, { TextTransparency = 1 })
+                        elseif child:IsA("Frame") then
+                            tw(child, 0.35, { BackgroundTransparency = 1 })
+                        end
+                    end)
+                end
+                task.wait(0.55)
+                pcall(function() sp:Destroy() end)
+                self._splash    = nil
+                self._splashBar = nil
+            end)
+        end)
+    end
+end
+
 return Library

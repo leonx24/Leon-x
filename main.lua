@@ -8,29 +8,29 @@ local lp      = Players.LocalPlayer
 
 local function load(p) return loadstring(game:HttpGet(BASE..p))() end
 
--- ── Modules ───────────────────────────────────────────────────────────────────
-local Library     = load("ui/library.lua")
-local ConfigMgr   = load("modules/core/configmanager.lua")
-local Fly         = load("modules/movements/fly.lua")
-local Speed       = load("modules/movements/speed.lua")
-local InfJump     = load("modules/movements/infinitejump.lua")
-local Noclip      = load("modules/movements/noclip.lua")
-local AntiRagdoll = load("modules/movements/antiragdoll.lua")
-local Invisible   = load("modules/movements/invisible.lua")
--- AutoWalk: loaded but not shown in UI (disabled for now)
--- local AutoWalk = load("modules/movements/autowalk.lua")
-local FreeCam     = load("modules/movements/freecam.lua")
-local ESP         = load("modules/visuals/esp.lua")
-local Tracer      = load("modules/visuals/tracer.lua")
-local FullBright  = load("modules/visuals/fullbright.lua")
-local PerfStats   = load("modules/visuals/perfstats.lua")
-local AntiAFK     = load("modules/player/antiafk.lua")
-local AntiFling   = load("modules/player/antifling.lua")
-local Rejoin      = load("modules/player/rejoin.lua")
-local Teleport    = load("modules/player/teleport.lua")
--- AutoFarm: removed from UI
--- local AutoFarm = load("modules/player/autofarm.lua")
-local GodMode     = load("modules/player/godmode.lua")
+-- ── Splash shown immediately via library.lua ──────────────────────────────────
+local Library   = load("ui/library.lua")
+Library:SetSplashProgress(0.05)
+
+local ConfigMgr = load("modules/core/configmanager.lua")
+Library:SetSplashProgress(0.12)
+
+local Fly         = load("modules/movements/fly.lua");         Library:SetSplashProgress(0.18)
+local Speed       = load("modules/movements/speed.lua");       Library:SetSplashProgress(0.23)
+local InfJump     = load("modules/movements/infinitejump.lua");Library:SetSplashProgress(0.28)
+local Noclip      = load("modules/movements/noclip.lua");      Library:SetSplashProgress(0.33)
+local AntiRagdoll = load("modules/movements/antiragdoll.lua"); Library:SetSplashProgress(0.38)
+local Invisible   = load("modules/movements/invisible.lua");   Library:SetSplashProgress(0.42)
+local FreeCam     = load("modules/movements/freecam.lua");     Library:SetSplashProgress(0.47)
+local ESP         = load("modules/visuals/esp.lua");           Library:SetSplashProgress(0.53)
+local Tracer      = load("modules/visuals/tracer.lua");        Library:SetSplashProgress(0.58)
+local FullBright  = load("modules/visuals/fullbright.lua");    Library:SetSplashProgress(0.62)
+local PerfStats   = load("modules/visuals/perfstats.lua");     Library:SetSplashProgress(0.67)
+local AntiAFK     = load("modules/player/antiafk.lua");        Library:SetSplashProgress(0.72)
+local AntiFling   = load("modules/player/antifling.lua");      Library:SetSplashProgress(0.77)
+local Rejoin      = load("modules/player/rejoin.lua");         Library:SetSplashProgress(0.82)
+local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.87)
+local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.93)
 
 ConfigMgr:Init(Library)
 
@@ -275,5 +275,7 @@ Set:AddLabel({ Text="Leon X  ·  v5.0", Color=Color3.fromRGB(70,70,70), Align=En
 
 -- ── Boot ──────────────────────────────────────────────────────────────────────
 ConfigMgr:AutoLoad()
-PerfStats:Enable()   -- show HUD immediately on execute
+Library:SetSplashProgress(1)
+Library:HideSplash()
+PerfStats:Enable()
 task.delay(1, function() N("Leon X","Welcome!","success",3) end)
