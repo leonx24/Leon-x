@@ -30,14 +30,15 @@ local function freezeCharacter()
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
-    -- record position to anchor it
     frozenCFrame = hrp.CFrame
 
-    -- disable movement: zero WalkSpeed and anchor
     hum.WalkSpeed    = 0
     hum.JumpPower    = 0
     hum.AutoRotate   = false
     hrp.Anchored     = true
+
+    -- disable humanoid entirely so PlayerModule stops sending movement
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
 end
 
 local function unfreezeCharacter()
@@ -50,6 +51,7 @@ local function unfreezeCharacter()
         hum.WalkSpeed  = 16
         hum.JumpPower  = 50
         hum.AutoRotate = true
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
     end
     frozenCFrame = nil
 end
