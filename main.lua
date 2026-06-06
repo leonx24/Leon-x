@@ -34,6 +34,7 @@ local AntiFling   = load("modules/player/antifling.lua");      Library:SetSplash
 local Rejoin      = load("modules/player/rejoin.lua");         Library:SetSplashProgress(0.82)
 local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.87)
 local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.93)
+local NoFallDmg   = load("modules/player/nofalldamage.lua");   Library:SetSplashProgress(0.95)
 
 ConfigMgr:Init(Library)
 
@@ -202,6 +203,10 @@ Ply:AddToggle({ Name="God Mode", Flag="GodMode", Default=false,
         N("God Mode", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Ply:AddSection("Protection")
+
+Ply:AddToggle({ Name="No Fall Damage", Flag="NoFallDamage", Default=false,
+    Callback=function(v) if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
+        N("No Fall Damage", v and "Enabled" or "Disabled", v and "success" or "info") end })
 
 Ply:AddToggle({ Name="Anti Fling", Flag="AntiFling", Default=false,
     Callback=function(v) if v then AntiFling:Enable() else AntiFling:Disable() end
