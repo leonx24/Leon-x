@@ -766,7 +766,6 @@ local function mkToggle(parent, data)
     function api:Set(v) set(v,true) end
     function api:Get() return on end
     addTooltip(row, data.Desc or data.Name or "Toggle")
-    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -792,7 +791,6 @@ local function mkButton(parent, data)
     local api = {Frame=b}
     function api:SetText(t) b.Text=t end
     addTooltip(b, data.Desc or data.Name or "Button")
-    table.insert(Library._allComponents, {frame=b, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -855,7 +853,6 @@ local function mkSlider(parent, data)
     function api:Set(v) upd((math.clamp(v,mn,mx)-mn)/(mx-mn)) end
     function api:Get() return cur end
     addTooltip(w, data.Desc or data.Name or "Slider")
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1004,7 +1001,6 @@ local function mkDropdown(parent, data)
         end
     end
     addTooltip(w, data.Desc or data.Name or "Dropdown")
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1051,7 +1047,6 @@ local function mkKeybind(parent, data)
         kb.TextColor3 = C.Dim
     end
     function api:Get() return cur end
-    table.insert(Library._allComponents, {frame=row, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1062,7 +1057,6 @@ local function mkLabel(parent, data)
     l.BorderSizePixel = 0
     local api = {Frame=l}
     function api:Set(t) l.Text=t end
-    table.insert(Library._allComponents, {frame=l, name=data.Text or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1125,7 +1119,6 @@ local function mkColorPicker(parent, data)
     local api = {Frame=w}
     function api:Set(c) cur=c; swatch.BackgroundColor3=c end
     function api:Get() return cur end
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1180,7 +1173,6 @@ local function mkTextInput(parent, data)
     local api = { Frame = w }
     function api:Get() return box.Text end
     function api:Set(v) box.Text = v; current = v end
-    table.insert(Library._allComponents, {frame=w, name=data.Name or "", page=parent, tabName=Library._currentTabName or ""})
     return api
 end
 
@@ -1263,45 +1255,73 @@ function Library:CreateTab(name, icon)
     end)
     hvr(btn, C.Surface, C.Hover, C.Press)
     local Tab = {}
-    local tabName = name   -- captured in closure for component registration
-    Library._currentTabName = tabName   -- also set global for legacy compat
-    local function addComp(frame, cname)
-        table.insert(Library._allComponents, {frame=frame, name=cname or "", page=page, tabName=tabName})
-    end
-    Library._addComp = addComp   -- expose so mk* functions can use it via override
+    local tabName = name   -- captured in closure
+    local _order  = 0      -- per-tab sequential LayoutOrder counter
 
-    function Tab:AddSection(n)     return mkSection(page,n)           end
+    -- assign LayoutOrder and register in _allComponents
+    local function finalize(frame, cname)
+        frame.LayoutOrder = _order
+        _order = _order + 1
+        table.insert(Library._allComponents, {
+            frame   = frame,
+            name    = cname or "",
+            page    = page,
+            tabName = tabName,
+        })
+    end
+
+    function Tab:AddSection(n)
+        local f = mkSection(page, n)
+        f.LayoutOrder = _order; _order = _order + 1
+        return f
+    end
     function Tab:AddToggle(d)
         Library._currentTabName = tabName
-        return reg(d, mkToggle(page,d))
+        local api = reg(d, mkToggle(page, d))
+        finalize(api.Frame, d.Name)
+        return api
     end
     function Tab:AddButton(d)
         Library._currentTabName = tabName
-        return mkButton(page,d)
+        local api = mkButton(page, d)
+        finalize(api.Frame, d.Name)
+        return api
     end
     function Tab:AddSlider(d)
         Library._currentTabName = tabName
-        return reg(d, mkSlider(page,d))
+        local api = reg(d, mkSlider(page, d))
+        finalize(api.Frame, d.Name)
+        return api
     end
     function Tab:AddDropdown(d)
         Library._currentTabName = tabName
-        return reg(d, mkDropdown(page,d))
+        local api = reg(d, mkDropdown(page, d))
+        finalize(api.Frame, d.Name)
+        return api
     end
     function Tab:AddKeybind(d)
         Library._currentTabName = tabName
-        return reg(d, mkKeybind(page,d))
+        local api = reg(d, mkKeybind(page, d))
+        finalize(api.Frame, d.Name)
+        return api
     end
     function Tab:AddLabel(d)
         Library._currentTabName = tabName
-        return mkLabel(page,d)
+        local api = mkLabel(page, d)
+        finalize(api.Frame, d.Text or d.Name or "")
+        return api
     end
     function Tab:AddColorPicker(d)
         Library._currentTabName = tabName
-        return mkColorPicker(page,d)
+        local api = mkColorPicker(page, d)
+        finalize(api.Frame, d.Name)
+        return api
     end
     function Tab:AddTextInput(d)
         Library._currentTabName = tabName
-        return mkTextInput(page,d)
+        local api = mkTextInput(page, d)
+        finalize(api.Frame, d.Name)
+        return api
     end
     return Tab
 end
