@@ -96,10 +96,15 @@ function ConfigManager:Load(name)
                     local kc = Enum.KeyCode[val]
                     if kc then
                         api:Set(kc)
+                        -- fire callback so keybind-dependent state updates
+                        if api.Callback then pcall(api.Callback, kc) end
                         return
                     end
                 end
                 api:Set(val)
+                -- fire callback after set so modules actually activate
+                -- (api:Set is silent by design; callbacks enable/disable features)
+                if api.Callback then pcall(api.Callback, val) end
             end)
         end
     end

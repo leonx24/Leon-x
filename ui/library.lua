@@ -185,6 +185,10 @@ Library.Registry = {}   -- Flag → component api, populated by Tab:Add* when Fl
 -- internal helper: register a component api if data.Flag is provided
 local function reg(data, api)
     if type(data.Flag) == "string" and data.Flag ~= "" then
+        -- store callback on api so ConfigManager can fire it on load
+        if type(data.Callback) == "function" then
+            api.Callback = data.Callback
+        end
         Library.Registry[data.Flag] = api
     end
     return api
