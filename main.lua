@@ -2,18 +2,21 @@
 -- UI wiring only — all logic lives in module files
 
 local BASE    = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
-local CURRENT_VERSION = "1.0"
+local CURRENT_VERSION = "1.1"
 
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
 local lp      = Players.LocalPlayer
 
-local function load(p) return loadstring(game:HttpGet(BASE..p))() end
+-- Cache buster to force fresh loads
+local cacheBust = "?t="..os.time()
+local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
 -- ── Auto-Update Check ─────────────────────────────────────────────────────────
 local function checkForUpdates()
     local success, latestVersion = pcall(function()
-        return game:HttpGet(BASE.."version.txt"):match("^%s*(.-)%s*$")
+        -- Cache bust for version check too
+        return game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
     end)
 
     if success and latestVersion and latestVersion ~= CURRENT_VERSION then
