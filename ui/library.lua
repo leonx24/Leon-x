@@ -120,7 +120,7 @@ local TitleL = mkL(Top,"Leon X",14,C.Text,Enum.Font.GothamBold)
 TitleL.Size = UDim2.new(0,80,1,0)
 TitleL.Position = UDim2.new(0,30,0,0)
 
-local VerL = mkL(Top,"v1.0",10,C.Sub,Enum.Font.Gotham)
+local VerL = mkL(Top,"v1.1",10,C.Sub,Enum.Font.Gotham)
 VerL.Size = UDim2.new(0,36,1,0)
 VerL.Position = UDim2.new(0,108,0,0)
 
@@ -1641,7 +1641,7 @@ do
     titleSp.Position = UDim2.new(0, 36, 0, 16)
     titleSp.ZIndex   = 201
 
-    local verSp = mkL(card, "v1.0", 11, C.Sub, Enum.Font.Gotham)
+    local verSp = mkL(card, "v1.1", 11, C.Sub, Enum.Font.Gotham)
     verSp.Size     = UDim2.new(0, 40, 0, 16)
     verSp.Position = UDim2.new(0, 36, 0, 38)
     verSp.ZIndex   = 201
