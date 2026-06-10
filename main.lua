@@ -2,11 +2,25 @@
 -- UI wiring only — all logic lives in module files
 
 local BASE    = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
+local CURRENT_VERSION = "1.0"
+
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
 local lp      = Players.LocalPlayer
 
 local function load(p) return loadstring(game:HttpGet(BASE..p))() end
+
+-- ── Auto-Update Check ─────────────────────────────────────────────────────────
+local function checkForUpdates()
+    local success, latestVersion = pcall(function()
+        return game:HttpGet(BASE.."version.txt"):match("^%s*(.-)%s*$")
+    end)
+
+    if success and latestVersion and latestVersion ~= CURRENT_VERSION then
+        return latestVersion
+    end
+    return nil
+end
 
 -- ── Splash shown immediately via library.lua ──────────────────────────────────
 local Library   = load("ui/library.lua")
@@ -301,11 +315,19 @@ Set:AddButton({ Name="⭐  Set as Default", Callback=function()
     N("Config", ok and s.." is default" or "Failed", ok and "success" or "error",3) end })
 
 Set:AddSection("About")
-Set:AddLabel({ Text="Leon X  ·  v1.0", Color=Color3.fromRGB(70,70,70), Align=Enum.TextXAlignment.Center })
+Set:AddLabel({ Text="Leon X  ·  v"..CURRENT_VERSION, Color=Color3.fromRGB(70,70,70), Align=Enum.TextXAlignment.Center })
 
 -- ── Boot ──────────────────────────────────────────────────────────────────────
 ConfigMgr:AutoLoad()
 Library:SetSplashProgress(1)
 Library:HideSplash()
 PerfStats:Enable()
+
+-- Check for updates after UI loads
+task.delay(2, function()
+    local newVersion = checkForUpdates()
+    if newVersion then
+        N("Update Available", "v"..newVersion.." is out! Reload script to update.", "warn", 8)
+    end
+end)
 task.delay(1, function() N("Leon X","Welcome!","success",3) end)

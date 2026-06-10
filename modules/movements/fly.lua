@@ -2,7 +2,7 @@
 -- PC:     WASD + Space/E naik + Q/Ctrl turun
 --         RMB tahan + W/S = ikut pitch kamera
 -- Mobile: thumbstick (MoveDirection) untuk horizontal
---         naik/turun lewat toggle UI atau Humanoid.Jump
+--         Virtual buttons untuk naik/turun (improved UX)
 
 local Fly = {}
 Fly.Name    = "Fly"
@@ -15,6 +15,7 @@ local RunService = game:GetService("RunService")
 local lp         = Players.LocalPlayer
 
 local bv, bg, conn
+local MobileControls = nil
 
 -- detect platform
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
@@ -29,6 +30,21 @@ function Fly:Enable()
     if not hrp or not hum then return end
 
     self.Enabled   = true
+
+    -- Load mobile controls on mobile devices
+    if isMobile and not MobileControls then
+        local ok, mc = pcall(function()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/leonx24/Leon-x/main/ui/mobilecontrols.lua"))()
+        end)
+        if ok then
+            MobileControls = mc
+        end
+    end
+
+    -- Enable mobile controls
+    if MobileControls then
+        pcall(function() MobileControls:Enable() end)
+    end
 
     -- Error handling: safely disable auto rotate
     pcall(function() hum.AutoRotate = false end)
@@ -91,11 +107,13 @@ function Fly:Enable()
                     local dot_r = fwd:Dot(right)
                     dir = dir + flat * dot_f + right * dot_r
                 end
-                -- naik/turun mobile: Jump state dari humanoid
-                if hm2:GetState() == Enum.HumanoidStateType.Jumping
-                or hm2:GetState() == Enum.HumanoidStateType.FreeFalling then
-                    -- di mobile, tekan lompat = naik
-                    dir = dir + Vector3.new(0, 0.8, 0)
+
+                -- naik/turun mobile: Virtual buttons (improved UX)
+                if MobileControls then
+                    local vertInput = MobileControls:GetVerticalInput()
+                    if vertInput ~= 0 then
+                        dir = dir + Vector3.new(0, vertInput * 0.8, 0)
+                    end
                 end
             else
                 -- ── PC: keyboard ──────────────────────────────────────────────────
@@ -143,6 +161,11 @@ end
 
 function Fly:Disable()
     self.Enabled = false
+
+    -- Disable mobile controls
+    if MobileControls then
+        pcall(function() MobileControls:Disable() end)
+    end
 
     -- Error handling: safely restore auto rotate
     pcall(function()
