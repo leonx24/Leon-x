@@ -16,11 +16,20 @@ local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 local function checkForUpdates()
     local success, latestVersion = pcall(function()
         -- Cache bust for version check too
-        return game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
+        local raw = game:HttpGet(BASE.."version.txt?t="..os.time())
+        -- Clean all whitespace/newlines
+        return raw:match("^%s*(.-)%s*$")
     end)
 
-    if success and latestVersion and latestVersion ~= CURRENT_VERSION then
-        return latestVersion
+    if success and latestVersion then
+        -- Only notify if versions are actually different (case insensitive)
+        local cleanLatest = latestVersion:gsub("%s+", ""):lower()
+        local cleanCurrent = CURRENT_VERSION:gsub("%s+", ""):lower()
+
+        -- Only show notification if truly different
+        if cleanLatest ~= "" and cleanLatest ~= cleanCurrent then
+            return latestVersion
+        end
     end
     return nil
 end
