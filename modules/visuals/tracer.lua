@@ -11,10 +11,16 @@ Tracer.Thickness = 2
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 local lp         = Players.LocalPlayer
 
 local updateConn = nil
 local lines      = {}   -- [player] = line object (Drawing or Frame)
+
+-- Anti-detection: generate random instance names
+local function randomName()
+    return HttpService:GenerateGUID(false):sub(1, 8)
+end
 
 -- ── detect which renderer to use ─────────────────────────────────────────────
 local useDrawing = false
@@ -60,15 +66,24 @@ local tracerGui = nil
 local function getGui()
     if tracerGui and tracerGui.Parent then return tracerGui end
     if tracerGui then pcall(function() tracerGui:Destroy() end) end
-    local pg = lp:FindFirstChildOfClass("PlayerGui")
-    if not pg then return nil end
+
+    -- Error handling: safely get PlayerGui
+    local success, pg = pcall(function()
+        return lp:FindFirstChildOfClass("PlayerGui")
+    end)
+    if not success or not pg then return nil end
+
+    -- Anti-detection: random GUI name
     local sg = Instance.new("ScreenGui")
-    sg.Name           = "LeonTracer"
+    sg.Name           = randomName()
     sg.ResetOnSpawn   = false
     sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     sg.DisplayOrder   = 998
     sg.IgnoreGuiInset = true
-    sg.Parent         = pg
+
+    local ok = pcall(function() sg.Parent = pg end)
+    if not ok then sg:Destroy(); return nil end
+
     tracerGui = sg
     return sg
 end
@@ -141,8 +156,9 @@ end
 
 -- ── main update ───────────────────────────────────────────────────────────────
 local function updateTracers()
-    local camera = workspace.CurrentCamera
-    if not camera then return end
+    -- Error handling: safely get camera
+    local success, camera = pcall(function() return workspace.CurrentCamera end)
+    if not success or not camera then return end
 
     local vp      = camera.ViewportSize
     local originX = vp.X / 2
@@ -158,29 +174,31 @@ local function updateTracers()
     for _, p in ipairs(toRemove) do removeLine(p) end
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player == lp then continue end
+        if player ~= lp then
+            pcall(function()
+                local char = player.Character
+                if not char then removeLine(player); return end
 
-        local char = player.Character
-        if not char then removeLine(player); continue end
+                local hrp = char:FindFirstChild("HumanoidRootPart")
+                if not hrp then removeLine(player); return end
 
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if not hrp then removeLine(player); continue end
+                local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                if not onScreen then
+                    hideLine(lines[player])
+                    return
+                end
 
-        local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
-        if not onScreen then
-            hideLine(lines[player])
-            continue
-        end
+                -- create line object if needed
+                if not lines[player] then
+                    lines[player] = createLine()
+                end
 
-        -- create line object if needed
-        if not lines[player] then
-            lines[player] = createLine()
-        end
-
-        if not updateLine(lines[player], originX, originY, screenPos.X, screenPos.Y) then
-            -- frame became invalid (gui was destroyed), recreate
-            lines[player] = createLine()
-            updateLine(lines[player], originX, originY, screenPos.X, screenPos.Y)
+                if not updateLine(lines[player], originX, originY, screenPos.X, screenPos.Y) then
+                    -- frame became invalid (gui was destroyed), recreate
+                    lines[player] = createLine()
+                    updateLine(lines[player], originX, originY, screenPos.X, screenPos.Y)
+                end
+            end)
         end
     end
 end
@@ -189,19 +207,34 @@ end
 function Tracer:Enable()
     self.Enabled = true
     if not useDrawing then getGui() end
-    if updateConn then updateConn:Disconnect(); updateConn = nil end
+
+    -- Cleanup old connection to prevent duplicates
+    if updateConn then
+        pcall(function() updateConn:Disconnect() end)
+        updateConn = nil
+    end
+
     updateConn = RunService.RenderStepped:Connect(function()
         if not self.Enabled then return end
-        updateTracers()
+        pcall(updateTracers)
     end)
 end
 
 function Tracer:Disable()
     self.Enabled = false
-    if updateConn then updateConn:Disconnect(); updateConn = nil end
+
+    -- Cleanup connection with error handling
+    if updateConn then
+        pcall(function() updateConn:Disconnect() end)
+        updateConn = nil
+    end
+
+    -- Remove all lines
     local toRemove = {}
     for p in pairs(lines) do toRemove[#toRemove + 1] = p end
-    for _, p in ipairs(toRemove) do removeLine(p) end
+    for _, p in ipairs(toRemove) do pcall(function() removeLine(p) end) end
+
+    -- Cleanup GUI
     if tracerGui then
         pcall(function() tracerGui:Destroy() end)
         tracerGui = nil

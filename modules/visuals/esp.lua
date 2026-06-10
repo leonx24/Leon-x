@@ -11,16 +11,24 @@ ESP.ShowMode = "Both"   -- "Both" | "Body" | "Name"
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
 local lp         = Players.LocalPlayer
 
-local espData    = {}   -- [player] = { hl, bbg, nameLbl, distLbl }
+local espData    = {}   -- [player] = { hl, bbg, nameLbl, distLbl, cleanupConn }
 local playerConn = nil
 local charConns  = {}
 local updateConn = nil  -- Heartbeat for distance update
 
+-- Anti-detection: generate random instance names
+local function randomName()
+    return HttpService:GenerateGUID(false):sub(1, 8)
+end
+
 local function removeESP(player)
     local d = espData[player]
     if not d then return end
+    -- Cleanup connections first to prevent memory leaks
+    pcall(function() if d.cleanupConn then d.cleanupConn:Disconnect() end end)
     pcall(function() if d.hl  then d.hl:Destroy()  end end)
     pcall(function() if d.bbg then d.bbg:Destroy() end end)
     espData[player] = nil
@@ -29,14 +37,17 @@ end
 local function addESP(player)
     if player == lp then return end
     removeESP(player)
-    local char = player.Character
-    if not char then return end
+
+    -- Error handling: safely check character exists
+    local success, char = pcall(function() return player.Character end)
+    if not success or not char then return end
+
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
 
-    -- Highlight (body)
+    -- Highlight (body) - with anti-detection random name
     local hl = Instance.new("Highlight")
-    hl.Name                = "LeonESP"
+    hl.Name                = randomName()  -- Anti-detection: random GUID
     hl.Adornee             = char
     hl.OutlineColor        = ESP.Color
     hl.FillColor           = ESP.Color
@@ -44,17 +55,22 @@ local function addESP(player)
     hl.FillTransparency    = 1 - ESP.Opacity
     hl.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
     hl.Enabled             = (ESP.ShowMode == "Both" or ESP.ShowMode == "Body")
-    hl.Parent              = char
 
-    -- BillboardGui (name + distance)
+    -- Error handling: parent might fail
+    local ok = pcall(function() hl.Parent = char end)
+    if not ok then hl:Destroy(); return end
+
+    -- BillboardGui (name + distance) - with anti-detection random name
     local bbg = Instance.new("BillboardGui")
-    bbg.Name        = "LeonESP_Tag"
+    bbg.Name        = randomName()  -- Anti-detection: random GUID
     bbg.Adornee     = hrp
     bbg.Size        = UDim2.new(0, 150, 0, 40)
     bbg.StudsOffset = Vector3.new(0, 3.4, 0)
     bbg.AlwaysOnTop = true
     bbg.Enabled     = (ESP.ShowMode == "Both" or ESP.ShowMode == "Name")
-    bbg.Parent      = hrp
+
+    ok = pcall(function() bbg.Parent = hrp end)
+    if not ok then hl:Destroy(); bbg:Destroy(); return end
 
     -- layout inside bbg
     local layout = Instance.new("UIListLayout")
@@ -85,12 +101,12 @@ local function addESP(player)
     distLbl.TextStrokeColor3       = Color3.new(0, 0, 0)
     distLbl.Parent                 = bbg
 
-    espData[player] = { hl=hl, bbg=bbg, nameLbl=nameLbl, distLbl=distLbl }
-
-    -- auto clean when char removed
-    char.AncestryChanged:Connect(function()
+    -- Respawn handling: cleanup connection that auto-removes ESP when character dies
+    local cleanupConn = char.AncestryChanged:Connect(function()
         if not char.Parent then removeESP(player) end
     end)
+
+    espData[player] = { hl=hl, bbg=bbg, nameLbl=nameLbl, distLbl=distLbl, cleanupConn=cleanupConn }
 end
 
 local function applyShowMode()
@@ -105,15 +121,24 @@ end
 local function startDistanceUpdate()
     if updateConn then return end
     updateConn = RunService.Heartbeat:Connect(function()
-        local myHRP = lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
-        if not myHRP then return end
+        -- Error handling: safely get player's HRP
+        local success, myHRP = pcall(function()
+            return lp.Character and lp.Character:FindFirstChild("HumanoidRootPart")
+        end)
+        if not success or not myHRP then return end
+
         for player, d in pairs(espData) do
-            if d.distLbl and player.Character then
-                local tHRP = player.Character:FindFirstChild("HumanoidRootPart")
-                if tHRP then
-                    local dist = math.floor((myHRP.Position - tHRP.Position).Magnitude)
-                    d.distLbl.Text = dist .. " stud"
-                end
+            if d.distLbl then
+                pcall(function()
+                    local char = player.Character
+                    if char then
+                        local tHRP = char:FindFirstChild("HumanoidRootPart")
+                        if tHRP then
+                            local dist = math.floor((myHRP.Position - tHRP.Position).Magnitude)
+                            d.distLbl.Text = dist .. " stud"
+                        end
+                    end
+                end)
             end
         end
     end)
@@ -149,14 +174,33 @@ function ESP:Enable()
     self.Enabled = true
     self:Rebuild()
     startDistanceUpdate()
+
+    -- Cleanup old connections to prevent duplicates
+    if playerConn then playerConn:Disconnect(); playerConn = nil end
+    for _, c in ipairs(charConns) do pcall(function() c:Disconnect() end) end
+    charConns = {}
+
     playerConn = Players.PlayerAdded:Connect(function(p)
-        local c = p.CharacterAdded:Connect(function() task.wait(0.5); addESP(p) end)
+        local c = p.CharacterAdded:Connect(function()
+            task.wait(0.5)
+            if self.Enabled then
+                pcall(function() addESP(p) end)
+            end
+        end)
         table.insert(charConns, c)
-        if p.Character then addESP(p) end
+        if p.Character then
+            pcall(function() addESP(p) end)
+        end
     end)
+
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= lp then
-            local c = p.CharacterAdded:Connect(function() task.wait(0.5); addESP(p) end)
+            local c = p.CharacterAdded:Connect(function()
+                task.wait(0.5)
+                if self.Enabled then
+                    pcall(function() addESP(p) end)
+                end
+            end)
             table.insert(charConns, c)
         end
     end
@@ -166,7 +210,7 @@ function ESP:Disable()
     self.Enabled = false
     stopDistanceUpdate()
     if playerConn then playerConn:Disconnect(); playerConn = nil end
-    for _, c in ipairs(charConns) do c:Disconnect() end
+    for _, c in ipairs(charConns) do pcall(function() c:Disconnect() end) end
     charConns = {}
     self:Rebuild()
 end

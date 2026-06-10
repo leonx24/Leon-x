@@ -8,10 +8,21 @@ NoFallDamage.Name    = "NoFallDamage"
 NoFallDamage.Enabled = false
 
 local Players = game:GetService("Players")
+local HttpService = game:GetService("HttpService")
 local lp      = Players.LocalPlayer
 
+-- Inline safety utilities
+local function randomDelay(min, max)
+    min = min or 50
+    max = max or 150
+    return (math.random(min, max)) / 1000
+end
+
+local function safeDisconnect(conn)
+    if conn then pcall(function() conn:Disconnect() end) end
+end
+
 local stateConn  = nil   -- Humanoid.StateChanged connection
-local healthConn = nil   -- Humanoid.HealthChanged connection (snapshot)
 local charConn   = nil   -- CharacterAdded connection
 
 local savedHealth  = nil   -- health snapshot taken while airborne
@@ -20,66 +31,87 @@ local isFalling    = false
 local function applyToChar(char)
     if not char then return end
 
-    -- wait for humanoid
+    -- Error handling: safely get humanoid with timeout
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then
-        hum = char:WaitForChild("Humanoid", 5)
-        if not hum then return end
+        local success
+        success, hum = pcall(function()
+            return char:WaitForChild("Humanoid", 5)
+        end)
+        if not success or not hum then return end
     end
 
-    -- clean up previous connections
-    if stateConn  then stateConn:Disconnect();  stateConn  = nil end
-    if healthConn then healthConn:Disconnect();  healthConn = nil end
+    -- Clean up previous connections to prevent memory leaks
+    safeDisconnect(stateConn)
+    stateConn = nil
     savedHealth = nil
     isFalling   = false
 
     stateConn = hum.StateChanged:Connect(function(_, new)
         if not NoFallDamage.Enabled then return end
 
-        if new == Enum.HumanoidStateType.FreeFalling then
-            -- started falling — take a health snapshot
-            isFalling   = true
-            savedHealth = hum.Health
+        pcall(function()
+            if new == Enum.HumanoidStateType.FreeFalling then
+                -- started falling — take a health snapshot
+                isFalling   = true
+                savedHealth = hum.Health
 
-        elseif isFalling and (
-            new == Enum.HumanoidStateType.Landed      or
-            new == Enum.HumanoidStateType.Running     or
-            new == Enum.HumanoidStateType.RunningNoPhysics or
-            new == Enum.HumanoidStateType.Jumping     or
-            new == Enum.HumanoidStateType.Climbing
-        ) then
-            -- just landed — restore health before the game can apply damage
-            isFalling = false
-            if savedHealth and hum and hum.Parent then
-                -- defer one frame so damage calculation runs first,
-                -- then we override it back
-                task.defer(function()
-                    if NoFallDamage.Enabled and hum and hum.Parent then
-                        if hum.Health < savedHealth then
-                            hum.Health = savedHealth
+            elseif isFalling and (
+                new == Enum.HumanoidStateType.Landed      or
+                new == Enum.HumanoidStateType.Running     or
+                new == Enum.HumanoidStateType.RunningNoPhysics or
+                new == Enum.HumanoidStateType.Jumping     or
+                new == Enum.HumanoidStateType.Climbing
+            ) then
+                -- just landed — restore health before the game can apply damage
+                isFalling = false
+                if savedHealth and hum and hum.Parent then
+                    -- Anti-detection: add random micro-delay
+                    task.wait(randomDelay(10, 50))
+                    -- defer one frame so damage calculation runs first,
+                    -- then we override it back
+                    task.defer(function()
+                        if NoFallDamage.Enabled and hum and hum.Parent then
+                            if hum.Health < savedHealth then
+                                hum.Health = savedHealth
+                            end
                         end
-                    end
-                end)
+                    end)
+                end
+                savedHealth = nil
             end
-            savedHealth = nil
-        end
+        end)
     end)
 end
 
 function NoFallDamage:Enable()
     self.Enabled = true
-    applyToChar(lp.Character)
+
+    -- Error handling: safely apply to current character
+    pcall(function()
+        local char = lp.Character
+        if char then applyToChar(char) end
+    end)
+
+    -- Cleanup old connection
+    safeDisconnect(charConn)
+    charConn = nil
+
+    -- Respawn handling with error handling
     charConn = lp.CharacterAdded:Connect(function(char)
-        task.wait(0.1)
-        if self.Enabled then applyToChar(char) end
+        task.wait(randomDelay(80, 200))
+        if self.Enabled then
+            pcall(applyToChar, char)
+        end
     end)
 end
 
 function NoFallDamage:Disable()
     self.Enabled = false
-    if stateConn  then stateConn:Disconnect();  stateConn  = nil end
-    if healthConn then healthConn:Disconnect();  healthConn = nil end
-    if charConn   then charConn:Disconnect();   charConn   = nil end
+    safeDisconnect(stateConn)
+    safeDisconnect(charConn)
+    stateConn = nil
+    charConn  = nil
     savedHealth = nil
     isFalling   = false
 end
