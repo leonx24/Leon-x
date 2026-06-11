@@ -12,6 +12,7 @@ Aimbot.Smoothness   = 5          -- Lower = smoother (1-10, only for Visible mod
 Aimbot.TeamCheck    = true       -- Skip teammates
 Aimbot.VisibleCheck = true       -- Only target visible players
 Aimbot.ShowFOV      = true       -- Show FOV circle
+Aimbot.TriggerBot   = false      -- Auto shoot when aimed at target
 
 local Players        = game:GetService("Players")
 local RunService     = game:GetService("RunService")
@@ -153,11 +154,21 @@ local function aimAtTarget()
     -- Smoothness: lerp between current and target CFrame
     local alpha = 1 / math.max(1, Aimbot.Smoothness)
     Camera.CFrame = camCFrame:Lerp(targetCFrame, alpha)
+
+    -- Trigger bot: auto shoot when aimed
+    if Aimbot.TriggerBot and alpha > 0.9 then
+        pcall(function()
+            mouse1press()
+            task.wait(0.05)
+            mouse1release()
+        end)
+    end
 end
 
 -- ── Silent Aim ────────────────────────────────────────────────────────────────
 
 local oldNamecall
+local oldIndex
 local function hookNamecall()
     if oldNamecall then return end  -- Already hooked
 
@@ -189,12 +200,43 @@ local function hookNamecall()
 
         return oldNamecall(self, unpack(args))
     end)
+
+    -- Hook mouse properties for gun aiming
+    oldIndex = hookmetamethod(game, "__index", function(self, key)
+        if Aimbot.Enabled and Aimbot.Mode == "Silent" then
+            if target and target.Character then
+                local targetPart = getTargetPart(target.Character)
+                if targetPart then
+                    -- Hook Mouse.Hit and Mouse.Target for shooting
+                    if self == game.Players.LocalPlayer:GetMouse() then
+                        if key == "Hit" then
+                            return CFrame.new(targetPart.Position)
+                        elseif key == "Target" then
+                            return targetPart
+                        elseif key == "X" then
+                            local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
+                            return screenPos.X
+                        elseif key == "Y" then
+                            local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
+                            return screenPos.Y
+                        end
+                    end
+                end
+            end
+        end
+
+        return oldIndex(self, key)
+    end)
 end
 
 local function unhookNamecall()
     if oldNamecall then
         hookmetamethod(game, "__namecall", oldNamecall)
         oldNamecall = nil
+    end
+    if oldIndex then
+        hookmetamethod(game, "__index", oldIndex)
+        oldIndex = nil
     end
 end
 
@@ -294,6 +336,10 @@ end
 function Aimbot:SetShowFOV(enabled)
     self.ShowFOV = enabled
     updateFOVCircle()
+end
+
+function Aimbot:SetTriggerBot(enabled)
+    self.TriggerBot = enabled
 end
 
 return Aimbot

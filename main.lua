@@ -251,6 +251,10 @@ Ply:AddSlider({ Name="FOV Size", Flag="AimbotFOV", Min=50, Max=500, Default=200,
 Ply:AddSlider({ Name="Smoothness", Flag="AimbotSmooth", Min=1, Max=10, Default=5,
     Callback=function(v) Aimbot:SetSmoothness(v) end })
 
+Ply:AddToggle({ Name="Trigger Bot", Flag="TriggerBot", Default=false,
+    Callback=function(v) Aimbot:SetTriggerBot(v)
+        N("Trigger Bot", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
 Ply:AddToggle({ Name="Show FOV Circle", Flag="AimbotShowFOV", Default=true,
     Callback=function(v) Aimbot:SetShowFOV(v) end })
 
