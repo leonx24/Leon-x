@@ -18,16 +18,17 @@ local C = {
     Surface  = Color3.fromRGB(17,17,17),
     Elevated = Color3.fromRGB(23,23,23),
     Border   = Color3.fromRGB(36,36,36),
-    Accent   = Color3.fromRGB(255,255,255),
+    Accent   = Color3.fromRGB(100,200,255),  -- Cyan/Blue gradient
+    Accent2  = Color3.fromRGB(150,100,255),  -- Purple
     Dim      = Color3.fromRGB(130,130,130),
-    Text     = Color3.fromRGB(228,228,228),
-    Sub      = Color3.fromRGB(95,95,95),
+    Text     = Color3.fromRGB(240,240,245),  -- Brighter white
+    Sub      = Color3.fromRGB(120,120,130),
     OffTrack = Color3.fromRGB(44,44,44),
-    OnTrack  = Color3.fromRGB(195,195,195),
+    OnTrack  = Color3.fromRGB(100,200,255),  -- Cyan when active
     Hover    = Color3.fromRGB(29,29,29),
     Press    = Color3.fromRGB(38,38,38),
-    Red      = Color3.fromRGB(170,40,40),
-    RedH     = Color3.fromRGB(205,58,58),
+    Red      = Color3.fromRGB(255,70,90),    -- Brighter red
+    RedH     = Color3.fromRGB(255,100,120),
 }
 
 local function tw(o,t,p)
@@ -38,7 +39,7 @@ local function twBounce(o,t,p)
     TweenService:Create(o,TweenInfo.new(t,Enum.EasingStyle.Back,Enum.EasingDirection.Out),p):Play()
 end
 
-local function rnd(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=p end
+local function rnd(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 14); c.Parent=p end
 
 local function strk(p,col)
     local s=Instance.new("UIStroke")
