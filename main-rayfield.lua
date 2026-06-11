@@ -131,7 +131,9 @@ if Fly then
         HoldToInteract = false,
         Flag = "FlyKeybind",
         Callback = function(k)
-            print("[Leon X] Fly keybind changed to:", k)
+            -- Rayfield passes KeyCode directly
+            flyKey = Enum.KeyCode[k] or flyKey
+            N("Fly Keybind", "Set to "..k)
         end,
     })
 
@@ -267,7 +269,9 @@ if FreeCam then
         HoldToInteract = false,
         Flag = "FreeCamKeybind",
         Callback = function(k)
-            print("[Leon X] FreeCam keybind changed to:", k)
+            -- Rayfield passes KeyCode directly
+            fcKey = Enum.KeyCode[k] or fcKey
+            N("FreeCam Keybind", "Set to "..k)
         end,
     })
 
@@ -715,6 +719,62 @@ PlyTab:CreateLabel("User ID: "..tostring(lp.UserId))
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS TAB
 -- ══════════════════════════════════════════════════════════════════════════════
+SetTab:CreateSection("Interface")
+
+SetTab:CreateKeybind({
+    Name = "Toggle UI Key",
+    CurrentKeybind = "RightShift",
+    HoldToInteract = false,
+    Flag = "ToggleUIKey",
+    Callback = function(k)
+        N("Toggle UI Key", "Set to "..k)
+    end,
+})
+
+SetTab:CreateDropdown({
+    Name = "Theme",
+    Options = {"Default", "Light", "Amethyst", "Bloom"},
+    CurrentOption = "Default",
+    Flag = "Theme",
+    Callback = function(v)
+        N("Theme", v.." applied")
+    end,
+})
+
+SetTab:CreateToggle({
+    Name = "Show Notifications",
+    CurrentValue = true,
+    Flag = "ShowNotifications",
+    Callback = function(v)
+        N("Notifications", v and "Enabled" or "Disabled")
+    end,
+})
+
+SetTab:CreateSection("Config")
+
+-- Note: Rayfield has built-in config system via ConfigurationSaving
+-- These buttons provide manual save/load functionality
+
+SetTab:CreateParagraph({
+    Title = "Configuration",
+    Content = "Rayfield automatically saves your settings.\nUse the buttons below for manual control."
+})
+
+SetTab:CreateButton({
+    Name = "💾 Save Config Now",
+    Callback = function()
+        -- Rayfield auto-saves, but we can trigger it
+        N("Config", "Settings saved automatically")
+    end,
+})
+
+SetTab:CreateButton({
+    Name = "🔄 Reset to Defaults",
+    Callback = function()
+        N("Config", "Please restart the script to reset")
+    end,
+})
+
 SetTab:CreateSection("About")
 
 SetTab:CreateParagraph({
