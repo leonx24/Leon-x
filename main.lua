@@ -1,8 +1,13 @@
--- Leon X | main.lua v1.1
+-- Leon X | main.lua
 -- UI wiring only — all logic lives in module files
 
 local BASE    = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
-local CURRENT_VERSION = "1.1"
+
+-- Fetch current version from version.txt (single source of truth)
+local CURRENT_VERSION = "1.0" -- fallback
+pcall(function()
+    CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
+end)
 
 local Players = game:GetService("Players")
 local UIS     = game:GetService("UserInputService")
@@ -12,27 +17,7 @@ local lp      = Players.LocalPlayer
 local cacheBust = "?t="..os.time()
 local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
--- ── Auto-Update Check ─────────────────────────────────────────────────────────
-local function checkForUpdates()
-    local success, latestVersion = pcall(function()
-        -- Cache bust for version check too
-        local raw = game:HttpGet(BASE.."version.txt?t="..os.time())
-        -- Clean all whitespace/newlines
-        return raw:match("^%s*(.-)%s*$")
-    end)
-
-    if success and latestVersion then
-        -- Only notify if versions are actually different (case insensitive)
-        local cleanLatest = latestVersion:gsub("%s+", ""):lower()
-        local cleanCurrent = CURRENT_VERSION:gsub("%s+", ""):lower()
-
-        -- Only show notification if truly different
-        if cleanLatest ~= "" and cleanLatest ~= cleanCurrent then
-            return latestVersion
-        end
-    end
-    return nil
-end
+local function N(t,m,k,d) Library:Notify({Title=t,Text=m,Type=k or "info",Duration=d or 2}) end
 
 -- ── Splash shown immediately via library.lua ──────────────────────────────────
 local Library   = load("ui/library.lua")
@@ -58,9 +43,13 @@ local AntiAFK     = load("modules/player/antiafk.lua");        Library:SetSplash
 local InfStamina  = load("modules/player/infinitestamina.lua");Library:SetSplashProgress(0.75)
 local AntiFling   = load("modules/player/antifling.lua");      Library:SetSplashProgress(0.79)
 local Rejoin      = load("modules/player/rejoin.lua");         Library:SetSplashProgress(0.82)
-local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.87)
-local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.93)
-local NoFallDmg   = load("modules/player/nofalldamage.lua");   Library:SetSplashProgress(0.95)
+local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.85)
+local HitboxExp   = load("modules/player/hitboxexpander.lua"); Library:SetSplashProgress(0.88)
+local Waypoint    = load("modules/player/waypoint.lua");       Library:SetSplashProgress(0.91)
+local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.94)
+local NoFallDmg   = load("modules/player/nofalldamage.lua");   Library:SetSplashProgress(0.97)
+
+Waypoint:Init()
 
 ConfigMgr:Init(Library)
 
@@ -241,6 +230,18 @@ Ply:AddToggle({ Name="Anti Fling", Flag="AntiFling", Default=false,
 Ply:AddSlider({ Name="Fling Threshold", Flag="FlingThreshold", Min=100, Max=1000, Default=200, Suffix=" stud/s",
     Callback=function(v) AntiFling:SetThreshold(v) end })
 
+Ply:AddSection("Combat")
+
+Ply:AddToggle({ Name="Hitbox Expander", Flag="HitboxExpander", Default=false,
+    Callback=function(v) if v then HitboxExp:Enable() else HitboxExp:Disable() end
+        N("Hitbox Expander", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddSlider({ Name="Hitbox Size", Flag="HitboxSize", Min=5, Max=30, Default=10, Suffix="x",
+    Callback=function(v) HitboxExp:SetSize(v) end })
+
+Ply:AddSlider({ Name="Hitbox Transparency", Flag="HitboxTransparency", Min=0, Max=100, Default=80, Suffix="%",
+    Callback=function(v) HitboxExp:SetTransparency(v) end })
+
 Ply:AddSection("Teleport")
 
 Ply:AddButton({ Name="📍  Copy My Position", Callback=function()
@@ -257,7 +258,7 @@ end })
 local tpDrop = Ply:AddDropdown({ Name="Select Player",
     Options=Teleport:GetPlayerList(), Default=Teleport:GetPlayerList()[1] })
 
-Ply:AddButton({ Name="🔄  Refresh", Callback=function()
+Ply:AddButton({ Name="🔄  Refresh Players", Callback=function()
     tpDrop:SetOptions(Teleport:GetPlayerList()); N("Teleport","Refreshed") end })
 
 Ply:AddButton({ Name="⚡  Teleport to Player", Callback=function()
@@ -265,6 +266,40 @@ Ply:AddButton({ Name="⚡  Teleport to Player", Callback=function()
     if name=="(no players)" then return end
     if Teleport:ToPlayer(name, Fly) then N("Teleport","→ "..name,"success")
     else N("Teleport",name.." not found","error",3) end
+end })
+
+Ply:AddSection("Waypoints")
+
+local wpNameIn = Ply:AddTextInput({ Name="Waypoint Name", Placeholder="e.g. spawn", Default="", Callback=function()end })
+
+Ply:AddButton({ Name="➕  Create Waypoint", Callback=function()
+    local name = wpNameIn:Get()
+    if name == "" then N("Waypoint","Enter a name","warn",2); return end
+    if Waypoint:Exists(name) then N("Waypoint",name.." already exists","warn",3); return end
+    if Waypoint:Create(name) then N("Waypoint","Created: "..name,"success",2)
+    else N("Waypoint","Failed to create","error",2) end
+end })
+
+local wpDrop = Ply:AddDropdown({ Name="Select Waypoint",
+    Options=Waypoint:GetList(), Default=Waypoint:GetList()[1] })
+
+Ply:AddButton({ Name="🔄  Refresh Waypoints", Callback=function()
+    wpDrop:SetOptions(Waypoint:GetList()); N("Waypoint","Refreshed") end })
+
+Ply:AddButton({ Name="📍  Teleport to Waypoint", Callback=function()
+    local name = wpDrop:Get()
+    if name=="(no waypoints)" then return end
+    if Waypoint:Teleport(name, Fly) then N("Waypoint","→ "..name,"success")
+    else N("Waypoint","Failed","error",2) end
+end })
+
+Ply:AddButton({ Name="🗑  Delete Waypoint", Callback=function()
+    local name = wpDrop:Get()
+    if name=="(no waypoints)" then return end
+    if Waypoint:Delete(name) then
+        N("Waypoint","Deleted: "..name,"info",2)
+        wpDrop:SetOptions(Waypoint:GetList())
+    else N("Waypoint","Failed to delete","error",2) end
 end })
 
 Ply:AddSection("Server")
@@ -335,11 +370,4 @@ Library:SetSplashProgress(1)
 Library:HideSplash()
 PerfStats:Enable()
 
--- Check for updates after UI loads
-task.delay(2, function()
-    local newVersion = checkForUpdates()
-    if newVersion then
-        N("Update Available", "v"..newVersion.." is out! Reload script to update.", "warn", 8)
-    end
-end)
 task.delay(1, function() N("Leon X","Welcome!","success",3) end)
