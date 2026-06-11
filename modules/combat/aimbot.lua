@@ -24,6 +24,8 @@ local lp             = Players.LocalPlayer
 local fovCircle      = nil
 local aimConnection  = nil
 local target         = nil
+local lastUpdate     = 0  -- Throttle updates
+local UPDATE_RATE    = 1/60  -- 60 FPS cap
 
 -- ── FOV Circle ────────────────────────────────────────────────────────────────
 
@@ -49,6 +51,7 @@ local function updateFOVCircle()
     fovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
     fovCircle.Radius = Aimbot.FOV
     fovCircle.Visible = Aimbot.ShowFOV and Aimbot.Enabled
+    fovCircle.NumSides = math.clamp(Aimbot.FOV / 4, 32, 64)  -- Dynamic sides based on FOV
 end
 
 -- ── Utility Functions ─────────────────────────────────────────────────────────
@@ -70,10 +73,19 @@ local function isVisible(targetPart)
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return false end
 
-    local ray = Ray.new(myRoot.Position, (targetPart.Position - myRoot.Position))
-    local part, position = Workspace:FindPartOnRayWithIgnoreList(ray, {myChar, Camera})
+    -- Use RaycastParams for better performance
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {myChar, Camera}
+    raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
-    return part and part:IsDescendantOf(targetPart.Parent)
+    local direction = (targetPart.Position - myRoot.Position)
+    local result = Workspace:Raycast(myRoot.Position, direction, raycastParams)
+
+    if result then
+        return result.Instance:IsDescendantOf(targetPart.Parent)
+    end
+
+    return true
 end
 
 local function getTargetPart(character)
@@ -92,6 +104,8 @@ local function getClosestPlayer()
     local closest = nil
     local shortestDistance = math.huge
     local mousePos = UserInputService:GetMouseLocation()
+    local vp = Camera.ViewportSize
+    local screenCenter = Vector2.new(vp.X / 2, vp.Y / 2)
 
     for _, player in ipairs(Players:GetPlayers()) do
         if player == lp then continue end
@@ -105,16 +119,18 @@ local function getClosestPlayer()
         local targetPart = getTargetPart(player.Character)
         if not targetPart then continue end
 
-        if not isVisible(targetPart) then continue end
-
+        -- Quick screen check before visibility check (optimization)
         local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
         if not onScreen then continue end
 
-        local distance = (Vector2.new(screenPos.X, screenPos.Y) - mousePos).Magnitude
+        local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
 
         if distance < Aimbot.FOV and distance < shortestDistance then
-            shortestDistance = distance
-            closest = player
+            -- Only do expensive visibility check for potential targets
+            if isVisible(targetPart) then
+                shortestDistance = distance
+                closest = player
+            end
         end
     end
 
@@ -265,16 +281,26 @@ function Aimbot:Enable()
     -- Main aimbot loop
     aimConnection = RunService.RenderStepped:Connect(function()
         pcall(function()
+            local currentTime = tick()
+
+            -- Throttle updates to reduce lag
+            if currentTime - lastUpdate < UPDATE_RATE then
+                return
+            end
+            lastUpdate = currentTime
+
             updateFOVCircle()
 
-            -- Update target
-            target = getClosestPlayer()
+            -- Update target every frame but less expensive operations
+            if not target or not target.Character or not target.Character:FindFirstChildOfClass("Humanoid") or target.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then
+                target = getClosestPlayer()
+            end
 
             -- Visible aimbot: move camera
             if self.Mode == "Visible" and target then
                 aimAtTarget()
             end
-            -- Silent aim: target is used in __namecall hook
+            -- Silent aim: target is used in __index hook
         end)
     end)
 end
