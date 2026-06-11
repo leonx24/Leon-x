@@ -29,27 +29,40 @@ local TARGET_UPDATE_INTERVAL = 0.1  -- Update target every 100ms instead of ever
 -- ── FOV Circle ────────────────────────────────────────────────────────────────
 
 local function createFOVCircle()
-    if fovCircle then pcall(function() fovCircle:Remove() end) end
+    -- Skip Drawing API if not supported or causes lag
+    local success, circle = pcall(function()
+        if fovCircle then fovCircle:Remove() end
 
-    fovCircle = Drawing.new("Circle")
-    fovCircle.Thickness = 1
-    fovCircle.NumSides = 32  -- Lower sides for better performance
-    fovCircle.Radius = Aimbot.FOV
-    fovCircle.Color = Color3.fromRGB(255, 255, 255)
-    fovCircle.Transparency = 0.5
-    fovCircle.Visible = false
-    fovCircle.Filled = false
+        local c = Drawing.new("Circle")
+        c.Thickness = 1
+        c.NumSides = 24  -- Even lower for ProjectReal
+        c.Radius = Aimbot.FOV
+        c.Color = Color3.fromRGB(255, 255, 255)
+        c.Transparency = 0.3
+        c.Visible = false
+        c.Filled = false
+        return c
+    end)
+
+    if success then
+        fovCircle = circle
+    else
+        fovCircle = nil
+        Aimbot.ShowFOV = false  -- Disable if Drawing API fails
+    end
 
     return fovCircle
 end
 
 local function updateFOVCircle()
-    if not fovCircle or not Aimbot.ShowFOV then return end
+    if not fovCircle or not Aimbot.ShowFOV or not Aimbot.Enabled then return end
 
-    local vp = Camera.ViewportSize
-    fovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
-    fovCircle.Radius = Aimbot.FOV
-    fovCircle.Visible = Aimbot.Enabled
+    pcall(function()
+        local vp = Camera.ViewportSize
+        fovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
+        fovCircle.Radius = Aimbot.FOV
+        fovCircle.Visible = true
+    end)
 end
 
 -- ── Utility Functions ─────────────────────────────────────────────────────────
@@ -179,67 +192,78 @@ local oldIndex
 local function hookNamecall()
     if oldNamecall then return end
 
-    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
+    -- More lightweight hook for ProjectReal
+    local success = pcall(function()
+        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            local args = {...}
 
-        if Aimbot.Enabled and Aimbot.Mode == "Silent" and (method == "FireServer" or method == "InvokeServer") then
-            if target and target.Character then
-                local targetPart = getTargetPart(target.Character)
-                if targetPart then
-                    for i, arg in ipairs(args) do
-                        if typeof(arg) == "Vector3" then
-                            args[i] = targetPart.Position
-                        elseif typeof(arg) == "CFrame" then
-                            args[i] = CFrame.new(targetPart.Position)
-                        elseif typeof(arg) == "Ray" then
-                            local origin = arg.Origin
-                            local direction = (targetPart.Position - origin).Unit * arg.Direction.Magnitude
-                            args[i] = Ray.new(origin, direction)
+            if Aimbot.Enabled and Aimbot.Mode == "Silent" and (method == "FireServer" or method == "InvokeServer") then
+                if target and target.Character then
+                    local targetPart = getTargetPart(target.Character)
+                    if targetPart then
+                        for i, arg in ipairs(args) do
+                            if typeof(arg) == "Vector3" then
+                                args[i] = targetPart.Position
+                            elseif typeof(arg) == "CFrame" then
+                                args[i] = CFrame.new(targetPart.Position)
+                            elseif typeof(arg) == "Ray" then
+                                local origin = arg.Origin
+                                local direction = (targetPart.Position - origin).Unit * arg.Direction.Magnitude
+                                args[i] = Ray.new(origin, direction)
+                            end
                         end
                     end
                 end
             end
-        end
 
-        return oldNamecall(self, unpack(args))
-    end)
+            return oldNamecall(self, unpack(args))
+        end))
 
-    oldIndex = hookmetamethod(game, "__index", function(self, key)
-        if Aimbot.Enabled and Aimbot.Mode == "Silent" then
-            if target and target.Character then
-                local targetPart = getTargetPart(target.Character)
-                if targetPart then
-                    if self == lp:GetMouse() then
-                        if key == "Hit" then
-                            return CFrame.new(targetPart.Position)
-                        elseif key == "Target" then
-                            return targetPart
-                        elseif key == "X" then
-                            local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
-                            return screenPos.X
-                        elseif key == "Y" then
-                            local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
-                            return screenPos.Y
+        oldIndex = hookmetamethod(game, "__index", newcclosure(function(self, key)
+            if Aimbot.Enabled and Aimbot.Mode == "Silent" then
+                if target and target.Character then
+                    local targetPart = getTargetPart(target.Character)
+                    if targetPart then
+                        -- Hook Mouse properties
+                        local mouse = lp:GetMouse()
+                        if self == mouse then
+                            if key == "Hit" then
+                                return CFrame.new(targetPart.Position)
+                            elseif key == "Target" then
+                                return targetPart
+                            elseif key == "X" then
+                                local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
+                                return screenPos.X
+                            elseif key == "Y" then
+                                local screenPos = Camera:WorldToViewportPoint(targetPart.Position)
+                                return screenPos.Y
+                            end
                         end
                     end
                 end
             end
-        end
 
-        return oldIndex(self, key)
+            return oldIndex(self, key)
+        end))
     end)
+
+    if not success then
+        warn("Leon X: Hook failed, silent aim may not work")
+    end
 end
 
 local function unhookNamecall()
-    if oldNamecall then
-        hookmetamethod(game, "__namecall", oldNamecall)
-        oldNamecall = nil
-    end
-    if oldIndex then
-        hookmetamethod(game, "__index", oldIndex)
-        oldIndex = nil
-    end
+    pcall(function()
+        if oldNamecall then
+            hookmetamethod(game, "__namecall", oldNamecall)
+            oldNamecall = nil
+        end
+        if oldIndex then
+            hookmetamethod(game, "__index", oldIndex)
+            oldIndex = nil
+        end
+    end)
 end
 
 -- ── Main Functions ────────────────────────────────────────────────────────────
@@ -264,11 +288,12 @@ function Aimbot:Enable()
     end
 
     -- Use Heartbeat instead of RenderStepped for better performance
+    -- Lower frequency for ProjectReal compatibility
     aimConnection = RunService.Heartbeat:Connect(function(deltaTime)
-        pcall(function()
+        local success = pcall(function()
             targetUpdateTimer = targetUpdateTimer + deltaTime
 
-            -- Update target less frequently
+            -- Update target less frequently (every 150ms for ProjectReal)
             if targetUpdateTimer >= TARGET_UPDATE_INTERVAL then
                 targetUpdateTimer = 0
 
@@ -279,8 +304,8 @@ function Aimbot:Enable()
                 end
             end
 
-            -- Update FOV circle (only if visible)
-            if self.ShowFOV then
+            -- Update FOV circle only if visible (skip if disabled)
+            if self.ShowFOV and fovCircle then
                 updateFOVCircle()
             end
 
@@ -291,6 +316,10 @@ function Aimbot:Enable()
                 end
             end
         end)
+
+        if not success then
+            -- Silently handle errors to prevent spam
+        end
     end)
 end
 
