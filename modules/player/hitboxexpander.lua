@@ -1,13 +1,13 @@
--- Leon X | Hitbox Expander
+-- Leon X | Hitbox Expander (Improved)
 -- Expands target players' hitboxes for easier targeting
--- Size: multiplier for hitbox (default 10x)
--- Transparency: 0 = invisible, 1 = fully visible
+-- Optimized for performance and reliability
 
 local HitboxExpander = {}
 HitboxExpander.Name         = "Hitbox Expander"
 HitboxExpander.Enabled      = false
 HitboxExpander.Size         = 10
 HitboxExpander.Transparency = 0.8
+HitboxExpander.TeamCheck    = true  -- Skip teammates
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -17,6 +17,15 @@ local modifiedData = {}  -- [player] = { originalSize, originalTrans, originalCa
 local playerConn   = nil
 local charConns    = {}
 local updateConn   = nil
+local updateTimer  = 0
+local UPDATE_INTERVAL = 0.2  -- Update every 200ms instead of every frame
+
+local function isTeammate(player)
+    if not HitboxExpander.TeamCheck then return false end
+    if not lp.Team then return false end
+    if not player.Team then return false end
+    return lp.Team == player.Team
+end
 
 local function restoreHitbox(player)
     local data = modifiedData[player]
@@ -40,6 +49,7 @@ end
 
 local function expandHitbox(player)
     if player == lp then return end  -- don't expand own hitbox
+    if isTeammate(player) then return end  -- skip teammates
 
     pcall(function()
         local char = player.Character
@@ -47,6 +57,10 @@ local function expandHitbox(player)
 
         local hrp = char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
+
+        -- Check if player is alive
+        local humanoid = char:FindFirstChildOfClass("Humanoid")
+        if not humanoid or humanoid.Health <= 0 then return end
 
         -- Save original values if not already saved
         if not modifiedData[player] then
@@ -70,7 +84,7 @@ local function updateAllHitboxes()
     if not HitboxExpander.Enabled then return end
 
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= lp then
+        if player ~= lp and not isTeammate(player) then
             expandHitbox(player)
         end
     end
@@ -78,6 +92,7 @@ end
 
 function HitboxExpander:Enable()
     self.Enabled = true
+    updateTimer = 0
 
     -- Cleanup old connections
     if playerConn then playerConn:Disconnect(); playerConn = nil end
@@ -85,9 +100,9 @@ function HitboxExpander:Enable()
     charConns = {}
     if updateConn then updateConn:Disconnect(); updateConn = nil end
 
-    -- Expand existing players
+    -- Expand existing players immediately
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= lp then
+        if player ~= lp and not isTeammate(player) then
             expandHitbox(player)
 
             -- Watch for character respawns
@@ -112,20 +127,27 @@ function HitboxExpander:Enable()
         table.insert(charConns, conn)
 
         if player.Character then
+            task.wait(0.5)
             expandHitbox(player)
         end
     end)
 
-    -- Update loop to maintain hitbox size (some games reset it)
-    updateConn = RunService.Heartbeat:Connect(function()
-        if self.Enabled then
-            updateAllHitboxes()
+    -- Optimized update loop (every 200ms instead of every frame)
+    updateConn = RunService.Heartbeat:Connect(function(deltaTime)
+        if not self.Enabled then return end
+
+        updateTimer = updateTimer + deltaTime
+
+        if updateTimer >= UPDATE_INTERVAL then
+            updateTimer = 0
+            pcall(updateAllHitboxes)
         end
     end)
 end
 
 function HitboxExpander:Disable()
     self.Enabled = false
+    updateTimer = 0
 
     -- Restore all hitboxes
     for player in pairs(modifiedData) do
@@ -154,6 +176,23 @@ function HitboxExpander:SetTransparency(pct)
     self.Transparency = pct / 100
     if self.Enabled then
         updateAllHitboxes()
+    end
+end
+
+function HitboxExpander:SetTeamCheck(enabled)
+    self.TeamCheck = enabled
+    if self.Enabled then
+        -- Restore teammates if team check enabled
+        if enabled then
+            for player in pairs(modifiedData) do
+                if isTeammate(player) then
+                    restoreHitbox(player)
+                end
+            end
+        else
+            -- Expand all players if team check disabled
+            updateAllHitboxes()
+        end
     end
 end
 

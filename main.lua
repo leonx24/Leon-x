@@ -46,8 +46,7 @@ local Rejoin      = load("modules/player/rejoin.lua");         Library:SetSplash
 local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.83)
 local HitboxExp   = load("modules/player/hitboxexpander.lua"); Library:SetSplashProgress(0.86)
 local Waypoint    = load("modules/player/waypoint.lua");       Library:SetSplashProgress(0.89)
-local Aimbot      = load("modules/combat/aimbot.lua");         Library:SetSplashProgress(0.92)
-local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.95)
+local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.94)
 local NoFallDmg   = load("modules/player/nofalldamage.lua");   Library:SetSplashProgress(0.98)
 
 Waypoint:Init()
@@ -233,37 +232,6 @@ Ply:AddSlider({ Name="Fling Threshold", Flag="FlingThreshold", Min=100, Max=1000
 
 Ply:AddSection("Combat")
 
-Ply:AddToggle({ Name="Aimbot", Flag="Aimbot", Default=false,
-    Callback=function(v) if v then Aimbot:Enable() else Aimbot:Disable() end
-        N("Aimbot", v and "Enabled" or "Disabled", v and "success" or "info") end })
-
-Ply:AddDropdown({ Name="Aimbot Mode", Flag="AimbotMode",
-    Options={"Visible","Silent"}, Default="Visible",
-    Callback=function(v) Aimbot:SetMode(v); N("Aimbot Mode",v) end })
-
-Ply:AddDropdown({ Name="Target Part", Flag="AimbotTarget",
-    Options={"Head","Torso","HumanoidRootPart"}, Default="Head",
-    Callback=function(v) Aimbot:SetTargetPart(v) end })
-
-Ply:AddSlider({ Name="FOV Size", Flag="AimbotFOV", Min=50, Max=500, Default=200, Suffix=" px",
-    Callback=function(v) Aimbot:SetFOV(v) end })
-
-Ply:AddSlider({ Name="Smoothness", Flag="AimbotSmooth", Min=1, Max=10, Default=5,
-    Callback=function(v) Aimbot:SetSmoothness(v) end })
-
-Ply:AddToggle({ Name="Trigger Bot", Flag="TriggerBot", Default=false,
-    Callback=function(v) Aimbot:SetTriggerBot(v)
-        N("Trigger Bot", v and "Enabled" or "Disabled", v and "success" or "info") end })
-
-Ply:AddToggle({ Name="Show FOV Circle", Flag="AimbotShowFOV", Default=true,
-    Callback=function(v) Aimbot:SetShowFOV(v) end })
-
-Ply:AddToggle({ Name="Team Check", Flag="AimbotTeamCheck", Default=true,
-    Callback=function(v) Aimbot:SetTeamCheck(v) end })
-
-Ply:AddToggle({ Name="Visible Check", Flag="AimbotVisibleCheck", Default=true,
-    Callback=function(v) Aimbot:SetVisibleCheck(v) end })
-
 Ply:AddToggle({ Name="Hitbox Expander", Flag="HitboxExpander", Default=false,
     Callback=function(v) if v then HitboxExp:Enable() else HitboxExp:Disable() end
         N("Hitbox Expander", v and "Enabled" or "Disabled", v and "success" or "info") end })
@@ -273,6 +241,10 @@ Ply:AddSlider({ Name="Hitbox Size", Flag="HitboxSize", Min=5, Max=30, Default=10
 
 Ply:AddSlider({ Name="Hitbox Transparency", Flag="HitboxTransparency", Min=0, Max=100, Default=80, Suffix="%",
     Callback=function(v) HitboxExp:SetTransparency(v) end })
+
+Ply:AddToggle({ Name="Team Check", Flag="HitboxTeamCheck", Default=true,
+    Callback=function(v) HitboxExp:SetTeamCheck(v)
+        N("Team Check", v and "Skip teammates" or "Target all", v and "success" or "info") end })
 
 Ply:AddSection("Teleport")
 
