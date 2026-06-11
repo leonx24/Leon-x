@@ -1,4 +1,4 @@
--- Leon X | main.lua (Rayfield UI version with error handling)
+-- Leon X | main.lua (Rayfield UI version - Optimized)
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
@@ -44,49 +44,63 @@ local function N(title, message)
     })
 end
 
--- Load modules with error handling
+-- Load modules with error handling (async to speed up)
 local cacheBust = "?t="..os.time()
-local function load(p)
-    local success, result = pcall(function()
-        return loadstring(game:HttpGet(BASE..p..cacheBust))()
+local modules = {}
+
+local function loadModule(name, path)
+    task.spawn(function()
+        local success, result = pcall(function()
+            return loadstring(game:HttpGet(BASE..path..cacheBust))()
+        end)
+        if success then
+            modules[name] = result
+            print("[Leon X] Loaded:", name)
+        else
+            warn("[Leon X] Failed to load:", name, result)
+        end
     end)
-    if success then
-        print("[Leon X] Loaded:", p)
-        return result
-    else
-        warn("[Leon X] Failed to load:", p, result)
-        return nil
-    end
 end
 
-print("[Leon X] Loading modules...")
+-- Start loading all modules in parallel
+loadModule("Fly", "modules/movements/fly.lua")
+loadModule("Speed", "modules/movements/speed.lua")
+loadModule("InfJump", "modules/movements/infinitejump.lua")
+loadModule("Noclip", "modules/movements/noclip.lua")
+loadModule("AntiRagdoll", "modules/movements/antiragdoll.lua")
+loadModule("Invisible", "modules/movements/invisible.lua")
+loadModule("FreeCam", "modules/movements/freecam.lua")
+loadModule("ClickTP", "modules/movements/clickteleport.lua")
+loadModule("ESP", "modules/visuals/esp.lua")
+loadModule("Tracer", "modules/visuals/tracer.lua")
+loadModule("FullBright", "modules/visuals/fullbright.lua")
+loadModule("PerfStats", "modules/visuals/perfstats.lua")
+loadModule("RemoveFog", "modules/visuals/removefog.lua")
+loadModule("AntiAFK", "modules/player/antiafk.lua")
+loadModule("InfStamina", "modules/player/infinitestamina.lua")
+loadModule("AntiFling", "modules/player/antifling.lua")
+loadModule("Rejoin", "modules/player/rejoin.lua")
+loadModule("Teleport", "modules/player/teleport.lua")
+loadModule("HitboxExp", "modules/player/hitboxexpander.lua")
+loadModule("Waypoint", "modules/player/waypoint.lua")
+loadModule("GodMode", "modules/player/godmode.lua")
+loadModule("NoFallDmg", "modules/player/nofalldamage.lua")
 
-local Fly = load("modules/movements/fly.lua")
-local Speed = load("modules/movements/speed.lua")
-local InfJump = load("modules/movements/infinitejump.lua")
-local Noclip = load("modules/movements/noclip.lua")
-local AntiRagdoll = load("modules/movements/antiragdoll.lua")
-local Invisible = load("modules/movements/invisible.lua")
-local FreeCam = load("modules/movements/freecam.lua")
-local ClickTP = load("modules/movements/clickteleport.lua")
-local ESP = load("modules/visuals/esp.lua")
-local Tracer = load("modules/visuals/tracer.lua")
-local FullBright = load("modules/visuals/fullbright.lua")
-local PerfStats = load("modules/visuals/perfstats.lua")
-local RemoveFog = load("modules/visuals/removefog.lua")
-local AntiAFK = load("modules/player/antiafk.lua")
-local InfStamina = load("modules/player/infinitestamina.lua")
-local AntiFling = load("modules/player/antifling.lua")
-local Rejoin = load("modules/player/rejoin.lua")
-local Teleport = load("modules/player/teleport.lua")
-local HitboxExp = load("modules/player/hitboxexpander.lua")
-local Waypoint = load("modules/player/waypoint.lua")
-local GodMode = load("modules/player/godmode.lua")
-local NoFallDmg = load("modules/player/nofalldamage.lua")
+-- Wait for all modules to load (max 10 seconds)
+local startTime = tick()
+while tick() - startTime < 10 do
+    local allLoaded = true
+    for name, mod in pairs(modules) do
+        if not mod then allLoaded = false; break end
+    end
+    if allLoaded then break end
+    task.wait(0.1)
+end
 
-if Waypoint then Waypoint:Init() end
+print("[Leon X] Modules loaded, creating UI...")
 
-print("[Leon X] Creating tabs...")
+-- Init waypoint
+if modules.Waypoint then modules.Waypoint:Init() end
 
 -- Create Tabs
 local MovTab = Window:CreateTab("Movement 🏃", 4483362458)
@@ -101,7 +115,8 @@ print("[Leon X] Tabs created, adding elements...")
 -- ══════════════════════════════════════════════════════════════════════════════
 MovTab:CreateSection("Locomotion")
 
-if Fly then
+if modules.Fly then
+    local Fly = modules.Fly
     local flyToggle = MovTab:CreateToggle({
         Name = "Fly",
         CurrentValue = false,
@@ -120,7 +135,7 @@ if Fly then
         CurrentValue = 60,
         Flag = "FlySpeed",
         Callback = function(v)
-            Fly:SetSpeed(v)
+            if Fly then Fly:SetSpeed(v) end
         end,
     })
 
@@ -130,32 +145,37 @@ if Fly then
         CurrentKeybind = "F",
         HoldToInteract = false,
         Flag = "FlyKeybind",
-        Callback = function(k)
-            -- Rayfield passes KeyCode directly
-            flyKey = Enum.KeyCode[k] or flyKey
-            N("Fly Keybind", "Set to "..k)
+        Callback = function(keybind)
+            -- Rayfield callback receives the key name as string
+            pcall(function()
+                flyKey = Enum.KeyCode[keybind]
+                N("Fly Keybind", "Set to "..keybind)
+            end)
         end,
     })
 
     UIS.InputBegan:Connect(function(i, gp)
         if gp or i.KeyCode ~= flyKey then return end
-        local s = not Fly.Enabled
-        flyToggle:Set(s)
-        if s then Fly:Enable() else Fly:Disable() end
+        pcall(function()
+            local s = not Fly.Enabled
+            flyToggle:Set(s)
+            if s then Fly:Enable() else Fly:Disable() end
+        end)
     end)
-
-    print("[Leon X] Fly added")
 end
 
-if Speed then
+if modules.Speed then
+    local Speed = modules.Speed
     MovTab:CreateToggle({
         Name = "Speed Hack",
         CurrentValue = false,
         Flag = "SpeedHack",
         Callback = function(v)
-            Speed:SetWalkSpeed(v and 60 or 16)
-            if v then Speed:Enable() else Speed:Disable() end
-            N("Speed Hack", v and "Enabled (60)" or "Disabled")
+            if Speed then
+                Speed:SetWalkSpeed(v and 60 or 16)
+                if v then Speed:Enable() else Speed:Disable() end
+                N("Speed Hack", v and "Enabled (60)" or "Disabled")
+            end
         end,
     })
 
@@ -167,8 +187,10 @@ if Speed then
         CurrentValue = 16,
         Flag = "WalkSpeed",
         Callback = function(v)
-            Speed:SetWalkSpeed(v)
-            Speed:Enable()
+            if Speed then
+                Speed:SetWalkSpeed(v)
+                Speed:Enable()
+            end
         end,
     })
 
@@ -179,75 +201,90 @@ if Speed then
         CurrentValue = 50,
         Flag = "JumpPower",
         Callback = function(v)
-            Speed:SetJumpPower(v)
-            Speed:Enable()
+            if Speed then
+                Speed:SetJumpPower(v)
+                Speed:Enable()
+            end
         end,
     })
-
-    print("[Leon X] Speed added")
 end
 
 MovTab:CreateSection("Misc")
 
-if InfJump then
+if modules.InfJump then
+    local InfJump = modules.InfJump
     MovTab:CreateToggle({
         Name = "Infinite Jump",
         CurrentValue = false,
         Flag = "InfiniteJump",
         Callback = function(v)
-            if v then InfJump:Enable() else InfJump:Disable() end
-            N("Infinite Jump", v and "Enabled" or "Disabled")
+            if InfJump then
+                if v then InfJump:Enable() else InfJump:Disable() end
+                N("Infinite Jump", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if Noclip then
+if modules.Noclip then
+    local Noclip = modules.Noclip
     MovTab:CreateToggle({
         Name = "Noclip",
         CurrentValue = false,
         Flag = "Noclip",
         Callback = function(v)
-            if v then Noclip:Enable() else Noclip:Disable() end
-            N("Noclip", v and "Enabled" or "Disabled")
+            if Noclip then
+                if v then Noclip:Enable() else Noclip:Disable() end
+                N("Noclip", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if AntiRagdoll then
+if modules.AntiRagdoll then
+    local AntiRagdoll = modules.AntiRagdoll
     MovTab:CreateToggle({
         Name = "Anti Ragdoll",
         CurrentValue = false,
         Flag = "AntiRagdoll",
         Callback = function(v)
-            if v then AntiRagdoll:Enable() else AntiRagdoll:Disable() end
-            N("Anti Ragdoll", v and "Enabled" or "Disabled")
+            if AntiRagdoll then
+                if v then AntiRagdoll:Enable() else AntiRagdoll:Disable() end
+                N("Anti Ragdoll", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if Invisible then
+if modules.Invisible then
+    local Invisible = modules.Invisible
     MovTab:CreateToggle({
         Name = "Invisible (local)",
         CurrentValue = false,
         Flag = "Invisible",
         Callback = function(v)
-            if v then Invisible:Enable() else Invisible:Disable() end
-            N("Invisible", v and "Enabled" or "Disabled")
+            if Invisible then
+                if v then Invisible:Enable() else Invisible:Disable() end
+                N("Invisible", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
 MovTab:CreateSection("Camera")
 
-if FreeCam then
+if modules.FreeCam then
+    local FreeCam = modules.FreeCam
     local fcKey = Enum.KeyCode.V
     local fcToggle = MovTab:CreateToggle({
         Name = "Free Cam",
         CurrentValue = false,
         Flag = "FreeCam",
         Callback = function(v)
-            if v then FreeCam:Enable() else FreeCam:Disable() end
-            N("Free Cam", v and "Enabled" or "Disabled")
+            if FreeCam then
+                if v then FreeCam:Enable() else FreeCam:Disable() end
+                N("Free Cam", v and "Enabled" or "Disabled")
+            end
         end,
     })
 
@@ -259,7 +296,7 @@ if FreeCam then
         CurrentValue = 40,
         Flag = "FreeCamSpeed",
         Callback = function(v)
-            FreeCam:SetSpeed(v)
+            if FreeCam then FreeCam:SetSpeed(v) end
         end,
     })
 
@@ -268,31 +305,37 @@ if FreeCam then
         CurrentKeybind = "V",
         HoldToInteract = false,
         Flag = "FreeCamKeybind",
-        Callback = function(k)
-            -- Rayfield passes KeyCode directly
-            fcKey = Enum.KeyCode[k] or fcKey
-            N("FreeCam Keybind", "Set to "..k)
+        Callback = function(keybind)
+            pcall(function()
+                fcKey = Enum.KeyCode[keybind]
+                N("FreeCam Keybind", "Set to "..keybind)
+            end)
         end,
     })
 
     UIS.InputBegan:Connect(function(i, gp)
         if gp or i.KeyCode ~= fcKey then return end
-        local s = not FreeCam.Enabled
-        fcToggle:Set(s)
-        if s then FreeCam:Enable() else FreeCam:Disable() end
+        pcall(function()
+            local s = not FreeCam.Enabled
+            fcToggle:Set(s)
+            if s then FreeCam:Enable() else FreeCam:Disable() end
+        end)
     end)
 end
 
 MovTab:CreateSection("Click Teleport")
 
-if ClickTP then
+if modules.ClickTP then
+    local ClickTP = modules.ClickTP
     MovTab:CreateToggle({
         Name = "Click Teleport",
         CurrentValue = false,
         Flag = "ClickTP",
         Callback = function(v)
-            if v then ClickTP:Enable() else ClickTP:Disable() end
-            N("Click Teleport", v and "Enabled — click to tp" or "Disabled")
+            if ClickTP then
+                if v then ClickTP:Enable() else ClickTP:Disable() end
+                N("Click Teleport", v and "Enabled — click to tp" or "Disabled")
+            end
         end,
     })
 end
@@ -302,63 +345,78 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 VisTab:CreateSection("Rendering")
 
-if PerfStats then
+if modules.PerfStats then
+    local PerfStats = modules.PerfStats
     VisTab:CreateToggle({
         Name = "Perf Stats (HUD)",
         CurrentValue = true,
         Flag = "PerfStats",
         Callback = function(v)
-            if v then PerfStats:Enable() else PerfStats:Disable() end
-            N("Perf Stats", v and "Enabled" or "Disabled")
+            if PerfStats then
+                if v then PerfStats:Enable() else PerfStats:Disable() end
+                N("Perf Stats", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if ESP then
+if modules.ESP then
+    local ESP = modules.ESP
     VisTab:CreateToggle({
         Name = "ESP",
         CurrentValue = false,
         Flag = "ESP",
         Callback = function(v)
-            if v then ESP:Enable() else ESP:Disable() end
-            N("ESP", v and "Enabled" or "Disabled")
+            if ESP then
+                if v then ESP:Enable() else ESP:Disable() end
+                N("ESP", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if FullBright then
+if modules.FullBright then
+    local FullBright = modules.FullBright
     VisTab:CreateToggle({
         Name = "FullBright",
         CurrentValue = false,
         Flag = "FullBright",
         Callback = function(v)
-            if v then FullBright:Enable() else FullBright:Disable() end
-            N("FullBright", v and "Enabled" or "Disabled")
+            if FullBright then
+                if v then FullBright:Enable() else FullBright:Disable() end
+                N("FullBright", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if RemoveFog then
+if modules.RemoveFog then
+    local RemoveFog = modules.RemoveFog
     VisTab:CreateToggle({
         Name = "Remove Fog",
         CurrentValue = false,
         Flag = "RemoveFog",
         Callback = function(v)
-            if v then RemoveFog:Enable() else RemoveFog:Disable() end
-            N("Remove Fog", v and "Enabled" or "Disabled")
+            if RemoveFog then
+                if v then RemoveFog:Enable() else RemoveFog:Disable() end
+                N("Remove Fog", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if ESP then
+if modules.ESP then
+    local ESP = modules.ESP
     VisTab:CreateSection("Appearance")
 
     VisTab:CreateColorPicker({
         Name = "ESP Color",
         Color = Color3.fromRGB(255, 255, 255),
         Flag = "ESPColor",
-        Callback = function(v)
-            ESP:SetColor(v)
+        Callback = function(color)
+            if ESP then
+                ESP:SetColor(color)
+            end
         end
     })
 
@@ -370,7 +428,9 @@ if ESP then
         CurrentValue = 15,
         Flag = "ESPOpacity",
         Callback = function(v)
-            ESP:SetOpacity(v)
+            if ESP then
+                ESP:SetOpacity(v)
+            end
         end,
     })
 
@@ -379,13 +439,16 @@ if ESP then
         Options = {"Both", "Body", "Name"},
         CurrentOption = "Both",
         Flag = "ESPMode",
-        Callback = function(v)
-            ESP:SetShowMode(v)
+        Callback = function(option)
+            if ESP then
+                ESP:SetShowMode(option)
+            end
         end,
     })
 end
 
-if Tracer then
+if modules.Tracer then
+    local Tracer = modules.Tracer
     VisTab:CreateSection("Tracer")
 
     VisTab:CreateToggle({
@@ -393,8 +456,10 @@ if Tracer then
         CurrentValue = false,
         Flag = "Tracer",
         Callback = function(v)
-            if v then Tracer:Enable() else Tracer:Disable() end
-            N("Tracer", v and "Enabled" or "Disabled")
+            if Tracer then
+                if v then Tracer:Enable() else Tracer:Disable() end
+                N("Tracer", v and "Enabled" or "Disabled")
+            end
         end,
     })
 
@@ -402,8 +467,10 @@ if Tracer then
         Name = "Tracer Color",
         Color = Color3.fromRGB(255, 255, 255),
         Flag = "TracerColor",
-        Callback = function(v)
-            Tracer:SetColor(v)
+        Callback = function(color)
+            if Tracer then
+                Tracer:SetColor(color)
+            end
         end
     })
 
@@ -415,7 +482,9 @@ if Tracer then
         CurrentValue = 100,
         Flag = "TracerOpacity",
         Callback = function(v)
-            Tracer:SetOpacity(v)
+            if Tracer then
+                Tracer:SetOpacity(v)
+            end
         end,
     })
 
@@ -426,7 +495,9 @@ if Tracer then
         CurrentValue = 2,
         Flag = "TracerThickness",
         Callback = function(v)
-            Tracer:SetThickness(v)
+            if Tracer then
+                Tracer:SetThickness(v)
+            end
         end,
     })
 end
@@ -436,64 +507,79 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 PlyTab:CreateSection("Utility")
 
-if AntiAFK then
+if modules.AntiAFK then
+    local AntiAFK = modules.AntiAFK
     PlyTab:CreateToggle({
         Name = "Anti AFK",
         CurrentValue = false,
         Flag = "AntiAFK",
         Callback = function(v)
-            if v then AntiAFK:Enable() else AntiAFK:Disable() end
-            N("Anti AFK", v and "Enabled" or "Disabled")
+            if AntiAFK then
+                if v then AntiAFK:Enable() else AntiAFK:Disable() end
+                N("Anti AFK", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if InfStamina then
+if modules.InfStamina then
+    local InfStamina = modules.InfStamina
     PlyTab:CreateToggle({
         Name = "Infinite Stamina",
         CurrentValue = false,
         Flag = "InfStamina",
         Callback = function(v)
-            if v then InfStamina:Enable() else InfStamina:Disable() end
-            N("Infinite Stamina", v and "Enabled" or "Disabled")
+            if InfStamina then
+                if v then InfStamina:Enable() else InfStamina:Disable() end
+                N("Infinite Stamina", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if GodMode then
+if modules.GodMode then
+    local GodMode = modules.GodMode
     PlyTab:CreateToggle({
         Name = "God Mode",
         CurrentValue = false,
         Flag = "GodMode",
         Callback = function(v)
-            if v then GodMode:Enable() else GodMode:Disable() end
-            N("God Mode", v and "Enabled" or "Disabled")
+            if GodMode then
+                if v then GodMode:Enable() else GodMode:Disable() end
+                N("God Mode", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
 PlyTab:CreateSection("Protection")
 
-if NoFallDmg then
+if modules.NoFallDmg then
+    local NoFallDmg = modules.NoFallDmg
     PlyTab:CreateToggle({
         Name = "No Fall Damage",
         CurrentValue = false,
         Flag = "NoFallDamage",
         Callback = function(v)
-            if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
-            N("No Fall Damage", v and "Enabled" or "Disabled")
+            if NoFallDmg then
+                if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
+                N("No Fall Damage", v and "Enabled" or "Disabled")
+            end
         end,
     })
 end
 
-if AntiFling then
+if modules.AntiFling then
+    local AntiFling = modules.AntiFling
     PlyTab:CreateToggle({
         Name = "Anti Fling",
         CurrentValue = false,
         Flag = "AntiFling",
         Callback = function(v)
-            if v then AntiFling:Enable() else AntiFling:Disable() end
-            N("Anti Fling", v and "Enabled" or "Disabled")
+            if AntiFling then
+                if v then AntiFling:Enable() else AntiFling:Disable() end
+                N("Anti Fling", v and "Enabled" or "Disabled")
+            end
         end,
     })
 
@@ -505,12 +591,15 @@ if AntiFling then
         CurrentValue = 200,
         Flag = "FlingThreshold",
         Callback = function(v)
-            AntiFling:SetThreshold(v)
+            if AntiFling then
+                AntiFling:SetThreshold(v)
+            end
         end,
     })
 end
 
-if HitboxExp then
+if modules.HitboxExp then
+    local HitboxExp = modules.HitboxExp
     PlyTab:CreateSection("Combat")
 
     PlyTab:CreateToggle({
@@ -518,8 +607,10 @@ if HitboxExp then
         CurrentValue = false,
         Flag = "HitboxExpander",
         Callback = function(v)
-            if v then HitboxExp:Enable() else HitboxExp:Disable() end
-            N("Hitbox Expander", v and "Enabled" or "Disabled")
+            if HitboxExp then
+                if v then HitboxExp:Enable() else HitboxExp:Disable() end
+                N("Hitbox Expander", v and "Enabled" or "Disabled")
+            end
         end,
     })
 
@@ -531,7 +622,9 @@ if HitboxExp then
         CurrentValue = 10,
         Flag = "HitboxSize",
         Callback = function(v)
-            HitboxExp:SetSize(v)
+            if HitboxExp then
+                HitboxExp:SetSize(v)
+            end
         end,
     })
 
@@ -543,7 +636,9 @@ if HitboxExp then
         CurrentValue = 80,
         Flag = "HitboxTransparency",
         Callback = function(v)
-            HitboxExp:SetTransparency(v)
+            if HitboxExp then
+                HitboxExp:SetTransparency(v)
+            end
         end,
     })
 
@@ -552,23 +647,29 @@ if HitboxExp then
         CurrentValue = true,
         Flag = "HitboxTeamCheck",
         Callback = function(v)
-            HitboxExp:SetTeamCheck(v)
-            N("Team Check", v and "Skip teammates" or "Target all")
+            if HitboxExp then
+                HitboxExp:SetTeamCheck(v)
+                N("Team Check", v and "Skip teammates" or "Target all")
+            end
         end,
     })
 end
 
-if Teleport then
+if modules.Teleport then
+    local Teleport = modules.Teleport
+    local Fly = modules.Fly
     PlyTab:CreateSection("Teleport")
 
     PlyTab:CreateButton({
         Name = "📍 Copy My Position",
         Callback = function()
-            local p = Teleport:SavePosition()
-            if p then
-                N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
-            else
-                N("Teleport", "No character")
+            if Teleport then
+                local p = Teleport:SavePosition()
+                if p then
+                    N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
+                else
+                    N("Teleport", "No character")
+                end
             end
         end,
     })
@@ -576,10 +677,12 @@ if Teleport then
     PlyTab:CreateButton({
         Name = "🚀 Go to Saved Position",
         Callback = function()
-            if Teleport:GotoSaved(Fly) then
-                N("Teleport", "Teleported")
-            else
-                N("Teleport", "No position saved")
+            if Teleport then
+                if Teleport:GotoSaved(Fly) then
+                    N("Teleport", "Teleported")
+                else
+                    N("Teleport", "No position saved")
+                end
             end
         end,
     })
@@ -595,27 +698,38 @@ if Teleport then
     PlyTab:CreateButton({
         Name = "🔄 Refresh Players",
         Callback = function()
-            local list = Teleport:GetPlayerList()
-            tpDrop:UpdateDropdown(list)
-            N("Teleport", "Refreshed")
+            if Teleport then
+                local list = Teleport:GetPlayerList()
+                -- Rayfield uses :Set() to update dropdown, not :Refresh() or :UpdateDropdown()
+                tpDrop:Set(list[1] or "(no players)")
+                N("Teleport", "Refreshed")
+            end
         end,
     })
 
     PlyTab:CreateButton({
         Name = "⚡ Teleport to Player",
         Callback = function()
-            local name = tpDrop.CurrentOption
-            if name == "(no players)" then return end
-            if Teleport:ToPlayer(name, Fly) then
-                N("Teleport", "→ "..name)
-            else
-                N("Teleport", name.." not found")
+            if Teleport then
+                -- Get current value from dropdown
+                local name = tpDrop.CurrentOption or "(no players)"
+                if name == "(no players)" then
+                    N("Teleport", "No players available")
+                    return
+                end
+                if Teleport:ToPlayer(name, Fly) then
+                    N("Teleport", "→ "..name)
+                else
+                    N("Teleport", name.." not found")
+                end
             end
         end,
     })
 end
 
-if Waypoint then
+if modules.Waypoint then
+    local Waypoint = modules.Waypoint
+    local Fly = modules.Fly
     PlyTab:CreateSection("Waypoints")
 
     local wpNameInput = PlyTab:CreateInput({
@@ -629,19 +743,21 @@ if Waypoint then
     PlyTab:CreateButton({
         Name = "➕ Create Waypoint",
         Callback = function()
-            local name = wpNameInput.CurrentValue or ""
-            if name == "" then
-                N("Waypoint", "Enter a name")
-                return
-            end
-            if Waypoint:Exists(name) then
-                N("Waypoint", name.." already exists")
-                return
-            end
-            if Waypoint:Create(name) then
-                N("Waypoint", "Created: "..name)
-            else
-                N("Waypoint", "Failed to create")
+            if Waypoint then
+                local name = wpNameInput.CurrentValue or ""
+                if name == "" then
+                    N("Waypoint", "Enter a name")
+                    return
+                end
+                if Waypoint:Exists(name) then
+                    N("Waypoint", name.." already exists")
+                    return
+                end
+                if Waypoint:Create(name) then
+                    N("Waypoint", "Created: "..name)
+                else
+                    N("Waypoint", "Failed to create")
+                end
             end
         end,
     })
@@ -657,21 +773,29 @@ if Waypoint then
     PlyTab:CreateButton({
         Name = "🔄 Refresh Waypoints",
         Callback = function()
-            local list = Waypoint:GetList()
-            wpDrop:UpdateDropdown(list)
-            N("Waypoint", "Refreshed")
+            if Waypoint then
+                local list = Waypoint:GetList()
+                -- Rayfield uses :Set() to update dropdown
+                wpDrop:Set(list[1] or "(no waypoints)")
+                N("Waypoint", "Refreshed")
+            end
         end,
     })
 
     PlyTab:CreateButton({
         Name = "📍 Teleport to Waypoint",
         Callback = function()
-            local name = wpDrop.CurrentOption
-            if name == "(no waypoints)" then return end
-            if Waypoint:Teleport(name, Fly) then
-                N("Waypoint", "→ "..name)
-            else
-                N("Waypoint", "Failed")
+            if Waypoint then
+                local name = wpDrop.CurrentOption or "(no waypoints)"
+                if name == "(no waypoints)" then
+                    N("Waypoint", "No waypoints available")
+                    return
+                end
+                if Waypoint:Teleport(name, Fly) then
+                    N("Waypoint", "→ "..name)
+                else
+                    N("Waypoint", "Failed")
+                end
             end
         end,
     })
@@ -679,27 +803,36 @@ if Waypoint then
     PlyTab:CreateButton({
         Name = "🗑 Delete Waypoint",
         Callback = function()
-            local name = wpDrop.CurrentOption
-            if name == "(no waypoints)" then return end
-            if Waypoint:Delete(name) then
-                N("Waypoint", "Deleted: "..name)
-                wpDrop:UpdateDropdown(Waypoint:GetList())
-            else
-                N("Waypoint", "Failed to delete")
+            if Waypoint then
+                local name = wpDrop.CurrentOption or "(no waypoints)"
+                if name == "(no waypoints)" then
+                    N("Waypoint", "No waypoints available")
+                    return
+                end
+                if Waypoint:Delete(name) then
+                    N("Waypoint", "Deleted: "..name)
+                    local list = Waypoint:GetList()
+                    wpDrop:Set(list[1] or "(no waypoints)")
+                else
+                    N("Waypoint", "Failed to delete")
+                end
             end
         end,
     })
 end
 
-if Rejoin then
+if modules.Rejoin then
+    local Rejoin = modules.Rejoin
     PlyTab:CreateSection("Server")
 
     PlyTab:CreateButton({
         Name = "Rejoin Server",
         Callback = function()
-            N("Rejoin", "Rejoining...")
-            task.wait(1.5)
-            Rejoin:Execute()
+            if Rejoin then
+                N("Rejoin", "Rejoining...")
+                task.wait(1.5)
+                Rejoin:Execute()
+            end
         end,
     })
 end
@@ -721,23 +854,37 @@ PlyTab:CreateLabel("User ID: "..tostring(lp.UserId))
 -- ══════════════════════════════════════════════════════════════════════════════
 SetTab:CreateSection("Interface")
 
+local toggleUIKey = Enum.KeyCode.RightShift
 SetTab:CreateKeybind({
     Name = "Toggle UI Key",
     CurrentKeybind = "RightShift",
     HoldToInteract = false,
     Flag = "ToggleUIKey",
-    Callback = function(k)
-        N("Toggle UI Key", "Set to "..k)
+    Callback = function(keybind)
+        pcall(function()
+            toggleUIKey = Enum.KeyCode[keybind]
+            N("Toggle UI Key", "Set to "..keybind)
+        end)
     end,
 })
+
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= toggleUIKey then return end
+    pcall(function()
+        Rayfield:Toggle()
+    end)
+end)
 
 SetTab:CreateDropdown({
     Name = "Theme",
     Options = {"Default", "Light", "Amethyst", "Bloom"},
     CurrentOption = "Default",
     Flag = "Theme",
-    Callback = function(v)
-        N("Theme", v.." applied")
+    Callback = function(theme)
+        pcall(function()
+            Rayfield:SetTheme(theme)
+            N("Theme", theme.." applied")
+        end)
     end,
 })
 
@@ -752,9 +899,6 @@ SetTab:CreateToggle({
 
 SetTab:CreateSection("Config")
 
--- Note: Rayfield has built-in config system via ConfigurationSaving
--- These buttons provide manual save/load functionality
-
 SetTab:CreateParagraph({
     Title = "Configuration",
     Content = "Rayfield automatically saves your settings.\nUse the buttons below for manual control."
@@ -763,7 +907,6 @@ SetTab:CreateParagraph({
 SetTab:CreateButton({
     Name = "💾 Save Config Now",
     Callback = function()
-        -- Rayfield auto-saves, but we can trigger it
         N("Config", "Settings saved automatically")
     end,
 })
@@ -790,15 +933,15 @@ SetTab:CreateButton({
 })
 
 -- Boot sequence
-if PerfStats then
-    PerfStats:Enable()
+if modules.PerfStats then
+    modules.PerfStats:Enable()
 end
 
 print("[Leon X] UI fully loaded!")
 
 Rayfield:Notify({
     Title = "Leon X",
-    Content = "Welcome! Press F to fly.",
+    Content = "Welcome! All features loaded.",
     Duration = 3,
     Image = 4483362458,
 })
