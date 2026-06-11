@@ -1,17 +1,16 @@
--- Leon X | Aimbot & Silent Aim
--- Visible Aimbot: Smoothly aims camera at target
--- Silent Aim: Redirects tool/gun hits to target without moving camera
+-- Leon X | Aimbot & Silent Aim (Ultra Optimized)
+-- Minimal lag version with aggressive optimizations
 
 local Aimbot = {}
 Aimbot.Name         = "Aimbot"
 Aimbot.Enabled      = false
-Aimbot.Mode         = "Visible"  -- "Visible" | "Silent"
+Aimbot.Mode         = "Silent"   -- "Visible" | "Silent"
 Aimbot.TargetPart   = "Head"     -- "Head" | "Torso" | "HumanoidRootPart"
 Aimbot.FOV          = 200        -- Field of view circle radius
 Aimbot.Smoothness   = 5          -- Lower = smoother (1-10, only for Visible mode)
 Aimbot.TeamCheck    = true       -- Skip teammates
-Aimbot.VisibleCheck = true       -- Only target visible players
-Aimbot.ShowFOV      = true       -- Show FOV circle
+Aimbot.VisibleCheck = false      -- Only target visible players (expensive, default off)
+Aimbot.ShowFOV      = false      -- Show FOV circle (can cause lag, default off)
 Aimbot.TriggerBot   = false      -- Auto shoot when aimed at target
 
 local Players        = game:GetService("Players")
@@ -24,43 +23,40 @@ local lp             = Players.LocalPlayer
 local fovCircle      = nil
 local aimConnection  = nil
 local target         = nil
-local lastUpdate     = 0  -- Throttle updates
-local UPDATE_RATE    = 1/60  -- 60 FPS cap
+local targetUpdateTimer = 0
+local TARGET_UPDATE_INTERVAL = 0.1  -- Update target every 100ms instead of every frame
 
 -- ── FOV Circle ────────────────────────────────────────────────────────────────
 
 local function createFOVCircle()
-    if fovCircle then fovCircle:Remove() end
+    if fovCircle then pcall(function() fovCircle:Remove() end) end
 
     fovCircle = Drawing.new("Circle")
-    fovCircle.Thickness = 2
-    fovCircle.NumSides = 64
+    fovCircle.Thickness = 1
+    fovCircle.NumSides = 32  -- Lower sides for better performance
     fovCircle.Radius = Aimbot.FOV
     fovCircle.Color = Color3.fromRGB(255, 255, 255)
-    fovCircle.Transparency = 0.7
-    fovCircle.Visible = Aimbot.ShowFOV and Aimbot.Enabled
+    fovCircle.Transparency = 0.5
+    fovCircle.Visible = false
     fovCircle.Filled = false
 
     return fovCircle
 end
 
 local function updateFOVCircle()
-    if not fovCircle then return end
+    if not fovCircle or not Aimbot.ShowFOV then return end
 
     local vp = Camera.ViewportSize
     fovCircle.Position = Vector2.new(vp.X / 2, vp.Y / 2)
     fovCircle.Radius = Aimbot.FOV
-    fovCircle.Visible = Aimbot.ShowFOV and Aimbot.Enabled
-    fovCircle.NumSides = math.clamp(Aimbot.FOV / 4, 32, 64)  -- Dynamic sides based on FOV
+    fovCircle.Visible = Aimbot.Enabled
 end
 
 -- ── Utility Functions ─────────────────────────────────────────────────────────
 
 local function isTeammate(player)
     if not Aimbot.TeamCheck then return false end
-    if not lp.Team then return false end
-    if not player.Team then return false end
-    return lp.Team == player.Team
+    return lp.Team and player.Team and lp.Team == player.Team
 end
 
 local function isVisible(targetPart)
@@ -73,9 +69,8 @@ local function isVisible(targetPart)
     local myRoot = myChar:FindFirstChild("HumanoidRootPart")
     if not myRoot then return false end
 
-    -- Use RaycastParams for better performance
     local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {myChar, Camera}
+    raycastParams.FilterDescendantsInstances = {myChar}
     raycastParams.FilterType = Enum.RaycastFilterType.Blacklist
 
     local direction = (targetPart.Position - myRoot.Position)
@@ -100,16 +95,26 @@ local function getTargetPart(character)
     end
 end
 
+-- Cached player list to avoid recreating table every frame
+local cachedPlayers = {}
+local lastPlayerCacheUpdate = 0
+
 local function getClosestPlayer()
+    local currentTime = tick()
+
+    -- Cache player list for 0.5 seconds
+    if currentTime - lastPlayerCacheUpdate > 0.5 then
+        cachedPlayers = Players:GetPlayers()
+        lastPlayerCacheUpdate = currentTime
+    end
+
     local closest = nil
-    local shortestDistance = math.huge
-    local mousePos = UserInputService:GetMouseLocation()
+    local shortestDistance = Aimbot.FOV
     local vp = Camera.ViewportSize
     local screenCenter = Vector2.new(vp.X / 2, vp.Y / 2)
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player == lp then continue end
-        if not player.Character then continue end
+    for _, player in ipairs(cachedPlayers) do
+        if player == lp or not player.Character then continue end
 
         local humanoid = player.Character:FindFirstChildOfClass("Humanoid")
         if not humanoid or humanoid.Health <= 0 then continue end
@@ -119,14 +124,12 @@ local function getClosestPlayer()
         local targetPart = getTargetPart(player.Character)
         if not targetPart then continue end
 
-        -- Quick screen check before visibility check (optimization)
         local screenPos, onScreen = Camera:WorldToViewportPoint(targetPart.Position)
         if not onScreen then continue end
 
         local distance = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
 
-        if distance < Aimbot.FOV and distance < shortestDistance then
-            -- Only do expensive visibility check for potential targets
+        if distance < shortestDistance then
             if isVisible(targetPart) then
                 shortestDistance = distance
                 closest = player
@@ -140,65 +143,50 @@ end
 -- ── Visible Aimbot ────────────────────────────────────────────────────────────
 
 local function aimAtTarget()
-    if not target or not target.Character then
-        target = nil
-        return
-    end
+    if not target or not target.Character then return false end
 
     local targetPart = getTargetPart(target.Character)
-    if not targetPart then
-        target = nil
-        return
-    end
+    if not targetPart then return false end
 
     local humanoid = target.Character:FindFirstChildOfClass("Humanoid")
-    if not humanoid or humanoid.Health <= 0 then
-        target = nil
-        return
-    end
-
-    if not isVisible(targetPart) then
-        target = nil
-        return
-    end
+    if not humanoid or humanoid.Health <= 0 then return false end
 
     -- Smooth camera aim
     local targetPos = targetPart.Position
     local camCFrame = Camera.CFrame
     local targetCFrame = CFrame.new(camCFrame.Position, targetPos)
 
-    -- Smoothness: lerp between current and target CFrame
     local alpha = 1 / math.max(1, Aimbot.Smoothness)
     Camera.CFrame = camCFrame:Lerp(targetCFrame, alpha)
 
-    -- Trigger bot: auto shoot when aimed
-    if Aimbot.TriggerBot and alpha > 0.9 then
+    -- Trigger bot
+    if Aimbot.TriggerBot and alpha > 0.8 then
         pcall(function()
             mouse1press()
             task.wait(0.05)
             mouse1release()
         end)
     end
+
+    return true
 end
 
 -- ── Silent Aim ────────────────────────────────────────────────────────────────
 
 local oldNamecall
 local oldIndex
+
 local function hookNamecall()
-    if oldNamecall then return end  -- Already hooked
+    if oldNamecall then return end
 
     oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
         local method = getnamecallmethod()
         local args = {...}
 
-        -- Hook FireServer/InvokeServer for silent aim
         if Aimbot.Enabled and Aimbot.Mode == "Silent" and (method == "FireServer" or method == "InvokeServer") then
-            -- Check if this is a gun/tool remote
             if target and target.Character then
                 local targetPart = getTargetPart(target.Character)
                 if targetPart then
-                    -- Replace position/CFrame arguments with target position
                     for i, arg in ipairs(args) do
                         if typeof(arg) == "Vector3" then
                             args[i] = targetPart.Position
@@ -217,14 +205,12 @@ local function hookNamecall()
         return oldNamecall(self, unpack(args))
     end)
 
-    -- Hook mouse properties for gun aiming
     oldIndex = hookmetamethod(game, "__index", function(self, key)
         if Aimbot.Enabled and Aimbot.Mode == "Silent" then
             if target and target.Character then
                 local targetPart = getTargetPart(target.Character)
                 if targetPart then
-                    -- Hook Mouse.Hit and Mouse.Target for shooting
-                    if self == game.Players.LocalPlayer:GetMouse() then
+                    if self == lp:GetMouse() then
                         if key == "Hit" then
                             return CFrame.new(targetPart.Position)
                         elseif key == "Target" then
@@ -261,11 +247,10 @@ end
 function Aimbot:Enable()
     self.Enabled = true
 
-    -- Create FOV circle
-    if not fovCircle then
+    -- Create FOV circle only if enabled
+    if self.ShowFOV and not fovCircle then
         createFOVCircle()
     end
-    updateFOVCircle()
 
     -- Hook for silent aim
     if self.Mode == "Silent" then
@@ -278,29 +263,33 @@ function Aimbot:Enable()
         aimConnection = nil
     end
 
-    -- Main aimbot loop
-    aimConnection = RunService.RenderStepped:Connect(function()
+    -- Use Heartbeat instead of RenderStepped for better performance
+    aimConnection = RunService.Heartbeat:Connect(function(deltaTime)
         pcall(function()
-            local currentTime = tick()
+            targetUpdateTimer = targetUpdateTimer + deltaTime
 
-            -- Throttle updates to reduce lag
-            if currentTime - lastUpdate < UPDATE_RATE then
-                return
+            -- Update target less frequently
+            if targetUpdateTimer >= TARGET_UPDATE_INTERVAL then
+                targetUpdateTimer = 0
+
+                -- Validate current target
+                if not target or not target.Character or not target.Character:FindFirstChildOfClass("Humanoid")
+                   or target.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then
+                    target = getClosestPlayer()
+                end
             end
-            lastUpdate = currentTime
 
-            updateFOVCircle()
-
-            -- Update target every frame but less expensive operations
-            if not target or not target.Character or not target.Character:FindFirstChildOfClass("Humanoid") or target.Character:FindFirstChildOfClass("Humanoid").Health <= 0 then
-                target = getClosestPlayer()
+            -- Update FOV circle (only if visible)
+            if self.ShowFOV then
+                updateFOVCircle()
             end
 
             -- Visible aimbot: move camera
             if self.Mode == "Visible" and target then
-                aimAtTarget()
+                if not aimAtTarget() then
+                    target = nil
+                end
             end
-            -- Silent aim: target is used in __index hook
         end)
     end)
 end
@@ -308,20 +297,18 @@ end
 function Aimbot:Disable()
     self.Enabled = false
     target = nil
+    targetUpdateTimer = 0
 
-    -- Cleanup connection
     if aimConnection then
         pcall(function() aimConnection:Disconnect() end)
         aimConnection = nil
     end
 
-    -- Remove FOV circle
     if fovCircle then
         pcall(function() fovCircle:Remove() end)
         fovCircle = nil
     end
 
-    -- Unhook namecall
     unhookNamecall()
 end
 
@@ -332,9 +319,7 @@ end
 function Aimbot:SetMode(mode)
     local wasEnabled = self.Enabled
     if wasEnabled then self:Disable() end
-
     self.Mode = mode
-
     if wasEnabled then self:Enable() end
 end
 
@@ -344,7 +329,9 @@ end
 
 function Aimbot:SetFOV(fov)
     self.FOV = fov
-    updateFOVCircle()
+    if fovCircle then
+        fovCircle.Radius = fov
+    end
 end
 
 function Aimbot:SetSmoothness(smoothness)
@@ -361,6 +348,12 @@ end
 
 function Aimbot:SetShowFOV(enabled)
     self.ShowFOV = enabled
+    if enabled and not fovCircle then
+        createFOVCircle()
+    elseif not enabled and fovCircle then
+        pcall(function() fovCircle:Remove() end)
+        fovCircle = nil
+    end
     updateFOVCircle()
 end
 
