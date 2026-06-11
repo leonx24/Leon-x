@@ -328,7 +328,7 @@ Set:AddKeybind({ Name="Toggle UI Key", Flag="ToggleKey", Default=Enum.KeyCode.O,
     Callback=function(k) Library:SetToggleKey(k); N("Toggle Key","Set to "..k.Name) end })
 
 Set:AddDropdown({ Name="Theme", Flag="Theme",
-    Options={"Dark","Midnight","Rose","Emerald","Amber","Violet"}, Default="Dark",
+    Options={"Dark","Midnight","Rose","Emerald","Amber","Violet","Neon"}, Default="Neon",
     Callback=function(v) Library:SetTheme(v); N("Theme",v.." applied","success") end })
 
 Set:AddKeybind({ Name="Panic Key", Flag="PanicKey", Default=Enum.KeyCode.End,

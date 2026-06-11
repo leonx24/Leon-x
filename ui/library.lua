@@ -33,8 +33,42 @@ local C = {
 local function tw(o,t,p)
     TweenService:Create(o,TweenInfo.new(t,Enum.EasingStyle.Quint,Enum.EasingDirection.Out),p):Play()
 end
-local function rnd(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 8); c.Parent=p end
-local function strk(p,col) local s=Instance.new("UIStroke"); s.Color=col or C.Border; s.Thickness=1; s.Parent=p end
+
+local function twBounce(o,t,p)
+    TweenService:Create(o,TweenInfo.new(t,Enum.EasingStyle.Back,Enum.EasingDirection.Out),p):Play()
+end
+
+local function rnd(p,r) local c=Instance.new("UICorner"); c.CornerRadius=UDim.new(0,r or 12); c.Parent=p end
+
+local function strk(p,col)
+    local s=Instance.new("UIStroke")
+    s.Color=col or C.Border
+    s.Thickness=1
+    s.Transparency=0.3
+    s.Parent=p
+    return s
+end
+
+local function glow(p, col, size)
+    local s = Instance.new("UIStroke")
+    s.Color = col or C.Accent
+    s.Thickness = size or 2
+    s.Transparency = 0.7
+    s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+    s.Parent = p
+
+    -- Subtle animated glow
+    task.spawn(function()
+        while s and s.Parent and p.Parent do
+            tw(s, 1.5, {Transparency = 0.4})
+            task.wait(1.5)
+            tw(s, 1.5, {Transparency = 0.7})
+            task.wait(1.5)
+        end
+    end)
+
+    return s
+end
 local function pdg(p,t,l,r,b)
     local u=Instance.new("UIPadding")
     u.PaddingTop=UDim.new(0,t or 0)
@@ -63,10 +97,24 @@ local function mkL(parent,txt,sz,col,font,xa)
     return l
 end
 local function hvr(b,n,h,a)
-    b.MouseEnter:Connect(function() tw(b,.12,{BackgroundColor3=h}) end)
-    b.MouseLeave:Connect(function() tw(b,.15,{BackgroundColor3=n}) end)
-    b.MouseButton1Down:Connect(function() tw(b,.06,{BackgroundColor3=a}) end)
-    b.MouseButton1Up:Connect(function() tw(b,.1,{BackgroundColor3=h}) end)
+    local originalSize = b.Size
+
+    b.MouseEnter:Connect(function()
+        tw(b,.15,{BackgroundColor3=h})
+        twBounce(b,.2,{Size=UDim2.new(originalSize.X.Scale,originalSize.X.Offset,originalSize.Y.Scale,originalSize.Y.Offset+2)})
+    end)
+    b.MouseLeave:Connect(function()
+        tw(b,.2,{BackgroundColor3=n})
+        tw(b,.2,{Size=originalSize})
+    end)
+    b.MouseButton1Down:Connect(function()
+        tw(b,.06,{BackgroundColor3=a})
+        tw(b,.1,{Size=UDim2.new(originalSize.X.Scale,originalSize.X.Offset,originalSize.Y.Scale,originalSize.Y.Offset-1)})
+    end)
+    b.MouseButton1Up:Connect(function()
+        tw(b,.1,{BackgroundColor3=h})
+        tw(b,.1,{Size=UDim2.new(originalSize.X.Scale,originalSize.X.Offset,originalSize.Y.Scale,originalSize.Y.Offset+2)})
+    end)
 end
 
 -- destroy old instance
@@ -94,12 +142,15 @@ local SIDE_W   = math.floor(WIN_W * (130/640))   -- ~130px on desktop
 local TOP_H    = 40
 
 -- border frame
-local R = 12
+local R = 14
 local BG = mkF(Screen, C.Border)
 BG.Size = UDim2.new(0, WIN_W+2, 0, WIN_H+2)
 BG.Position = UDim2.new(0.5, -(WIN_W+2)/2, 0.5, -(WIN_H+2)/2)
 BG.Visible = false
 rnd(BG, R)
+
+-- Add subtle glow to border
+local bgGlow = glow(BG, C.Accent, 2)
 
 local Win = mkF(Screen, C.BG)
 Win.Name = "Win"
@@ -122,13 +173,28 @@ Dot.Size = UDim2.new(0,7,0,7)
 Dot.Position = UDim2.new(0,16,0.5,-3)
 rnd(Dot, 4)
 
+-- Add pulsing glow to dot
+glow(Dot, C.Accent, 3)
+
+-- Animated pulse
+task.spawn(function()
+    while Dot and Dot.Parent do
+        twBounce(Dot, 0.8, {Size = UDim2.new(0,9,0,9)})
+        task.wait(0.8)
+        tw(Dot, 0.8, {Size = UDim2.new(0,7,0,7)})
+        task.wait(0.8)
+    end
+end)
+
 local TitleL = mkL(Top,"Leon X",14,C.Text,Enum.Font.GothamBold)
 TitleL.Size = UDim2.new(0,80,1,0)
 TitleL.Position = UDim2.new(0,30,0,0)
+TitleL.TextStrokeTransparency = 0.5
 
 local VerL = mkL(Top,"v"..VERSION,10,C.Sub,Enum.Font.Gotham)
 VerL.Size = UDim2.new(0,36,1,0)
 VerL.Position = UDim2.new(0,108,0,0)
+VerL.TextStrokeTransparency = 0.7
 
 -- active features counter in topbar
 local ActiveL = mkL(Top,"",10,C.Dim,Enum.Font.Gotham,Enum.TextXAlignment.Right)
@@ -174,7 +240,8 @@ local function mkWinBtn(icon, bg)
     b.AutoButtonColor = false
     b.BorderSizePixel = 0
     b.ZIndex = 5
-    b.Parent = Top   -- inside topbar, not Screen
+    b.BackgroundTransparency = 0.2
+    b.Parent = Top
     rnd(b, 6)
     return b
 end
@@ -188,6 +255,10 @@ BtnM.AnchorPoint = Vector2.new(1, 0.5)
 BtnM.Position    = UDim2.new(1, -38, 0.5, 0)
 BtnX.Visible = false   -- hidden until splash finishes
 BtnM.Visible = false
+
+-- Add glow to close button
+glow(BtnX, C.Red, 2)
+
 hvr(BtnX, C.Red, C.RedH, Color3.fromRGB(215,55,55))
 hvr(BtnM, C.Elevated, C.Hover, C.Press)
 
@@ -224,10 +295,14 @@ SearchBox.Name            = "SearchBox"
 SearchBox.Size            = UDim2.new(1,-8,0,30)
 SearchBox.Position        = UDim2.new(0,4,1,-38)
 SearchBox.BorderSizePixel = 0
+SearchBox.BackgroundTransparency = 0.2
 rnd(SearchBox, 8)
 strk(SearchBox)
 
-local SearchIcon = mkL(SearchBox, "🔍", 12, C.Sub, Enum.Font.Gotham, Enum.TextXAlignment.Center)
+-- Add neon glow to search box
+local searchGlow = glow(SearchBox, C.Accent, 2)
+
+local SearchIcon = mkL(SearchBox, "🔍", 12, C.Accent, Enum.Font.Gotham, Enum.TextXAlignment.Center)
 SearchIcon.Size     = UDim2.new(0,22,1,0)
 SearchIcon.Position = UDim2.new(0,4,0,0)
 
@@ -245,6 +320,15 @@ SearchInput.TextSize           = 11
 SearchInput.ClearTextOnFocus   = false
 SearchInput.TextXAlignment     = Enum.TextXAlignment.Left
 SearchInput.Parent             = SearchBox
+
+-- Glow effect on focus
+SearchInput.Focused:Connect(function()
+    tw(searchGlow, 0.3, {Transparency = 0.3})
+end)
+
+SearchInput.FocusLost:Connect(function()
+    tw(searchGlow, 0.3, {Transparency = 0.7})
+end)
 
 -- ── Global Search state (SearchPage created after Content below) ──────────────
 Library._searchActive   = false
@@ -755,30 +839,55 @@ local function mkToggle(parent, data)
     row.Text = ""
     row.AutoButtonColor = false
     row.BorderSizePixel = 0
+    row.BackgroundTransparency = 0.1
     row.Parent = parent
-    rnd(row, 10); strk(row)
+    rnd(row, 10)
+    strk(row)
+
     local nl = mkL(row, data.Name or "Toggle", 13, C.Text, Enum.Font.GothamMedium)
     nl.Size = UDim2.new(1,-68,1,0)
     nl.Position = UDim2.new(0,14,0,0)
+
     local track = mkF(row, on and C.OnTrack or C.OffTrack)
     track.Size = UDim2.new(0,38,0,20)
     track.Position = UDim2.new(1,-52,0.5,-10)
     rnd(track, 10)
-    local knob = mkF(track, on and C.BG or C.Dim)
+
+    local knob = mkF(track, on and C.Accent or C.Dim)
     knob.Size = UDim2.new(0,14,0,14)
     knob.Position = on and UDim2.new(1,-17,0.5,-7) or UDim2.new(0,3,0.5,-7)
     rnd(knob, 7)
+
+    -- Add glow when toggle is ON
+    local trackGlow = nil
+    local function updateGlow()
+        if on then
+            if not trackGlow then
+                trackGlow = glow(track, C.Accent, 2)
+            end
+        else
+            if trackGlow then
+                pcall(function() trackGlow:Destroy() end)
+                trackGlow = nil
+            end
+        end
+    end
+    updateGlow()
+
     hvr(row, C.Elevated, C.Hover, C.Press)
+
     local function set(v, silent)
         local prev = on
         on = v
         if on then
             tw(track,.18,{BackgroundColor3=C.OnTrack})
-            tw(knob,.18,{Position=UDim2.new(1,-17,0.5,-7),BackgroundColor3=C.BG})
+            tw(knob,.18,{Position=UDim2.new(1,-17,0.5,-7),BackgroundColor3=C.Accent})
         else
             tw(track,.18,{BackgroundColor3=C.OffTrack})
             tw(knob,.18,{Position=UDim2.new(0,3,0.5,-7),BackgroundColor3=C.Dim})
         end
+        updateGlow()
+
         -- always update counter when value actually changed
         if prev ~= on and data.Flag and Library._onToggleChanged then
             Library._onToggleChanged(on)
@@ -787,6 +896,7 @@ local function mkToggle(parent, data)
             cb(on)
         end
     end
+
     row.MouseButton1Click:Connect(function() set(not on) end)
     local api = {Frame=row}
     function api:Set(v) set(v,true) end
@@ -806,14 +916,22 @@ local function mkButton(parent, data)
     b.TextSize = 13
     b.AutoButtonColor = false
     b.BorderSizePixel = 0
+    b.BackgroundTransparency = 0.1
     b.Parent = parent
-    rnd(b, 10); strk(b)
+    rnd(b, 10)
+    strk(b)
+
+    -- Add glow effect to button
+    local btnGlow = glow(b, C.Accent, 1)
+
     hvr(b, C.Elevated, C.Hover, C.Press)
+
     b.MouseButton1Click:Connect(function()
-        tw(b,.07,{BackgroundColor3=Color3.fromRGB(48,48,48)})
+        tw(b,.07,{BackgroundColor3=C.Press})
         task.delay(.14, function() tw(b,.15,{BackgroundColor3=C.Elevated}) end)
         cb()
     end)
+
     local api = {Frame=b}
     function api:SetText(t) b.Text=t end
     addTooltip(b, data.Desc or data.Name or "Button")
@@ -1455,6 +1573,23 @@ local THEMES = {
         Press    = Color3.fromRGB(28,  20, 48),
         Red      = Color3.fromRGB(195, 55,100),
         RedH     = Color3.fromRGB(225, 75,120),
+    },
+    -- ── Neon ─ glassmorphism with cyan/purple neon accents (NEW!)
+    Neon = {
+        BG       = Color3.fromRGB(8,   8,  12),
+        Surface  = Color3.fromRGB(15,  15, 22),
+        Elevated = Color3.fromRGB(22,  22, 32),
+        Border   = Color3.fromRGB(45,  45, 65),
+        Accent   = Color3.fromRGB(0,  217, 255),  -- Neon cyan
+        Dim      = Color3.fromRGB(170,170,190),
+        Text     = Color3.fromRGB(255,255,255),
+        Sub      = Color3.fromRGB(120,120,140),
+        OffTrack = Color3.fromRGB(35,  35, 45),
+        OnTrack  = Color3.fromRGB(0,  217, 255),  -- Cyan when active
+        Hover    = Color3.fromRGB(28,  28, 40),
+        Press    = Color3.fromRGB(35,  35, 50),
+        Red      = Color3.fromRGB(255, 60, 80),
+        RedH     = Color3.fromRGB(255, 90,110),
     },
 }
 
