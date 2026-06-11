@@ -96,36 +96,32 @@ local SetTab = Window:Tab({
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT TAB
 -- ══════════════════════════════════════════════════════════════════════════════
-local MovSec1 = MovTab:Section({
-    Title = "Locomotion",
-})
+MovTab:Section({ Title = "Locomotion" })
 
-local flyToggle = MovSec1:Toggle({
+local flyToggle = MovTab:Toggle({
     Title = "Fly",
     Default = false,
     Callback = function(v)
         if v then Fly:Enable() else Fly:Disable() end
-        N("Fly", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Fly", v and "Enabled" or "Disabled")
     end
 })
 
-MovSec1:Slider({
+MovTab:Slider({
     Title = "Fly Speed",
-    Default = 60,
     Min = 10,
     Max = 300,
-    Callback = function(v)
-        Fly:SetSpeed(v)
-    end
+    Default = 60,
+    Callback = function(v) Fly:SetSpeed(v) end
 })
 
 local flyKey = Enum.KeyCode.F
-MovSec1:Keybind({
+MovTab:Keybind({
     Title = "Fly Keybind",
     Default = Enum.KeyCode.F,
     Callback = function(k)
         flyKey = k
-        N("Fly Keybind", "Set to "..k.Name, "Info")
+        N("Fly Keybind", "Set to "..k.Name)
     end
 })
 
@@ -136,108 +132,102 @@ UIS.InputBegan:Connect(function(i, gp)
     if s then Fly:Enable() else Fly:Disable() end
 end)
 
-MovSec1:Toggle({
+MovTab:Toggle({
     Title = "Speed Hack",
     Default = false,
     Callback = function(v)
         Speed:SetWalkSpeed(v and 60 or 16)
         if v then Speed:Enable() else Speed:Disable() end
-        N("Speed Hack", v and "Enabled (60)" or "Disabled", v and "Success" or "Info")
+        N("Speed Hack", v and "Enabled (60)" or "Disabled")
     end
 })
 
-MovSec1:Slider({
+MovTab:Slider({
     Title = "Walk Speed",
-    Default = 16,
     Min = 16,
     Max = 250,
+    Default = 16,
     Callback = function(v)
         Speed:SetWalkSpeed(v)
         Speed:Enable()
     end
 })
 
-MovSec1:Slider({
+MovTab:Slider({
     Title = "Jump Power",
-    Default = 50,
     Min = 50,
     Max = 500,
+    Default = 50,
     Callback = function(v)
         Speed:SetJumpPower(v)
         Speed:Enable()
     end
 })
 
-local MovSec2 = MovTab:Section({
-    Title = "Misc",
-})
+MovTab:Section({ Title = "Misc" })
 
-MovSec2:Toggle({
+MovTab:Toggle({
     Title = "Infinite Jump",
     Default = false,
     Callback = function(v)
         if v then InfJump:Enable() else InfJump:Disable() end
-        N("Infinite Jump", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Infinite Jump", v and "Enabled" or "Disabled")
     end
 })
 
-MovSec2:Toggle({
+MovTab:Toggle({
     Title = "Noclip",
     Default = false,
     Callback = function(v)
         if v then Noclip:Enable() else Noclip:Disable() end
-        N("Noclip", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Noclip", v and "Enabled" or "Disabled")
     end
 })
 
-MovSec2:Toggle({
+MovTab:Toggle({
     Title = "Anti Ragdoll",
     Default = false,
     Callback = function(v)
         if v then AntiRagdoll:Enable() else AntiRagdoll:Disable() end
-        N("Anti Ragdoll", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Anti Ragdoll", v and "Enabled" or "Disabled")
     end
 })
 
-MovSec2:Toggle({
+MovTab:Toggle({
     Title = "Invisible (local)",
     Default = false,
     Callback = function(v)
         if v then Invisible:Enable() else Invisible:Disable() end
-        N("Invisible", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Invisible", v and "Enabled" or "Disabled")
     end
 })
 
-local MovSec3 = MovTab:Section({
-    Title = "Camera",
-})
+MovTab:Section({ Title = "Camera" })
 
 local fcKey = Enum.KeyCode.V
-local fcToggle = MovSec3:Toggle({
+local fcToggle = MovTab:Toggle({
     Title = "Free Cam",
     Default = false,
     Callback = function(v)
         if v then FreeCam:Enable() else FreeCam:Disable() end
-        N("Free Cam", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Free Cam", v and "Enabled" or "Disabled")
     end
 })
 
-MovSec3:Slider({
+MovTab:Slider({
     Title = "Free Cam Speed",
-    Default = 40,
     Min = 5,
     Max = 300,
-    Callback = function(v)
-        FreeCam:SetSpeed(v)
-    end
+    Default = 40,
+    Callback = function(v) FreeCam:SetSpeed(v) end
 })
 
-MovSec3:Keybind({
+MovTab:Keybind({
     Title = "FreeCam Keybind",
     Default = Enum.KeyCode.V,
     Callback = function(k)
         fcKey = k
-        N("FreeCam Keybind", "Set to "..k.Name, "Info")
+        N("FreeCam Keybind", "Set to "..k.Name)
     end
 })
 
@@ -248,65 +238,59 @@ UIS.InputBegan:Connect(function(i, gp)
     if s then FreeCam:Enable() else FreeCam:Disable() end
 end)
 
-local MovSec4 = MovTab:Section({
-    Title = "Click Teleport",
-})
+MovTab:Section({ Title = "Click Teleport" })
 
-MovSec4:Toggle({
+MovTab:Toggle({
     Title = "Click Teleport",
     Default = false,
     Callback = function(v)
         if v then ClickTP:Enable() else ClickTP:Disable() end
-        N("Click Teleport", v and "Enabled — click to tp" or "Disabled", v and "Success" or "Info", 2)
+        N("Click Teleport", v and "Enabled — click to tp" or "Disabled")
     end
 })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL TAB
 -- ══════════════════════════════════════════════════════════════════════════════
-local VisSec1 = VisTab:Section({
-    Title = "Rendering",
-})
+VisTab:Section({ Title = "Rendering" })
 
-VisSec1:Toggle({
+VisTab:Toggle({
     Title = "Perf Stats (HUD)",
     Default = true,
     Callback = function(v)
         if v then PerfStats:Enable() else PerfStats:Disable() end
-        N("Perf Stats", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Perf Stats", v and "Enabled" or "Disabled")
     end
 })
 
-VisSec1:Toggle({
+VisTab:Toggle({
     Title = "ESP",
     Default = false,
     Callback = function(v)
         if v then ESP:Enable() else ESP:Disable() end
-        N("ESP", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("ESP", v and "Enabled" or "Disabled")
     end
 })
 
-VisSec1:Toggle({
+VisTab:Toggle({
     Title = "FullBright",
     Default = false,
     Callback = function(v)
         if v then FullBright:Enable() else FullBright:Disable() end
-        N("FullBright", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("FullBright", v and "Enabled" or "Disabled")
     end
 })
 
-VisSec1:Toggle({
+VisTab:Toggle({
     Title = "Remove Fog",
     Default = false,
     Callback = function(v)
         if v then RemoveFog:Enable() else RemoveFog:Disable() end
-        N("Remove Fog", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Remove Fog", v and "Enabled" or "Disabled")
     end
 })
 
-local VisSec2 = VisTab:Section({
-    Title = "Appearance",
-})
+VisTab:Section({ Title = "Appearance" })
 
 local EC = {
     White = Color3.fromRGB(255,255,255),
@@ -318,7 +302,7 @@ local EC = {
     Pink = Color3.fromRGB(255,100,200)
 }
 
-VisSec2:Dropdown({
+VisTab:Dropdown({
     Title = "ESP Color",
     List = {"White","Red","Green","Blue","Yellow","Cyan","Pink"},
     Default = "White",
@@ -327,35 +311,29 @@ VisSec2:Dropdown({
     end
 })
 
-VisSec2:Slider({
+VisTab:Slider({
     Title = "ESP Fill Opacity",
-    Default = 15,
     Min = 0,
     Max = 100,
-    Callback = function(v)
-        ESP:SetOpacity(v)
-    end
+    Default = 15,
+    Callback = function(v) ESP:SetOpacity(v) end
 })
 
-VisSec2:Dropdown({
+VisTab:Dropdown({
     Title = "ESP Show Mode",
     List = {"Both","Body","Name"},
     Default = "Both",
-    Callback = function(v)
-        ESP:SetShowMode(v)
-    end
+    Callback = function(v) ESP:SetShowMode(v) end
 })
 
-local VisSec3 = VisTab:Section({
-    Title = "Tracer",
-})
+VisTab:Section({ Title = "Tracer" })
 
-VisSec3:Toggle({
+VisTab:Toggle({
     Title = "Player Tracer",
     Default = false,
     Callback = function(v)
         if v then Tracer:Enable() else Tracer:Disable() end
-        N("Tracer", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Tracer", v and "Enabled" or "Disabled")
     end
 })
 
@@ -368,7 +346,7 @@ local TC = {
     Cyan = Color3.fromRGB(60,220,255)
 }
 
-VisSec3:Dropdown({
+VisTab:Dropdown({
     Title = "Tracer Color",
     List = {"White","Red","Green","Blue","Yellow","Cyan"},
     Default = "White",
@@ -377,291 +355,267 @@ VisSec3:Dropdown({
     end
 })
 
-VisSec3:Slider({
+VisTab:Slider({
     Title = "Tracer Opacity",
-    Default = 100,
     Min = 0,
     Max = 100,
-    Callback = function(v)
-        Tracer:SetOpacity(v)
-    end
+    Default = 100,
+    Callback = function(v) Tracer:SetOpacity(v) end
 })
 
-VisSec3:Slider({
+VisTab:Slider({
     Title = "Tracer Thickness",
-    Default = 2,
     Min = 1,
     Max = 8,
-    Callback = function(v)
-        Tracer:SetThickness(v)
-    end
+    Default = 2,
+    Callback = function(v) Tracer:SetThickness(v) end
 })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- PLAYER TAB
 -- ══════════════════════════════════════════════════════════════════════════════
-local PlySec1 = PlyTab:Section({
-    Title = "Utility",
-})
+PlyTab:Section({ Title = "Utility" })
 
-PlySec1:Toggle({
+PlyTab:Toggle({
     Title = "Anti AFK",
     Default = false,
     Callback = function(v)
         if v then AntiAFK:Enable() else AntiAFK:Disable() end
-        N("Anti AFK", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Anti AFK", v and "Enabled" or "Disabled")
     end
 })
 
-PlySec1:Toggle({
+PlyTab:Toggle({
     Title = "Infinite Stamina",
     Default = false,
     Callback = function(v)
         if v then InfStamina:Enable() else InfStamina:Disable() end
-        N("Infinite Stamina", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Infinite Stamina", v and "Enabled" or "Disabled")
     end
 })
 
-PlySec1:Toggle({
+PlyTab:Toggle({
     Title = "God Mode",
     Default = false,
     Callback = function(v)
         if v then GodMode:Enable() else GodMode:Disable() end
-        N("God Mode", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("God Mode", v and "Enabled" or "Disabled")
     end
 })
 
-local PlySec2 = PlyTab:Section({
-    Title = "Protection",
-})
+PlyTab:Section({ Title = "Protection" })
 
-PlySec2:Toggle({
+PlyTab:Toggle({
     Title = "No Fall Damage",
     Default = false,
     Callback = function(v)
         if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
-        N("No Fall Damage", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("No Fall Damage", v and "Enabled" or "Disabled")
     end
 })
 
-PlySec2:Toggle({
+PlyTab:Toggle({
     Title = "Anti Fling",
     Default = false,
     Callback = function(v)
         if v then AntiFling:Enable() else AntiFling:Disable() end
-        N("Anti Fling", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Anti Fling", v and "Enabled" or "Disabled")
     end
 })
 
-PlySec2:Slider({
+PlyTab:Slider({
     Title = "Fling Threshold",
-    Default = 200,
     Min = 100,
     Max = 1000,
-    Callback = function(v)
-        AntiFling:SetThreshold(v)
-    end
+    Default = 200,
+    Callback = function(v) AntiFling:SetThreshold(v) end
 })
 
-local PlySec3 = PlyTab:Section({
-    Title = "Combat",
-})
+PlyTab:Section({ Title = "Combat" })
 
-PlySec3:Toggle({
+PlyTab:Toggle({
     Title = "Hitbox Expander",
     Default = false,
     Callback = function(v)
         if v then HitboxExp:Enable() else HitboxExp:Disable() end
-        N("Hitbox Expander", v and "Enabled" or "Disabled", v and "Success" or "Info")
+        N("Hitbox Expander", v and "Enabled" or "Disabled")
     end
 })
 
-PlySec3:Slider({
+PlyTab:Slider({
     Title = "Hitbox Size",
-    Default = 10,
     Min = 5,
     Max = 30,
-    Callback = function(v)
-        HitboxExp:SetSize(v)
-    end
+    Default = 10,
+    Callback = function(v) HitboxExp:SetSize(v) end
 })
 
-PlySec3:Slider({
+PlyTab:Slider({
     Title = "Hitbox Transparency",
-    Default = 80,
     Min = 0,
     Max = 100,
-    Callback = function(v)
-        HitboxExp:SetTransparency(v)
-    end
+    Default = 80,
+    Callback = function(v) HitboxExp:SetTransparency(v) end
 })
 
-PlySec3:Toggle({
+PlyTab:Toggle({
     Title = "Team Check",
     Default = true,
     Callback = function(v)
         HitboxExp:SetTeamCheck(v)
-        N("Team Check", v and "Skip teammates" or "Target all", v and "Success" or "Info")
+        N("Team Check", v and "Skip teammates" or "Target all")
     end
 })
 
-local PlySec4 = PlyTab:Section({
-    Title = "Teleport",
-})
+PlyTab:Section({ Title = "Teleport" })
 
-PlySec4:Button({
+PlyTab:Button({
     Title = "📍 Copy My Position",
     Callback = function()
         local p = Teleport:SavePosition()
         if p then
-            N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z), "Success", 3)
+            N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
         else
-            N("Teleport", "No character", "Error", 3)
+            N("Teleport", "No character")
         end
     end
 })
 
-PlySec4:Button({
+PlyTab:Button({
     Title = "🚀 Go to Saved Position",
     Callback = function()
         if Teleport:GotoSaved(Fly) then
-            N("Teleport", "Teleported", "Success")
+            N("Teleport", "Teleported")
         else
-            N("Teleport", "No position saved", "Warning", 3)
+            N("Teleport", "No position saved")
         end
     end
 })
 
-local tpDrop = PlySec4:Dropdown({
+local tpDrop = PlyTab:Dropdown({
     Title = "Select Player",
     List = Teleport:GetPlayerList(),
     Default = Teleport:GetPlayerList()[1]
 })
 
-PlySec4:Button({
+PlyTab:Button({
     Title = "🔄 Refresh Players",
     Callback = function()
         tpDrop:SetList(Teleport:GetPlayerList())
-        N("Teleport", "Refreshed", "Info")
+        N("Teleport", "Refreshed")
     end
 })
 
-PlySec4:Button({
+PlyTab:Button({
     Title = "⚡ Teleport to Player",
     Callback = function()
         local name = tpDrop:GetValue()
         if name == "(no players)" then return end
         if Teleport:ToPlayer(name, Fly) then
-            N("Teleport", "→ "..name, "Success")
+            N("Teleport", "→ "..name)
         else
-            N("Teleport", name.." not found", "Error", 3)
+            N("Teleport", name.." not found")
         end
     end
 })
 
-local PlySec5 = PlyTab:Section({
-    Title = "Waypoints",
-})
+PlyTab:Section({ Title = "Waypoints" })
 
-local wpNameIn = PlySec5:Input({
+local wpNameIn = PlyTab:Input({
     Title = "Waypoint Name",
     Placeholder = "e.g. spawn",
     Default = "",
     Callback = function() end
 })
 
-PlySec5:Button({
+PlyTab:Button({
     Title = "➕ Create Waypoint",
     Callback = function()
         local name = wpNameIn:GetValue()
         if name == "" then
-            N("Waypoint", "Enter a name", "Warning", 2)
+            N("Waypoint", "Enter a name")
             return
         end
         if Waypoint:Exists(name) then
-            N("Waypoint", name.." already exists", "Warning", 3)
+            N("Waypoint", name.." already exists")
             return
         end
         if Waypoint:Create(name) then
-            N("Waypoint", "Created: "..name, "Success", 2)
+            N("Waypoint", "Created: "..name)
         else
-            N("Waypoint", "Failed to create", "Error", 2)
+            N("Waypoint", "Failed to create")
         end
     end
 })
 
-local wpDrop = PlySec5:Dropdown({
+local wpDrop = PlyTab:Dropdown({
     Title = "Select Waypoint",
     List = Waypoint:GetList(),
     Default = Waypoint:GetList()[1]
 })
 
-PlySec5:Button({
+PlyTab:Button({
     Title = "🔄 Refresh Waypoints",
     Callback = function()
         wpDrop:SetList(Waypoint:GetList())
-        N("Waypoint", "Refreshed", "Info")
+        N("Waypoint", "Refreshed")
     end
 })
 
-PlySec5:Button({
+PlyTab:Button({
     Title = "📍 Teleport to Waypoint",
     Callback = function()
         local name = wpDrop:GetValue()
         if name == "(no waypoints)" then return end
         if Waypoint:Teleport(name, Fly) then
-            N("Waypoint", "→ "..name, "Success")
+            N("Waypoint", "→ "..name)
         else
-            N("Waypoint", "Failed", "Error", 2)
+            N("Waypoint", "Failed")
         end
     end
 })
 
-PlySec5:Button({
+PlyTab:Button({
     Title = "🗑 Delete Waypoint",
     Callback = function()
         local name = wpDrop:GetValue()
         if name == "(no waypoints)" then return end
         if Waypoint:Delete(name) then
-            N("Waypoint", "Deleted: "..name, "Info", 2)
+            N("Waypoint", "Deleted: "..name)
             wpDrop:SetList(Waypoint:GetList())
         else
-            N("Waypoint", "Failed to delete", "Error", 2)
+            N("Waypoint", "Failed to delete")
         end
     end
 })
 
-local PlySec6 = PlyTab:Section({
-    Title = "Server",
-})
+PlyTab:Section({ Title = "Server" })
 
-PlySec6:Button({
+PlyTab:Button({
     Title = "Rejoin Server",
     Callback = function()
-        N("Rejoin", "Rejoining...", "Warning")
+        N("Rejoin", "Rejoining...")
         task.wait(1.5)
         Rejoin:Execute()
     end
 })
 
-PlySec6:Button({
+PlyTab:Button({
     Title = "Copy Player ID",
     Callback = function()
         pcall(function() setclipboard(tostring(lp.UserId)) end)
-        N("Copied", "ID: "..lp.UserId, "Success")
+        N("Copied", "ID: "..lp.UserId)
     end
 })
 
-local PlySec7 = PlyTab:Section({
-    Title = "Stats",
-})
+PlyTab:Section({ Title = "Stats" })
 
-PlySec7:Paragraph({
+PlyTab:Paragraph({
     Title = "Username",
     Content = lp.Name
 })
 
-PlySec7:Paragraph({
+PlyTab:Paragraph({
     Title = "User ID",
     Content = tostring(lp.UserId)
 })
@@ -669,50 +623,46 @@ PlySec7:Paragraph({
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS TAB
 -- ══════════════════════════════════════════════════════════════════════════════
-local SetSec1 = SetTab:Section({
-    Title = "Interface",
-})
+SetTab:Section({ Title = "Interface" })
 
-SetSec1:Keybind({
+SetTab:Keybind({
     Title = "Toggle UI Key",
     Default = Enum.KeyCode.O,
     Callback = function(k)
         Window:SetToggleKey(k)
-        N("Toggle Key", "Set to "..k.Name, "Info")
+        N("Toggle Key", "Set to "..k.Name)
     end
 })
 
-SetSec1:Dropdown({
+SetTab:Dropdown({
     Title = "Theme",
     List = {"Dark","Light","Mocha","Aqua","Jester","Amber"},
     Default = "Dark",
     Callback = function(v)
         Window:SetTheme(v)
-        N("Theme", v.." applied", "Success")
+        N("Theme", v.." applied")
     end
 })
 
-SetSec1:Toggle({
+SetTab:Toggle({
     Title = "Show Notifications",
     Default = true,
     Callback = function(v)
-        N("Notifications", v and "Enabled" or "Disabled", v and "Success" or "Info", 2)
+        N("Notifications", v and "Enabled" or "Disabled")
     end
 })
 
-local SetSec2 = SetTab:Section({
-    Title = "About",
-})
+SetTab:Section({ Title = "About" })
 
-SetSec2:Paragraph({
+SetTab:Paragraph({
     Title = "Leon X",
     Content = "Version "..CURRENT_VERSION.." • by leonx24"
 })
 
-SetSec2:Button({
+SetTab:Button({
     Title = "Join Discord",
     Callback = function()
-        N("Discord", "Link copied to clipboard", "Success", 3)
+        N("Discord", "Link copied to clipboard")
         pcall(function() setclipboard("https://discord.gg/leonx") end)
     end
 })
@@ -720,5 +670,5 @@ SetSec2:Button({
 -- Boot sequence
 PerfStats:Enable()
 task.delay(1, function()
-    N("Leon X", "Welcome!", "Success", 3)
+    N("Leon X", "Welcome!")
 end)
