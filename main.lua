@@ -281,6 +281,9 @@ local function N(title, state, duration)
 end
 
 ConfigMgr:Init(Window)
+ConfigMgr._notify = function(title, msg)
+    N(title, msg)
+end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 setSplashProgress(0.92)
@@ -1077,7 +1080,11 @@ end)
 setSplashProgress(1.0)
 
 PerfStats:Enable()
-ConfigMgr:AutoLoad()
+
+-- AutoLoad with delay so WindUI elements are fully ready
+task.delay(1.5, function()
+    ConfigMgr:AutoLoad()
+end)
 
 -- Smooth splash exit
 task.spawn(function()

@@ -1,4 +1,4 @@
--- Leon X | ConfigManager (WindUI-compatible)
+-- Leon X | ConfigManager
 -- Saves and loads named config snapshots via manual element registration.
 
 local ConfigManager = {}
@@ -10,6 +10,15 @@ local DOT = DIR .. "/.default"
 
 -- Registry: { [flag] = { element = WindUIElement, serialize = fn, deserialize = fn } }
 local Registry = {}
+
+-- Notification callback (set by main.lua for debug feedback)
+ConfigManager._notify = nil
+
+local function notify(title, msg)
+    if ConfigManager._notify then
+        pcall(ConfigManager._notify, title, msg)
+    end
+end
 
 -- ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -25,7 +34,33 @@ local function path(name)
 end
 
 local function ensureDir()
+    if not isfolder("Leon X") then makefolder("Leon X") end
     if not isfolder(DIR) then makefolder(DIR) end
+end
+
+-- Read a WindUI element's current value reliably
+local function getElementValue(el)
+    -- WindUI stores value in .Value field
+    local ok, val = pcall(function() return el.Value end)
+    if ok and val ~= nil then return val end
+    -- fallback: try :Get() method
+    if type(el.Get) == "function" then
+        ok, val = pcall(el.Get, el)
+        if ok then return val end
+    end
+    return nil
+end
+
+-- Set a WindUI element's value reliably
+local function setElementValue(el, val)
+    -- try :Set() method first (most WindUI elements have this)
+    if type(el.Set) == "function" then
+        local ok = pcall(el.Set, el, val)
+        if ok then return true end
+    end
+    -- fallback: set .Value directly
+    pcall(function() el.Value = val end)
+    return true
 end
 
 -- ── public API ────────────────────────────────────────────────────────────────
@@ -50,73 +85,104 @@ end
 
 function ConfigManager:Save(name)
     local safe = sanitize(name)
-    if not safe then return false end
+    if not safe then
+        notify("Config", "Invalid name: "..tostring(name))
+        return false
+    end
+
+    ensureDir()
 
     local data = {}
+    local count = 0
     for flag, entry in pairs(Registry) do
-        pcall(function()
-            local el = entry.element
-            local val
-            if el.Get then
-                val = el:Get()
-            else
-                val = el.Value
+        local ok, err = pcall(function()
+            local val = getElementValue(entry.element)
+            if val ~= nil then
+                -- auto-serialize Enum.KeyCode as name string
+                if type(val) == "userdata" and pcall(function() return val.Name end) then
+                    val = val.Name
+                end
+                data[flag] = entry.serialize(val)
+                count = count + 1
             end
-            -- auto-serialize Enum.KeyCode as name string
-            if type(val) == "userdata" and pcall(function() return val.Name end) then
-                val = val.Name
-            end
-            data[flag] = entry.serialize(val)
         end)
+        if not ok then
+            warn("[ConfigManager] Save error for "..flag..": "..tostring(err))
+        end
     end
 
     local ok, encoded = pcall(function()
         return HttpService:JSONEncode(data)
     end)
-    if not ok then return false end
+    if not ok or not encoded then
+        notify("Config", "JSON encode failed")
+        return false
+    end
 
-    ensureDir()
-    pcall(function() writefile(path(safe), encoded) end)
+    local writeOk = pcall(function() writefile(path(safe), encoded) end)
+    if not writeOk then
+        notify("Config", "writefile failed for "..safe)
+        return false
+    end
+
+    notify("Config", "Saved "..count.." settings to: "..safe)
     return true
 end
 
 function ConfigManager:Load(name)
     local safe = sanitize(name)
-    if not safe then return false end
+    if not safe then
+        notify("Config", "Invalid name: "..tostring(name))
+        return false
+    end
 
     local p = path(safe)
-    if not isfile(p) then return false end
+    if not isfile(p) then
+        notify("Config", "File not found: "..safe)
+        return false
+    end
 
     local raw
     local ok1 = pcall(function() raw = readfile(p) end)
-    if not ok1 or not raw then return false end
+    if not ok1 or not raw or raw == "" then
+        notify("Config", "Read failed: "..safe)
+        return false
+    end
 
     local data
     local ok2 = pcall(function()
         data = HttpService:JSONDecode(raw)
     end)
-    if not ok2 or type(data) ~= "table" then return false end
+    if not ok2 or type(data) ~= "table" then
+        notify("Config", "JSON decode failed: "..safe)
+        return false
+    end
 
+    local loaded = 0
     for flag, saved in pairs(data) do
         local entry = Registry[flag]
         if entry and entry.element then
-            pcall(function()
+            local ok, err = pcall(function()
                 local val = entry.deserialize(saved)
                 -- auto-convert keybind string names back to Enum.KeyCode
                 if type(val) == "string" and flag:find("Key") and Enum.KeyCode[val] then
                     val = Enum.KeyCode[val]
                 end
-                if entry.element.Set then
-                    entry.element:Set(val)
-                end
+                -- set the element value
+                setElementValue(entry.element, val)
                 -- fire callback so feature actually activates
                 if entry.element.Callback then
                     pcall(entry.element.Callback, val)
                 end
+                loaded = loaded + 1
             end)
+            if not ok then
+                warn("[ConfigManager] Load error for "..flag..": "..tostring(err))
+            end
         end
     end
 
+    notify("Config", "Loaded "..loaded.." settings from: "..safe)
     return true
 end
 
@@ -163,7 +229,15 @@ function ConfigManager:AutoLoad()
             target = content:gsub("%s+", "")
         end
     end
-    self:Load(target)
+
+    -- Check if config file actually exists before loading
+    local p = path(target)
+    if not isfile(p) then
+        -- No saved config yet, this is normal on first run
+        return false
+    end
+
+    return self:Load(target)
 end
 
 return ConfigManager
