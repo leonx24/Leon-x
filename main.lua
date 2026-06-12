@@ -335,9 +335,6 @@ local speedToggle = MovTab:Toggle({
     Title    = "Speed Hack",
     Value    = false,
     Callback = function(v)
-        -- During config load: skip — WalkSpeed/JumpPower sliders set values
-        -- After load, ConfigMgr will sync the Speed module state
-        if ConfigMgr._isLoading then return end
         if v then
             local cur = walkSpeedSlider.Value or 16
             Speed:SetWalkSpeed(cur)
@@ -1106,23 +1103,121 @@ PerfStats:Enable()
 -- AutoLoad with delay so WindUI elements are fully ready
 task.delay(1.5, function()
     ConfigMgr:AutoLoad()
-    -- Post-load: sync Speed module if SpeedHack was enabled in config
+
+    -- ── Post-load sync: activate modules based on loaded toggle states ────────
+    -- ConfigManager:Load() does NOT fire callbacks, so we manually sync here
+    -- in a deterministic order to avoid race conditions.
     pcall(function()
-        if speedToggle.Value == true then
-            local cur = walkSpeedSlider.Value or 16
-            Speed:SetWalkSpeed(cur)
+        -- 1. Sync slider/dropdown values to modules (callbacks don't fire during load)
+        pcall(function()
+            -- Speed sliders
+            local ws = walkSpeedSlider.Value or 16
+            if ws < 16 then ws = 16 end
+            Speed:SetWalkSpeed(ws)
             local jp = jumpPowerSlider.Value or 50
             Speed:SetJumpPower(jp)
+
+            -- Fly speed
+            local fs = flySpeedSlider.Value or 60
+            if fs < 10 then fs = 60; flySpeedSlider:Set(60) end
+            Fly:SetSpeed(fs)
+
+            -- FreeCam speed
+            local fcs = fcSpeedSlider.Value or 40
+            FreeCam:SetSpeed(fcs)
+
+            -- AntiFling threshold
+            AntiFling:SetThreshold(flingThreshSlider.Value or 200)
+
+            -- Hitbox
+            HitboxExp:SetSize(hitboxSizeSlider.Value or 10)
+            HitboxExp:SetTransparency(hitboxAlphaSlider.Value or 80)
+
+            -- ESP settings (applied even if ESP off — will take effect on enable)
+            pcall(function() ESP:SetColor(EC[espColorDrop.Value] or Color3.new(1,1,1)) end)
+            pcall(function() ESP:SetOpacity(espOpacitySlider.Value or 15) end)
+            pcall(function() ESP:SetShowMode(espModeDrop.Value or "Both") end)
+
+            -- Tracer settings
+            pcall(function() Tracer:SetColor(TC[tracerColorDrop.Value] or Color3.new(1,1,1)) end)
+            pcall(function() Tracer:SetOpacity(tracerOpacitySlider.Value or 100) end)
+            pcall(function() Tracer:SetThickness(tracerThickSlider.Value or 2) end)
+
+            -- InstantKill settings
+            pcall(function() InstantKill:SetMode(ikModeDrop.Value or "All") end)
+            pcall(function() InstantKill:SetTarget(ikTargetIn.Value or "") end)
+
+            -- TeamCheck
+            pcall(function() HitboxExp:SetTeamCheck(teamCheckToggle.Value) end)
+        end)
+
+        -- 2. Speed Hack
+        if speedToggle.Value == true then
             Speed:Enable()
         end
-    end)
-    -- Post-load: ensure Fly speed is valid (config may have loaded 0)
-    pcall(function()
-        local fs = flySpeedSlider.Value or 60
-        if fs < 10 then
-            flySpeedSlider:Set(60)
-            Fly:SetSpeed(60)
+
+        -- 3. Fly
+        if flyToggle.Value == true then
+            Fly:Enable()
         end
+
+        -- 4. FreeCam
+        if fcToggle.Value == true then
+            FreeCam:Enable()
+        end
+
+        -- 5. Movement features
+        if infJumpToggle.Value == true then InfJump:Enable() end
+        if noclipToggle.Value == true then Noclip:Enable() end
+        if antiRagdollToggle.Value == true then AntiRagdoll:Enable() end
+        if invisToggle.Value == true then Invisible:Enable() end
+        if clickTPToggle.Value == true then ClickTP:Enable() end
+
+        -- 6. Visual features
+        if perfStatsToggle.Value == true then
+            PerfStats:Enable()
+        else
+            PerfStats:Disable()
+        end
+
+        if espToggle.Value == true then ESP:Enable() end
+        if fullBrightToggle.Value == true then FullBright:Enable() end
+        if removeFogToggle.Value == true then RemoveFog:Enable() end
+        if tracerToggle.Value == true then Tracer:Enable() end
+
+        -- 7. Player features
+        if antiAFKToggle.Value == true then AntiAFK:Enable() end
+        if infStaminaToggle.Value == true then InfStamina:Enable() end
+        if godModeToggle.Value == true then GodMode:Enable() end
+        if noFallToggle.Value == true then NoFallDmg:Enable() end
+        if antiFlingToggle.Value == true then AntiFling:Enable() end
+        if hitboxToggle.Value == true then HitboxExp:Enable() end
+        if ikToggle.Value == true then InstantKill:Enable() end
+
+        -- 8. Theme (always sync)
+        pcall(function()
+            local tv = themeDrop.Value
+            if tv and tv ~= "" then
+                Window:SetTheme(tv)
+            end
+        end)
+
+        -- 9. WalkSpeed safety: ensure character can walk
+        pcall(function()
+            local char = game:GetService("Players").LocalPlayer.Character
+            if char then
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    if not Speed.Enabled and hum.WalkSpeed < 16 then
+                        hum.WalkSpeed = 16
+                    end
+                    if not Speed.Enabled and hum.JumpPower < 50 then
+                        hum.JumpPower = 50
+                        hum.JumpHeight = 7.2
+                    end
+                end
+            end
+        end)
     end)
 end)
 
@@ -1137,22 +1232,18 @@ lp.CharacterAdded:Connect(function(char)
     end)
 end)
 
--- Also handle the case where AutoLoad runs before character exists
+-- Also handle FreeCam if it was enabled by AutoLoad but character wasn't ready
+-- (Fly handles itself via its own auto-spawn handler in fly.lua)
 task.spawn(function()
-    -- Wait for character to exist
     local tries = 0
     while not lp.Character and tries < 30 do
         task.wait(1)
         tries = tries + 1
     end
     if not lp.Character then return end
-    task.wait(2) -- extra delay for character to fully load
+    task.wait(2)
 
-    -- Re-sync any toggles that were set by AutoLoad but failed due to no character
     pcall(function()
-        if flyToggle.Value == true and not Fly.Enabled then
-            Fly:Enable()
-        end
         if fcToggle.Value == true and not FreeCam.Enabled then
             FreeCam:Enable()
         end

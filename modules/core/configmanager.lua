@@ -171,10 +171,8 @@ function ConfigManager:Load(name)
                 end
                 -- set the element value
                 setElementValue(entry.element, val)
-                -- fire callback so feature actually activates
-                if entry.element.Callback then
-                    pcall(entry.element.Callback, val)
-                end
+                -- NOTE: callbacks are NOT fired during load.
+                -- The caller (main.lua) must do a post-load sync to activate modules.
                 loaded = loaded + 1
             end)
             if not ok then
