@@ -3,7 +3,7 @@
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
-local CURRENT_VERSION = "1.3"
+local CURRENT_VERSION = "1.4"
 pcall(function()
     CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
 end)
