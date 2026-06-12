@@ -55,7 +55,17 @@ function ConfigManager:Save(name)
     local data = {}
     for flag, entry in pairs(Registry) do
         pcall(function()
-            local val = entry.element.Value
+            local el = entry.element
+            local val
+            if el.Get then
+                val = el:Get()
+            else
+                val = el.Value
+            end
+            -- auto-serialize Enum.KeyCode as name string
+            if type(val) == "userdata" and pcall(function() return val.Name end) then
+                val = val.Name
+            end
             data[flag] = entry.serialize(val)
         end)
     end
@@ -92,6 +102,10 @@ function ConfigManager:Load(name)
         if entry and entry.element then
             pcall(function()
                 local val = entry.deserialize(saved)
+                -- auto-convert keybind string names back to Enum.KeyCode
+                if type(val) == "string" and flag:find("Key") and Enum.KeyCode[val] then
+                    val = Enum.KeyCode[val]
+                end
                 if entry.element.Set then
                     entry.element:Set(val)
                 end

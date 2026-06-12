@@ -720,3 +720,108 @@ task.delay(1, function()
     N("Leon X", "Welcome!")
 end)
 
+-- ── Mobile floating toggle button ─────────────────────────────────────────
+do
+    local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+    if not isMobile then return end  -- only show on mobile
+
+    local pg = lp:WaitForChild("PlayerGui")
+
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "LeonX_MobileBtn"
+    screenGui.ResetOnSpawn = false
+    screenGui.IgnoreGuiInset = true
+    screenGui.DisplayOrder = 1000
+    screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    screenGui.Parent = pg
+
+    -- Outer drag container (draggable)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 56, 0, 56)
+    frame.Position = UDim2.new(0, 16, 0.5, -28)  -- left-center by default
+    frame.BackgroundTransparency = 1
+    frame.Active = true
+    frame.Draggable = true
+    frame.Parent = screenGui
+
+    -- Button body (gradient pill)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, 0, 1, 0)
+    btn.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    btn.Text = ""
+    btn.AutoButtonColor = false
+    btn.BorderSizePixel = 0
+    btn.ZIndex = 2
+    btn.Parent = frame
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(1, 0)
+    corner.Parent = btn
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Thickness = 1.5
+    stroke.Color = Color3.fromRGB(80, 160, 255)
+    stroke.Transparency = 0.3
+    stroke.Parent = btn
+
+    -- Gradient fill
+    local grad = Instance.new("UIGradient")
+    grad.Color = ColorSequence.new({
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(40, 80, 200)),
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(100, 30, 200)),
+    })
+    grad.Rotation = 135
+    grad.Parent = btn
+
+    -- Logo label (⚡ X)
+    local lbl = Instance.new("TextLabel")
+    lbl.Size = UDim2.new(1, 0, 1, 0)
+    lbl.BackgroundTransparency = 1
+    lbl.Text = "⚡"
+    lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+    lbl.Font = Enum.Font.GothamBold
+    lbl.TextSize = 22
+    lbl.ZIndex = 3
+    lbl.Parent = btn
+
+    -- Pulse ring (decorative)
+    local ring = Instance.new("Frame")
+    ring.Size = UDim2.new(1.4, 0, 1.4, 0)
+    ring.Position = UDim2.new(-0.2, 0, -0.2, 0)
+    ring.BackgroundTransparency = 1
+    ring.ZIndex = 1
+    ring.Parent = frame
+    local ringCorner = Instance.new("UICorner")
+    ringCorner.CornerRadius = UDim.new(1, 0)
+    ringCorner.Parent = ring
+    local ringStroke = Instance.new("UIStroke")
+    ringStroke.Thickness = 1
+    ringStroke.Color = Color3.fromRGB(80, 160, 255)
+    ringStroke.Transparency = 0.7
+    ringStroke.Parent = ring
+
+    -- Animate pulse ring
+    task.spawn(function()
+        local TweenService = game:GetService("TweenService")
+        local info = TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+        TweenService:Create(ringStroke, info, { Transparency = 0.1 }):Play()
+    end)
+
+    -- Tap handler: toggle UI, brief visual feedback
+    local TweenService = game:GetService("TweenService")
+    local pressing = false
+    btn.InputBegan:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.Touch then return end
+        pressing = true
+        TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(30, 30, 50) }):Play()
+    end)
+    btn.InputEnded:Connect(function(input)
+        if input.UserInputType ~= Enum.UserInputType.Touch then return end
+        if not pressing then return end
+        pressing = false
+        TweenService:Create(btn, TweenInfo.new(0.1), { BackgroundColor3 = Color3.fromRGB(15, 15, 20) }):Play()
+        pcall(function() Window:Toggle() end)
+    end)
+end
+
+
