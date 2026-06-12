@@ -643,6 +643,19 @@ local hitboxAlphaSlider = PlyTab:Slider({
     Callback = function(v) HitboxExp:SetTransparency(v) end
 })
 ConfigMgr:Register("HitboxTransparency", hitboxAlphaSlider)
+local HC = {
+    Red    = Color3.fromRGB(255,60,60),  Green  = Color3.fromRGB(60,220,80),
+    Blue   = Color3.fromRGB(60,130,255), Yellow = Color3.fromRGB(255,220,50),
+    Cyan   = Color3.fromRGB(60,220,255), Pink   = Color3.fromRGB(255,100,200),
+    White  = Color3.fromRGB(255,255,255), Orange = Color3.fromRGB(255,150,30),
+}
+local hitboxColorDrop = PlyTab:Dropdown({
+    Title    = "Hitbox Color",
+    Values   = {"Red","Green","Blue","Yellow","Cyan","Pink","White","Orange"},
+    Value    = "Red",
+    Callback = function(v) HitboxExp:SetColor(HC[v] or Color3.fromRGB(255,60,60)) end
+})
+ConfigMgr:Register("HitboxColor", hitboxColorDrop)
 local teamCheckToggle = PlyTab:Toggle({
     Title    = "Team Check",
     Value    = true,
@@ -1132,6 +1145,7 @@ task.delay(1.5, function()
             -- Hitbox
             HitboxExp:SetSize(hitboxSizeSlider.Value or 10)
             HitboxExp:SetTransparency(hitboxAlphaSlider.Value or 80)
+            pcall(function() HitboxExp:SetColor(HC[hitboxColorDrop.Value] or Color3.fromRGB(255,60,60)) end)
 
             -- ESP settings (applied even if ESP off — will take effect on enable)
             pcall(function() ESP:SetColor(EC[espColorDrop.Value] or Color3.new(1,1,1)) end)
