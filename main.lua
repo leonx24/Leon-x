@@ -46,8 +46,9 @@ local Rejoin      = load("modules/player/rejoin.lua");         Library:SetSplash
 local Teleport    = load("modules/player/teleport.lua");       Library:SetSplashProgress(0.83)
 local HitboxExp   = load("modules/player/hitboxexpander.lua"); Library:SetSplashProgress(0.86)
 local Waypoint    = load("modules/player/waypoint.lua");       Library:SetSplashProgress(0.89)
-local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.94)
-local NoFallDmg   = load("modules/player/nofalldamage.lua");   Library:SetSplashProgress(0.98)
+local GodMode     = load("modules/player/godmode.lua");        Library:SetSplashProgress(0.92)
+local NoFallDmg   = load("modules/player/nofalldamage.lua");   Library:SetSplashProgress(0.94)
+local InstantKill = load("modules/player/instantkill.lua");    Library:SetSplashProgress(0.98)
 
 Waypoint:Init()
 
@@ -245,6 +246,20 @@ Ply:AddSlider({ Name="Hitbox Transparency", Flag="HitboxTransparency", Min=0, Ma
 Ply:AddToggle({ Name="Team Check", Flag="HitboxTeamCheck", Default=true,
     Callback=function(v) HitboxExp:SetTeamCheck(v)
         N("Team Check", v and "Skip teammates" or "Target all", v and "success" or "info") end })
+
+Ply:AddSection("NPC")
+
+Ply:AddToggle({ Name="Instant Kill NPC", Flag="InstantKill", Default=false,
+    Callback=function(v) if v then InstantKill:Enable() else InstantKill:Disable() end
+        N("Instant Kill", v and "Enabled" or "Disabled", v and "success" or "info") end })
+
+Ply:AddDropdown({ Name="Kill Mode", Flag="InstantKillMode",
+    Options={"All","Specific"}, Default="All",
+    Callback=function(v) InstantKill:SetMode(v)
+        N("Kill Mode", "Set to "..v, "info") end })
+
+local ikTargetIn = Ply:AddTextInput({ Name="Target NPC Name", Placeholder="e.g. Zombie", Default="",
+    Callback=function(v) InstantKill:SetTarget(v) end })
 
 Ply:AddSection("Teleport")
 
