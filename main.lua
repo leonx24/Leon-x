@@ -261,6 +261,16 @@ Ply:AddDropdown({ Name="Kill Mode", Flag="InstantKillMode",
 local ikTargetIn = Ply:AddTextInput({ Name="Target NPC Name", Placeholder="e.g. Zombie", Default="",
     Callback=function(v) InstantKill:SetTarget(v) end })
 
+Ply:AddButton({ Name="🐛  Enable Debug Mode", Callback=function()
+    InstantKill:EnableDebug()
+    N("Debug", "Check F9 console for logs", "info", 3)
+end })
+
+Ply:AddButton({ Name="📊  Show Kill Count", Callback=function()
+    local count = InstantKill:GetKillCount()
+    N("Kill Count", tostring(count).." NPCs killed", "success", 3)
+end })
+
 Ply:AddSection("Teleport")
 
 Ply:AddButton({ Name="📍  Copy My Position", Callback=function()
