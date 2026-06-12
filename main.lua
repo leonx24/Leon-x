@@ -824,7 +824,7 @@ SetTab:Section({ Title = "Interface" })
 
 SetTab:Keybind({
     Title    = "Toggle UI Key",
-    Value    = "O",
+    Value    = "U",
     Callback = function(k)
         Window:SetToggleKey(Enum.KeyCode[k])
         N("Toggle Key", k)
