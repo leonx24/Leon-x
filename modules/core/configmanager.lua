@@ -13,6 +13,7 @@ local Registry = {}
 
 -- Notification callback (set by main.lua for debug feedback)
 ConfigManager._notify = nil
+ConfigManager._isLoading = false  -- true during AutoLoad, callbacks can check this
 
 local function notify(title, msg)
     if ConfigManager._notify then
@@ -233,11 +234,13 @@ function ConfigManager:AutoLoad()
     -- Check if config file actually exists before loading
     local p = path(target)
     if not isfile(p) then
-        -- No saved config yet, this is normal on first run
         return false
     end
 
-    return self:Load(target)
+    self._isLoading = true
+    local result = self:Load(target)
+    self._isLoading = false
+    return result
 end
 
 return ConfigManager

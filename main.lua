@@ -334,8 +334,18 @@ local speedToggle = MovTab:Toggle({
     Title    = "Speed Hack",
     Value    = false,
     Callback = function(v)
-        Speed:SetWalkSpeed(v and 60 or 16)
-        if v then Speed:Enable() else Speed:Disable() end
+        -- During config load: skip — WalkSpeed/JumpPower sliders set values
+        -- After load, ConfigMgr will sync the Speed module state
+        if ConfigMgr._isLoading then return end
+        if v then
+            local cur = walkSpeedSlider.Value or 16
+            Speed:SetWalkSpeed(cur)
+            local jp = jumpPowerSlider.Value or 50
+            Speed:SetJumpPower(jp)
+            Speed:Enable()
+        else
+            Speed:Disable()
+        end
         N("Speed Hack", v and "Enabled" or "Disabled")
     end
 })
@@ -344,14 +354,14 @@ local walkSpeedSlider = MovTab:Slider({
     Title    = "Walk Speed",
     Value    = { Min = 16, Max = 250, Default = 16 },
     Step     = 1,
-    Callback = function(v) Speed:SetWalkSpeed(v); Speed:Enable() end
+    Callback = function(v) Speed:SetWalkSpeed(v) end
 })
 ConfigMgr:Register("WalkSpeed", walkSpeedSlider)
 local jumpPowerSlider = MovTab:Slider({
     Title    = "Jump Power",
     Value    = { Min = 50, Max = 500, Default = 50 },
     Step     = 1,
-    Callback = function(v) Speed:SetJumpPower(v); Speed:Enable() end
+    Callback = function(v) Speed:SetJumpPower(v) end
 })
 ConfigMgr:Register("JumpPower", jumpPowerSlider)
 
@@ -489,28 +499,31 @@ local EC = {
     Yellow = Color3.fromRGB(255,220,50),  Cyan   = Color3.fromRGB(60,220,255),
     Pink   = Color3.fromRGB(255,100,200)
 }
-VisTab:Dropdown({
+local espColorDrop = VisTab:Dropdown({
     Title    = "ESP Color",
     Values   = {"White","Red","Green","Blue","Yellow","Cyan","Pink"},
     Value    = "White",
     Callback = function(v) ESP:SetColor(EC[v] or Color3.new(1,1,1)) end
 })
-VisTab:Slider({
+ConfigMgr:Register("ESPColor", espColorDrop)
+local espOpacitySlider = VisTab:Slider({
     Title    = "ESP Fill Opacity",
     Value    = { Min = 0, Max = 100, Default = 15 },
     Step     = 1,
     Callback = function(v) ESP:SetOpacity(v) end
 })
-VisTab:Dropdown({
+ConfigMgr:Register("ESPOpacity", espOpacitySlider)
+local espModeDrop = VisTab:Dropdown({
     Title    = "ESP Show Mode",
     Values   = {"Both","Body","Name"},
     Value    = "Both",
     Callback = function(v) ESP:SetShowMode(v) end
 })
+ConfigMgr:Register("ESPMode", espModeDrop)
 
 VisTab:Section({ Title = "Tracer" })
 
-VisTab:Toggle({
+local tracerToggle = VisTab:Toggle({
     Title    = "Player Tracer",
     Value    = false,
     Callback = function(v)
@@ -518,29 +531,33 @@ VisTab:Toggle({
         N("Tracer", v and "Enabled" or "Disabled")
     end
 })
+ConfigMgr:Register("Tracer", tracerToggle)
 local TC = {
     White  = Color3.fromRGB(255,255,255), Red    = Color3.fromRGB(255,60,60),
     Green  = Color3.fromRGB(60,220,80),   Blue   = Color3.fromRGB(60,130,255),
     Yellow = Color3.fromRGB(255,220,50),  Cyan   = Color3.fromRGB(60,220,255),
 }
-VisTab:Dropdown({
+local tracerColorDrop = VisTab:Dropdown({
     Title    = "Tracer Color",
     Values   = {"White","Red","Green","Blue","Yellow","Cyan"},
     Value    = "White",
     Callback = function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end
 })
-VisTab:Slider({
+ConfigMgr:Register("TracerColor", tracerColorDrop)
+local tracerOpacitySlider = VisTab:Slider({
     Title    = "Tracer Opacity",
     Value    = { Min = 0, Max = 100, Default = 100 },
     Step     = 1,
     Callback = function(v) Tracer:SetOpacity(v) end
 })
-VisTab:Slider({
+ConfigMgr:Register("TracerOpacity", tracerOpacitySlider)
+local tracerThickSlider = VisTab:Slider({
     Title    = "Tracer Thickness",
     Value    = { Min = 1, Max = 8, Default = 2 },
     Step     = 1,
     Callback = function(v) Tracer:SetThickness(v) end
 })
+ConfigMgr:Register("TracerThickness", tracerThickSlider)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- PLAYER TAB
@@ -658,12 +675,14 @@ ikModeDrop = PlyTab:Dropdown({
         N("Kill Mode", v)
     end
 })
+ConfigMgr:Register("KillMode", ikModeDrop)
 local ikTargetIn = PlyTab:Input({
     Title       = "Target NPC Name",
     Placeholder = "e.g. Zombie",
     Value       = "",
     Callback    = function(v) InstantKill:SetTarget(v) end
 })
+ConfigMgr:Register("KillTarget", ikTargetIn)
 PlyTab:Button({
     Title    = "🐛 Enable Debug Mode",
     Callback = function()
@@ -833,7 +852,7 @@ SetTab:Keybind({
         N("Toggle Key", k)
     end
 })
-SetTab:Dropdown({
+local themeDrop = SetTab:Dropdown({
     Title    = "Theme",
     Values   = {"Dark","Light","Rose","Plant","Red","Indigo","Sky","Violet","Amber"},
     Value    = "Dark",
@@ -842,6 +861,7 @@ SetTab:Dropdown({
         N("Theme", v)
     end
 })
+ConfigMgr:Register("Theme", themeDrop)
 
 SetTab:Section({ Title = "Config" })
 
@@ -1084,6 +1104,16 @@ PerfStats:Enable()
 -- AutoLoad with delay so WindUI elements are fully ready
 task.delay(1.5, function()
     ConfigMgr:AutoLoad()
+    -- Post-load: sync Speed module if SpeedHack was enabled in config
+    pcall(function()
+        if speedToggle.Value == true then
+            local cur = walkSpeedSlider.Value or 16
+            Speed:SetWalkSpeed(cur)
+            local jp = jumpPowerSlider.Value or 50
+            Speed:SetJumpPower(jp)
+            Speed:Enable()
+        end
+    end)
 end)
 
 -- Smooth splash exit
