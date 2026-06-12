@@ -4,7 +4,7 @@
 local BASE    = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
 -- Fetch current version from version.txt (single source of truth)
-local CURRENT_VERSION = "1.0" -- fallback
+local CURRENT_VERSION = "1.3" -- fallback
 pcall(function()
     CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
 end)

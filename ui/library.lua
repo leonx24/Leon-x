@@ -8,7 +8,7 @@ local lp           = Players.LocalPlayer
 local gui          = lp:WaitForChild("PlayerGui")
 
 -- Fetch version dynamically
-local VERSION = "1.0" -- fallback
+local VERSION = "1.3" -- fallback
 pcall(function()
     VERSION = game:HttpGet("https://raw.githubusercontent.com/leonx24/Leon-x/main/version.txt?t="..os.time()):match("^%s*(.-)%s*$")
 end)
