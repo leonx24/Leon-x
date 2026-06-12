@@ -1,21 +1,20 @@
--- Leon X | ConfigManager
--- Saves and loads named config snapshots for all registered UI components.
+-- Leon X | ConfigManager (WindUI-compatible)
+-- Saves and loads named config snapshots via manual element registration.
 
 local ConfigManager = {}
 
 local HttpService = game:GetService("HttpService")
 
-local DIR  = "Leon X/configs"
-local DOT  = DIR .. "/.default"
-local _lib = nil   -- set by Init()
+local DIR = "Leon X/configs"
+local DOT = DIR .. "/.default"
+
+-- Registry: { [flag] = { element = WindUIElement, serialize = fn, deserialize = fn } }
+local Registry = {}
 
 -- ── helpers ───────────────────────────────────────────────────────────────────
 
--- sanitize a config name: replace invalid path chars, block traversal
 local function sanitize(name)
-    -- replace invalid characters
     local s = tostring(name):gsub('[\\/:*?"<>|]', "_")
-    -- block traversal attempts (.. or leading dots that resolve outside DIR)
     if s:find("%.%.") then return nil end
     if s == "" then return nil end
     return s
@@ -26,37 +25,39 @@ local function path(name)
 end
 
 local function ensureDir()
-    if not isfolder(DIR) then
-        makefolder(DIR)
-    end
-end
-
--- serialize a single component value for JSON
--- Keybind Get() returns an EnumItem; everything else is a plain Lua value
-local function serialize(val)
-    if typeof(val) == "EnumItem" then
-        return val.Name   -- store as string e.g. "F"
-    end
-    return val
+    if not isfolder(DIR) then makefolder(DIR) end
 end
 
 -- ── public API ────────────────────────────────────────────────────────────────
 
-function ConfigManager:Init(library)
-    _lib = library
+-- Call once after creating the Window (no-op in WindUI version, kept for compat)
+function ConfigManager:Init(_library)
+    -- no-op: WindUI version uses Register() instead
+end
+
+-- Register a UI element so it participates in Save/Load.
+--   flag      : unique string key (e.g. "Fly", "FlySpeed")
+--   element   : WindUI element reference (Toggle, Slider, Dropdown, etc.)
+--   serialize : optional fn(val) -> saveable value  (default: identity)
+--   deserialize: optional fn(saved) -> element value (default: identity)
+function ConfigManager:Register(flag, element, serialize, deserialize)
+    Registry[flag] = {
+        element     = element,
+        serialize   = serialize   or function(v) return v end,
+        deserialize = deserialize or function(v) return v end,
+    }
 end
 
 function ConfigManager:Save(name)
-    if not _lib then return false end
     local safe = sanitize(name)
     if not safe then return false end
 
     local data = {}
-    for flag, api in pairs(_lib.Registry) do
-        local ok, val = pcall(function() return api:Get() end)
-        if ok then
-            data[flag] = serialize(val)
-        end
+    for flag, entry in pairs(Registry) do
+        pcall(function()
+            local val = entry.element.Value
+            data[flag] = entry.serialize(val)
+        end)
     end
 
     local ok, encoded = pcall(function()
@@ -70,7 +71,6 @@ function ConfigManager:Save(name)
 end
 
 function ConfigManager:Load(name)
-    if not _lib then return false end
     local safe = sanitize(name)
     if not safe then return false end
 
@@ -87,24 +87,18 @@ function ConfigManager:Load(name)
     end)
     if not ok2 or type(data) ~= "table" then return false end
 
-    for flag, val in pairs(data) do
-        local api = _lib.Registry[flag]
-        if api and api.Set then
+    for flag, saved in pairs(data) do
+        local entry = Registry[flag]
+        if entry and entry.element then
             pcall(function()
-                -- Keybind values are stored as strings; convert back to KeyCode
-                if type(val) == "string" then
-                    local kc = Enum.KeyCode[val]
-                    if kc then
-                        api:Set(kc)
-                        -- fire callback so keybind-dependent state updates
-                        if api.Callback then pcall(api.Callback, kc) end
-                        return
-                    end
+                local val = entry.deserialize(saved)
+                if entry.element.Set then
+                    entry.element:Set(val)
                 end
-                api:Set(val)
-                -- fire callback after set so modules actually activate
-                -- (api:Set is silent by design; callbacks enable/disable features)
-                if api.Callback then pcall(api.Callback, val) end
+                -- fire callback so feature actually activates
+                if entry.element.Callback then
+                    pcall(entry.element.Callback, val)
+                end
             end)
         end
     end
@@ -121,10 +115,9 @@ function ConfigManager:List()
 
     local result = {}
     for _, f in ipairs(files) do
-        -- extract just the filename from the full path
         local fname = f:match("[^/\\]+$") or f
         if fname:sub(-5) == ".json" then
-            table.insert(result, fname:sub(1, -6))  -- strip .json
+            table.insert(result, fname:sub(1, -6))
         end
     end
     return result
@@ -133,10 +126,8 @@ end
 function ConfigManager:Delete(name)
     local safe = sanitize(name)
     if not safe then return false end
-
     local p = path(safe)
     if not isfile(p) then return false end
-
     pcall(function() delfile(p) end)
     return true
 end
@@ -144,21 +135,18 @@ end
 function ConfigManager:SetDefault(name)
     local safe = sanitize(name)
     if not safe then return false end
-
     if not isfile(path(safe)) then return false end
-
     ensureDir()
     pcall(function() writefile(DOT, safe) end)
     return true
 end
 
--- called internally by main.lua after all Add* calls
 function ConfigManager:AutoLoad()
     local target = "default"
     if isfile(DOT) then
         local ok, content = pcall(readfile, DOT)
         if ok and content and content ~= "" then
-            target = content:gsub("%s+", "")  -- trim whitespace
+            target = content:gsub("%s+", "")
         end
     end
     self:Load(target)
