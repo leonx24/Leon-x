@@ -498,7 +498,7 @@ PlyTab:Button({
 PlyTab:Button({
     Title = "⚡ Teleport to Player",
     Callback = function()
-        local name = tpDrop:Get()
+        local name = tpDrop.Value
         if not name or name == "(no players)" then return end
         if Teleport:ToPlayer(name, Fly) then
             N("Teleport", "→ "..name)
@@ -520,7 +520,7 @@ local wpNameIn = PlyTab:Input({
 PlyTab:Button({
     Title = "➕ Create Waypoint",
     Callback = function()
-        local name = wpNameIn:Get()
+        local name = wpNameIn.Value or ""
         if name == "" then
             N("Waypoint", "Enter a name")
             return
@@ -554,7 +554,7 @@ PlyTab:Button({
 PlyTab:Button({
     Title = "📍 Teleport to Waypoint",
     Callback = function()
-        local name = wpDrop:Get()
+        local name = wpDrop.Value
         if not name or name == "(no waypoints)" then return end
         if Waypoint:Teleport(name, Fly) then
             N("Waypoint", "→ "..name)
@@ -567,7 +567,7 @@ PlyTab:Button({
 PlyTab:Button({
     Title = "🗑 Delete Waypoint",
     Callback = function()
-        local name = wpDrop:Get()
+        local name = wpDrop.Value
         if not name or name == "(no waypoints)" then return end
         if Waypoint:Delete(name) then
             N("Waypoint", "Deleted: "..name)
