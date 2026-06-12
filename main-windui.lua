@@ -1,96 +1,114 @@
--- Leon X | main.lua (Wind UI version)
--- UI wiring with Wind UI library
+-- Leon X | main-windui.lua
+-- Wind UI version — mirrors main.lua feature set
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
--- Fetch current version from version.txt
-local CURRENT_VERSION = "1.0"
+local CURRENT_VERSION = "1.3"
 pcall(function()
     CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
 end)
 
 local Players = game:GetService("Players")
-local UIS = game:GetService("UserInputService")
-local lp = Players.LocalPlayer
+local UIS     = game:GetService("UserInputService")
+local lp      = Players.LocalPlayer
 
--- Load Wind UI from GitHub (use dist/main.lua for latest stable)
+-- Load Wind UI
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
 
--- Cache buster to force fresh loads
 local cacheBust = "?t="..os.time()
 local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
--- Create Window
-local Window = WindUI:CreateWindow({
-    Title = "Leon X v"..CURRENT_VERSION,
-    Icon = "zap",
-    Author = "by leonx24",
-    Folder = "Leon X",
-    Size = UDim2.new(0, 550, 0, 550),
-    ToggleKey = Enum.KeyCode.O,
-    Transparent = true,
-    Theme = "Dark",
-    SideBarWidth = 170,
+-- ── Splash popup while modules load ───────────────────────────────────────────
+local splashPopup = WindUI:Popup({
+    Title   = "Leon X v"..CURRENT_VERSION,
+    Icon    = "zap",
+    Content = "Loading modules, please wait...",
+    Buttons = {},
 })
 
--- Notification helper
-local function N(title, message, _type, duration)
+local splashSteps = {
+    "Loading config...",
+    "Loading movement modules...",
+    "Loading visual modules...",
+    "Loading player modules...",
+    "Ready!",
+}
+local splashIdx = 0
+local function splashStep(msg)
+    splashIdx = splashIdx + 1
+    pcall(function()
+        if splashPopup and splashPopup.SetContent then
+            splashPopup:SetContent(msg or splashSteps[splashIdx] or "Loading...")
+        end
+    end)
+end
+
+-- ── Load modules ──────────────────────────────────────────────────────────────
+local ConfigMgr   = load("modules/core/configmanager.lua");   splashStep("Loading movement modules...")
+local Fly         = load("modules/movements/fly.lua")
+local Speed       = load("modules/movements/speed.lua")
+local InfJump     = load("modules/movements/infinitejump.lua")
+local Noclip      = load("modules/movements/noclip.lua")
+local AntiRagdoll = load("modules/movements/antiragdoll.lua")
+local Invisible   = load("modules/movements/invisible.lua")
+local FreeCam     = load("modules/movements/freecam.lua")
+local ClickTP     = load("modules/movements/clickteleport.lua")
+splashStep("Loading visual modules...")
+local ESP         = load("modules/visuals/esp.lua")
+local Tracer      = load("modules/visuals/tracer.lua")
+local FullBright  = load("modules/visuals/fullbright.lua")
+local PerfStats   = load("modules/visuals/perfstats.lua")
+local RemoveFog   = load("modules/visuals/removefog.lua");    splashStep("Loading player modules...")
+local AntiAFK     = load("modules/player/antiafk.lua")
+local InfStamina  = load("modules/player/infinitestamina.lua")
+local AntiFling   = load("modules/player/antifling.lua")
+local Rejoin      = load("modules/player/rejoin.lua")
+local Teleport    = load("modules/player/teleport.lua")
+local HitboxExp   = load("modules/player/hitboxexpander.lua")
+local Waypoint    = load("modules/player/waypoint.lua")
+local GodMode     = load("modules/player/godmode.lua")
+local NoFallDmg   = load("modules/player/nofalldamage.lua")
+local InstantKill = load("modules/player/instantkill.lua")
+splashStep("Ready!")
+
+Waypoint:Init()
+
+-- Dismiss splash
+pcall(function()
+    if splashPopup and splashPopup.Destroy then
+        task.wait(0.3)
+        splashPopup:Destroy()
+    end
+end)
+
+-- ── Window ────────────────────────────────────────────────────────────────────
+local Window = WindUI:CreateWindow({
+    Title      = "Leon X v"..CURRENT_VERSION,
+    Icon       = "zap",
+    Author     = "by leonx24",
+    Folder     = "Leon X",
+    Size       = UDim2.new(0, 580, 0, 560),
+    ToggleKey  = Enum.KeyCode.O,
+    Transparent = true,
+    Theme      = "Dark",
+})
+
+-- Notification helper — simple title + state only
+local function N(title, state, duration)
     WindUI:Notify({
-        Title = title,
-        Content = message,
+        Title   = title,
+        Content = state or "",
         Duration = duration or 2,
     })
 end
 
--- Load all modules
-N("Leon X", "Loading modules...", "Info", 1)
+ConfigMgr:Init(Window)
 
-local ConfigMgr = load("modules/core/configmanager.lua")
-local Fly = load("modules/movements/fly.lua")
-local Speed = load("modules/movements/speed.lua")
-local InfJump = load("modules/movements/infinitejump.lua")
-local Noclip = load("modules/movements/noclip.lua")
-local AntiRagdoll = load("modules/movements/antiragdoll.lua")
-local Invisible = load("modules/movements/invisible.lua")
-local FreeCam = load("modules/movements/freecam.lua")
-local ClickTP = load("modules/movements/clickteleport.lua")
-local ESP = load("modules/visuals/esp.lua")
-local Tracer = load("modules/visuals/tracer.lua")
-local FullBright = load("modules/visuals/fullbright.lua")
-local PerfStats = load("modules/visuals/perfstats.lua")
-local RemoveFog = load("modules/visuals/removefog.lua")
-local AntiAFK = load("modules/player/antiafk.lua")
-local InfStamina = load("modules/player/infinitestamina.lua")
-local AntiFling = load("modules/player/antifling.lua")
-local Rejoin = load("modules/player/rejoin.lua")
-local Teleport = load("modules/player/teleport.lua")
-local HitboxExp = load("modules/player/hitboxexpander.lua")
-local Waypoint = load("modules/player/waypoint.lua")
-local GodMode = load("modules/player/godmode.lua")
-local NoFallDmg = load("modules/player/nofalldamage.lua")
-
-Waypoint:Init()
-
--- Create Tabs
-local MovTab = Window:Tab({
-    Title = "Movement",
-    Icon = "person-standing",
-})
-
-local VisTab = Window:Tab({
-    Title = "Visual",
-    Icon = "eye",
-})
-
-local PlyTab = Window:Tab({
-    Title = "Player",
-    Icon = "user",
-})
-
-local SetTab = Window:Tab({
-    Title = "Settings",
-    Icon = "settings",
-})
+-- ── Tabs ──────────────────────────────────────────────────────────────────────
+local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
+local VisTab = Window:Tab({ Title = "Visual",   Icon = "eye" })
+local PlyTab = Window:Tab({ Title = "Player",   Icon = "user" })
+local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT TAB
@@ -98,31 +116,28 @@ local SetTab = Window:Tab({
 MovTab:Section({ Title = "Locomotion" })
 
 local flyToggle = MovTab:Toggle({
-    Title = "Fly",
-    Value = false,
+    Title    = "Fly",
+    Value    = false,
     Callback = function(v)
         if v then Fly:Enable() else Fly:Disable() end
         N("Fly", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Slider({
-    Title = "Fly Speed",
-    Value = { Min = 10, Max = 300, Default = 60 },
-    Step = 1,
+    Title    = "Fly Speed",
+    Value    = { Min = 10, Max = 300, Default = 60 },
+    Step     = 1,
     Callback = function(v) Fly:SetSpeed(v) end
 })
-
 local flyKey = Enum.KeyCode.F
 MovTab:Keybind({
-    Title = "Fly Keybind",
-    Value = "F",
+    Title    = "Fly Keybind",
+    Value    = "F",
     Callback = function(k)
         flyKey = Enum.KeyCode[k] or Enum.KeyCode.F
-        N("Fly Keybind", "Set to "..k)
+        N("Fly Keybind", k)
     end
 })
-
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= flyKey then return end
     local s = not Fly.Enabled
@@ -131,101 +146,86 @@ UIS.InputBegan:Connect(function(i, gp)
 end)
 
 MovTab:Toggle({
-    Title = "Speed Hack",
-    Value = false,
+    Title    = "Speed Hack",
+    Value    = false,
     Callback = function(v)
         Speed:SetWalkSpeed(v and 60 or 16)
         if v then Speed:Enable() else Speed:Disable() end
-        N("Speed Hack", v and "Enabled (60)" or "Disabled")
+        N("Speed Hack", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Slider({
-    Title = "Walk Speed",
-    Value = { Min = 16, Max = 250, Default = 16 },
-    Step = 1,
-    Callback = function(v)
-        Speed:SetWalkSpeed(v)
-        Speed:Enable()
-    end
+    Title    = "Walk Speed",
+    Value    = { Min = 16, Max = 250, Default = 16 },
+    Step     = 1,
+    Callback = function(v) Speed:SetWalkSpeed(v); Speed:Enable() end
 })
-
 MovTab:Slider({
-    Title = "Jump Power",
-    Value = { Min = 50, Max = 500, Default = 50 },
-    Step = 1,
-    Callback = function(v)
-        Speed:SetJumpPower(v)
-        Speed:Enable()
-    end
+    Title    = "Jump Power",
+    Value    = { Min = 50, Max = 500, Default = 50 },
+    Step     = 1,
+    Callback = function(v) Speed:SetJumpPower(v); Speed:Enable() end
 })
 
 MovTab:Section({ Title = "Misc" })
 
 MovTab:Toggle({
-    Title = "Infinite Jump",
-    Value = false,
+    Title    = "Infinite Jump",
+    Value    = false,
     Callback = function(v)
         if v then InfJump:Enable() else InfJump:Disable() end
         N("Infinite Jump", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Toggle({
-    Title = "Noclip",
-    Value = false,
+    Title    = "Noclip",
+    Value    = false,
     Callback = function(v)
         if v then Noclip:Enable() else Noclip:Disable() end
         N("Noclip", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Toggle({
-    Title = "Anti Ragdoll",
-    Value = false,
+    Title    = "Anti Ragdoll",
+    Value    = false,
     Callback = function(v)
         if v then AntiRagdoll:Enable() else AntiRagdoll:Disable() end
         N("Anti Ragdoll", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Toggle({
-    Title = "Invisible (local)",
-    Value = false,
+    Title    = "Invisible (local)",
+    Value    = false,
     Callback = function(v)
         if v then Invisible:Enable() else Invisible:Disable() end
         N("Invisible", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Section({ Title = "Camera" })
 
-local fcKey = Enum.KeyCode.V
+local fcKey    = Enum.KeyCode.V
 local fcToggle = MovTab:Toggle({
-    Title = "Free Cam",
-    Value = false,
+    Title    = "Free Cam",
+    Value    = false,
     Callback = function(v)
         if v then FreeCam:Enable() else FreeCam:Disable() end
         N("Free Cam", v and "Enabled" or "Disabled")
     end
 })
-
 MovTab:Slider({
-    Title = "Free Cam Speed",
-    Value = { Min = 5, Max = 300, Default = 40 },
-    Step = 1,
+    Title    = "Free Cam Speed",
+    Value    = { Min = 5, Max = 300, Default = 40 },
+    Step     = 1,
     Callback = function(v) FreeCam:SetSpeed(v) end
 })
-
 MovTab:Keybind({
-    Title = "FreeCam Keybind",
-    Value = "V",
+    Title    = "FreeCam Keybind",
+    Value    = "V",
     Callback = function(k)
         fcKey = Enum.KeyCode[k] or Enum.KeyCode.V
-        N("FreeCam Keybind", "Set to "..k)
+        N("FreeCam Keybind", k)
     end
 })
-
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= fcKey then return end
     local s = not FreeCam.Enabled
@@ -236,8 +236,8 @@ end)
 MovTab:Section({ Title = "Click Teleport" })
 
 MovTab:Toggle({
-    Title = "Click Teleport",
-    Value = false,
+    Title    = "Click Teleport",
+    Value    = false,
     Callback = function(v)
         if v then ClickTP:Enable() else ClickTP:Disable() end
         N("Click Teleport", v and "Enabled — click to tp" or "Disabled")
@@ -250,116 +250,96 @@ MovTab:Toggle({
 VisTab:Section({ Title = "Rendering" })
 
 VisTab:Toggle({
-    Title = "Perf Stats (HUD)",
-    Value = true,
+    Title    = "Perf Stats (HUD)",
+    Value    = true,
     Callback = function(v)
         if v then PerfStats:Enable() else PerfStats:Disable() end
         N("Perf Stats", v and "Enabled" or "Disabled")
     end
 })
-
 VisTab:Toggle({
-    Title = "ESP",
-    Value = false,
+    Title    = "ESP",
+    Value    = false,
     Callback = function(v)
         if v then ESP:Enable() else ESP:Disable() end
         N("ESP", v and "Enabled" or "Disabled")
     end
 })
-
 VisTab:Toggle({
-    Title = "FullBright",
-    Value = false,
+    Title    = "FullBright",
+    Value    = false,
     Callback = function(v)
         if v then FullBright:Enable() else FullBright:Disable() end
         N("FullBright", v and "Enabled" or "Disabled")
     end
 })
-
 VisTab:Toggle({
-    Title = "Remove Fog",
-    Value = false,
+    Title    = "Remove Fog",
+    Value    = false,
     Callback = function(v)
         if v then RemoveFog:Enable() else RemoveFog:Disable() end
         N("Remove Fog", v and "Enabled" or "Disabled")
     end
 })
 
-VisTab:Section({ Title = "Appearance" })
+VisTab:Section({ Title = "ESP Settings" })
 
 local EC = {
-    White = Color3.fromRGB(255,255,255),
-    Red = Color3.fromRGB(255,60,60),
-    Green = Color3.fromRGB(60,220,80),
-    Blue = Color3.fromRGB(60,130,255),
-    Yellow = Color3.fromRGB(255,220,50),
-    Cyan = Color3.fromRGB(60,220,255),
-    Pink = Color3.fromRGB(255,100,200)
+    White  = Color3.fromRGB(255,255,255), Red    = Color3.fromRGB(255,60,60),
+    Green  = Color3.fromRGB(60,220,80),   Blue   = Color3.fromRGB(60,130,255),
+    Yellow = Color3.fromRGB(255,220,50),  Cyan   = Color3.fromRGB(60,220,255),
+    Pink   = Color3.fromRGB(255,100,200)
 }
-
 VisTab:Dropdown({
-    Title = "ESP Color",
-    Values = {"White","Red","Green","Blue","Yellow","Cyan","Pink"},
-    Value = "White",
-    Callback = function(v)
-        ESP:SetColor(EC[v] or Color3.new(1,1,1))
-    end
+    Title    = "ESP Color",
+    Values   = {"White","Red","Green","Blue","Yellow","Cyan","Pink"},
+    Value    = "White",
+    Callback = function(v) ESP:SetColor(EC[v] or Color3.new(1,1,1)) end
 })
-
 VisTab:Slider({
-    Title = "ESP Fill Opacity",
-    Value = { Min = 0, Max = 100, Default = 15 },
-    Step = 1,
+    Title    = "ESP Fill Opacity",
+    Value    = { Min = 0, Max = 100, Default = 15 },
+    Step     = 1,
     Callback = function(v) ESP:SetOpacity(v) end
 })
-
 VisTab:Dropdown({
-    Title = "ESP Show Mode",
-    Values = {"Both","Body","Name"},
-    Value = "Both",
+    Title    = "ESP Show Mode",
+    Values   = {"Both","Body","Name"},
+    Value    = "Both",
     Callback = function(v) ESP:SetShowMode(v) end
 })
 
 VisTab:Section({ Title = "Tracer" })
 
 VisTab:Toggle({
-    Title = "Player Tracer",
-    Value = false,
+    Title    = "Player Tracer",
+    Value    = false,
     Callback = function(v)
         if v then Tracer:Enable() else Tracer:Disable() end
         N("Tracer", v and "Enabled" or "Disabled")
     end
 })
-
 local TC = {
-    White = Color3.fromRGB(255,255,255),
-    Red = Color3.fromRGB(255,60,60),
-    Green = Color3.fromRGB(60,220,80),
-    Blue = Color3.fromRGB(60,130,255),
-    Yellow = Color3.fromRGB(255,220,50),
-    Cyan = Color3.fromRGB(60,220,255)
+    White  = Color3.fromRGB(255,255,255), Red    = Color3.fromRGB(255,60,60),
+    Green  = Color3.fromRGB(60,220,80),   Blue   = Color3.fromRGB(60,130,255),
+    Yellow = Color3.fromRGB(255,220,50),  Cyan   = Color3.fromRGB(60,220,255),
 }
-
 VisTab:Dropdown({
-    Title = "Tracer Color",
-    Values = {"White","Red","Green","Blue","Yellow","Cyan"},
-    Value = "White",
-    Callback = function(v)
-        Tracer:SetColor(TC[v] or Color3.new(1,1,1))
-    end
+    Title    = "Tracer Color",
+    Values   = {"White","Red","Green","Blue","Yellow","Cyan"},
+    Value    = "White",
+    Callback = function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end
 })
-
 VisTab:Slider({
-    Title = "Tracer Opacity",
-    Value = { Min = 0, Max = 100, Default = 100 },
-    Step = 1,
+    Title    = "Tracer Opacity",
+    Value    = { Min = 0, Max = 100, Default = 100 },
+    Step     = 1,
     Callback = function(v) Tracer:SetOpacity(v) end
 })
-
 VisTab:Slider({
-    Title = "Tracer Thickness",
-    Value = { Min = 1, Max = 8, Default = 2 },
-    Step = 1,
+    Title    = "Tracer Thickness",
+    Value    = { Min = 1, Max = 8, Default = 2 },
+    Step     = 1,
     Callback = function(v) Tracer:SetThickness(v) end
 })
 
@@ -369,209 +349,244 @@ VisTab:Slider({
 PlyTab:Section({ Title = "Utility" })
 
 PlyTab:Toggle({
-    Title = "Anti AFK",
-    Value = false,
+    Title    = "Anti AFK",
+    Value    = false,
     Callback = function(v)
         if v then AntiAFK:Enable() else AntiAFK:Disable() end
         N("Anti AFK", v and "Enabled" or "Disabled")
     end
 })
-
 PlyTab:Toggle({
-    Title = "Infinite Stamina",
-    Value = false,
+    Title    = "Infinite Stamina",
+    Value    = false,
     Callback = function(v)
         if v then InfStamina:Enable() else InfStamina:Disable() end
         N("Infinite Stamina", v and "Enabled" or "Disabled")
     end
 })
-
 PlyTab:Toggle({
-    Title = "God Mode",
-    Value = false,
+    Title    = "God Mode",
+    Value    = false,
     Callback = function(v)
         if v then GodMode:Enable() else GodMode:Disable() end
         N("God Mode", v and "Enabled" or "Disabled")
     end
 })
-
 PlyTab:Section({ Title = "Protection" })
 
 PlyTab:Toggle({
-    Title = "No Fall Damage",
-    Value = false,
+    Title    = "No Fall Damage",
+    Value    = false,
     Callback = function(v)
         if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
         N("No Fall Damage", v and "Enabled" or "Disabled")
     end
 })
-
 PlyTab:Toggle({
-    Title = "Anti Fling",
-    Value = false,
+    Title    = "Anti Fling",
+    Value    = false,
     Callback = function(v)
         if v then AntiFling:Enable() else AntiFling:Disable() end
         N("Anti Fling", v and "Enabled" or "Disabled")
     end
 })
-
 PlyTab:Slider({
-    Title = "Fling Threshold",
-    Value = { Min = 100, Max = 1000, Default = 200 },
-    Step = 1,
+    Title    = "Fling Threshold",
+    Value    = { Min = 100, Max = 1000, Default = 200 },
+    Step     = 1,
     Callback = function(v) AntiFling:SetThreshold(v) end
 })
 
 PlyTab:Section({ Title = "Combat" })
 
 PlyTab:Toggle({
-    Title = "Hitbox Expander",
-    Value = false,
+    Title    = "Hitbox Expander",
+    Value    = false,
     Callback = function(v)
         if v then HitboxExp:Enable() else HitboxExp:Disable() end
         N("Hitbox Expander", v and "Enabled" or "Disabled")
     end
 })
-
 PlyTab:Slider({
-    Title = "Hitbox Size",
-    Value = { Min = 5, Max = 30, Default = 10 },
-    Step = 1,
+    Title    = "Hitbox Size",
+    Value    = { Min = 5, Max = 30, Default = 10 },
+    Step     = 1,
     Callback = function(v) HitboxExp:SetSize(v) end
 })
-
 PlyTab:Slider({
-    Title = "Hitbox Transparency",
-    Value = { Min = 0, Max = 100, Default = 80 },
-    Step = 1,
+    Title    = "Hitbox Transparency",
+    Value    = { Min = 0, Max = 100, Default = 80 },
+    Step     = 1,
     Callback = function(v) HitboxExp:SetTransparency(v) end
 })
-
 PlyTab:Toggle({
-    Title = "Team Check",
-    Value = true,
+    Title    = "Team Check",
+    Value    = true,
     Callback = function(v)
         HitboxExp:SetTeamCheck(v)
         N("Team Check", v and "Skip teammates" or "Target all")
     end
 })
 
+PlyTab:Section({ Title = "NPC" })
+
+PlyTab:Toggle({
+    Title    = "Instant Kill NPC",
+    Value    = false,
+    Callback = function(v)
+        if v then InstantKill:Enable() else InstantKill:Disable() end
+        N("Instant Kill", v and "Enabled" or "Disabled")
+    end
+})
+local ikModeDrop
+ikModeDrop = PlyTab:Dropdown({
+    Title    = "Kill Mode",
+    Values   = {"All","Specific"},
+    Value    = "All",
+    Callback = function(v)
+        InstantKill:SetMode(v)
+        N("Kill Mode", v)
+    end
+})
+local ikTargetIn = PlyTab:Input({
+    Title       = "Target NPC Name",
+    Placeholder = "e.g. Zombie",
+    Value       = "",
+    Callback    = function(v) InstantKill:SetTarget(v) end
+})
+PlyTab:Button({
+    Title    = "🐛 Enable Debug Mode",
+    Callback = function()
+        InstantKill:EnableDebug()
+        N("InstantKill", "Debug on — check F9 console")
+    end
+})
+PlyTab:Button({
+    Title    = "📊 Show Kill Count",
+    Callback = function()
+        N("Kill Count", tostring(InstantKill:GetKillCount()).." NPCs")
+    end
+})
+
 PlyTab:Section({ Title = "Teleport" })
 
 PlyTab:Button({
-    Title = "📍 Copy My Position",
+    Title    = "📍 Copy My Position",
     Callback = function()
         local p = Teleport:SavePosition()
-        if p then
-            N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
-        else
-            N("Teleport", "No character")
-        end
+        if p then N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
+        else N("Teleport", "No character") end
     end
 })
-
 PlyTab:Button({
-    Title = "🚀 Go to Saved Position",
+    Title    = "🚀 Go to Saved Position",
     Callback = function()
-        if Teleport:GotoSaved(Fly) then
-            N("Teleport", "Teleported")
-        else
-            N("Teleport", "No position saved")
-        end
+        if Teleport:GotoSaved(Fly) then N("Teleport", "Teleported")
+        else N("Teleport", "No position saved") end
     end
 })
 
+-- Track selected player via Callback (more reliable than .Value read on click)
+local selectedPlayer = nil
 local tpDrop = PlyTab:Dropdown({
-    Title = "Select Player",
-    Values = Teleport:GetPlayerList(),
-    Value = 1,
+    Title    = "Select Player",
+    Values   = Teleport:GetPlayerList(),
+    Value    = 1,
+    Callback = function(v) selectedPlayer = v end
 })
+-- init with first value
+do local list = Teleport:GetPlayerList(); selectedPlayer = list[1] end
 
 PlyTab:Button({
-    Title = "🔄 Refresh Players",
+    Title    = "🔄 Refresh Players",
     Callback = function()
-        tpDrop:Refresh(Teleport:GetPlayerList())
-        N("Teleport", "Refreshed")
+        local list = Teleport:GetPlayerList()
+        tpDrop:Refresh(list)
+        selectedPlayer = list[1]
+        N("Players", "Refreshed")
     end
 })
-
 PlyTab:Button({
-    Title = "⚡ Teleport to Player",
+    Title    = "⚡ Teleport to Player",
     Callback = function()
-        local name = tpDrop.Value
+        local name = selectedPlayer
         if not name or name == "(no players)" then return end
-        if Teleport:ToPlayer(name, Fly) then
-            N("Teleport", "→ "..name)
-        else
-            N("Teleport", name.." not found")
-        end
+        if Teleport:ToPlayer(name, Fly) then N("Teleport", "→ "..name)
+        else N("Teleport", name.." not found") end
     end
 })
 
 PlyTab:Section({ Title = "Waypoints" })
 
 local wpNameIn = PlyTab:Input({
-    Title = "Waypoint Name",
+    Title       = "Waypoint Name",
     Placeholder = "e.g. spawn",
-    Value = "",
-    Callback = function() end
+    Value       = "",
+    Callback    = function() end
 })
 
+-- Track selected waypoint via Callback
+local selectedWaypoint = nil
+local wpDrop
+
 PlyTab:Button({
-    Title = "➕ Create Waypoint",
+    Title    = "➕ Create Waypoint",
     Callback = function()
         local name = wpNameIn.Value or ""
-        if name == "" then
-            N("Waypoint", "Enter a name")
-            return
-        end
-        if Waypoint:Exists(name) then
-            N("Waypoint", name.." already exists")
-            return
-        end
+        if name == "" then N("Waypoint", "Enter a name"); return end
+        if Waypoint:Exists(name) then N("Waypoint", name.." already exists"); return end
         if Waypoint:Create(name) then
             N("Waypoint", "Created: "..name)
+            local list = Waypoint:GetList()
+            wpDrop:Refresh(list)
+            -- auto-select the just-created waypoint
+            selectedWaypoint = name
+            wpDrop:Select(name)
         else
             N("Waypoint", "Failed to create")
         end
     end
 })
 
-local wpDrop = PlyTab:Dropdown({
-    Title = "Select Waypoint",
-    Values = Waypoint:GetList(),
-    Value = 1,
+wpDrop = PlyTab:Dropdown({
+    Title    = "Select Waypoint",
+    Values   = Waypoint:GetList(),
+    Value    = 1,
+    Callback = function(v) selectedWaypoint = v end
 })
+-- init
+do local list = Waypoint:GetList(); selectedWaypoint = list[1] end
 
 PlyTab:Button({
-    Title = "🔄 Refresh Waypoints",
+    Title    = "🔄 Refresh Waypoints",
     Callback = function()
-        wpDrop:Refresh(Waypoint:GetList())
-        N("Waypoint", "Refreshed")
+        local list = Waypoint:GetList()
+        wpDrop:Refresh(list)
+        selectedWaypoint = list[1]
+        N("Waypoints", "Refreshed")
     end
 })
-
 PlyTab:Button({
-    Title = "📍 Teleport to Waypoint",
+    Title    = "📍 Teleport to Waypoint",
     Callback = function()
-        local name = wpDrop.Value
-        if not name or name == "(no waypoints)" then return end
-        if Waypoint:Teleport(name, Fly) then
-            N("Waypoint", "→ "..name)
-        else
-            N("Waypoint", "Failed")
+        local name = selectedWaypoint
+        if not name or name == "(no waypoints)" then
+            N("Waypoint", "Select a waypoint first"); return
         end
+        if Waypoint:Teleport(name, Fly) then N("Waypoint", "→ "..name)
+        else N("Waypoint", "Failed") end
     end
 })
-
 PlyTab:Button({
-    Title = "🗑 Delete Waypoint",
+    Title    = "🗑 Delete Waypoint",
     Callback = function()
-        local name = wpDrop.Value
+        local name = selectedWaypoint
         if not name or name == "(no waypoints)" then return end
         if Waypoint:Delete(name) then
             N("Waypoint", "Deleted: "..name)
-            wpDrop:Refresh(Waypoint:GetList())
+            local list = Waypoint:GetList()
+            wpDrop:Refresh(list)
+            selectedWaypoint = list[1]
         else
             N("Waypoint", "Failed to delete")
         end
@@ -581,33 +596,24 @@ PlyTab:Button({
 PlyTab:Section({ Title = "Server" })
 
 PlyTab:Button({
-    Title = "Rejoin Server",
+    Title    = "Rejoin Server",
     Callback = function()
         N("Rejoin", "Rejoining...")
         task.wait(1.5)
         Rejoin:Execute()
     end
 })
-
 PlyTab:Button({
-    Title = "Copy Player ID",
+    Title    = "Copy Player ID",
     Callback = function()
         pcall(function() setclipboard(tostring(lp.UserId)) end)
-        N("Copied", "ID: "..lp.UserId)
+        N("Player ID", tostring(lp.UserId))
     end
 })
 
 PlyTab:Section({ Title = "Stats" })
-
-PlyTab:Paragraph({
-    Title = "Username",
-    Content = lp.Name
-})
-
-PlyTab:Paragraph({
-    Title = "User ID",
-    Content = tostring(lp.UserId)
-})
+PlyTab:Paragraph({ Title = "Username", Content = lp.Name })
+PlyTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS TAB
@@ -615,49 +621,105 @@ PlyTab:Paragraph({
 SetTab:Section({ Title = "Interface" })
 
 SetTab:Keybind({
-    Title = "Toggle UI Key",
-    Value = "O",
+    Title    = "Toggle UI Key",
+    Value    = "O",
     Callback = function(k)
         Window:SetToggleKey(Enum.KeyCode[k])
-        N("Toggle Key", "Set to "..k)
+        N("Toggle Key", k)
     end
 })
-
 SetTab:Dropdown({
-    Title = "Theme",
-    Values = {"Dark","Light","Mocha","Aqua","Jester","Amber"},
-    Value = "Dark",
+    Title    = "Theme",
+    Values   = {"Dark","Light","Mocha","Aqua","Jester","Amber"},
+    Value    = "Dark",
     Callback = function(v)
         Window:SetTheme(v)
-        N("Theme", v.." applied")
+        N("Theme", v)
     end
 })
 
-SetTab:Toggle({
-    Title = "Show Notifications",
-    Value = true,
-    Callback = function(v)
-        N("Notifications", v and "Enabled" or "Disabled")
+SetTab:Section({ Title = "Config" })
+
+local cfgNameIn = SetTab:Input({
+    Title       = "Config Name",
+    Placeholder = "e.g. pvp",
+    Value       = "default",
+    Callback    = function() end
+})
+
+local function getCfgName()
+    local v = cfgNameIn.Value
+    return (v and v ~= "") and v or "default"
+end
+local function getCfgList()
+    local l = ConfigMgr:List()
+    return #l > 0 and l or {"(none)"}
+end
+
+-- Track selected config via Callback
+local selectedConfig = nil
+local cfgDrop = SetTab:Dropdown({
+    Title    = "Select Config",
+    Values   = getCfgList(),
+    Value    = 1,
+    Callback = function(v) selectedConfig = v end
+})
+do local list = getCfgList(); selectedConfig = list[1] end
+
+SetTab:Button({
+    Title    = "💾 Save",
+    Callback = function()
+        local n = getCfgName()
+        local ok = ConfigMgr:Save(n)
+        N("Config", ok and "Saved: "..n or "Save failed")
+        if ok then
+            local list = getCfgList()
+            cfgDrop:Refresh(list)
+            selectedConfig = n
+            cfgDrop:Select(n)
+        end
+    end
+})
+SetTab:Button({
+    Title    = "📂 Load",
+    Callback = function()
+        local s = selectedConfig
+        if not s or s == "(none)" then return end
+        local ok = ConfigMgr:Load(s)
+        N("Config", ok and "Loaded: "..s or "Load failed")
+    end
+})
+SetTab:Button({
+    Title    = "🗑 Delete",
+    Callback = function()
+        local s = selectedConfig
+        if not s or s == "(none)" then return end
+        ConfigMgr:Delete(s)
+        N("Config", "Deleted: "..s)
+        local list = getCfgList()
+        cfgDrop:Refresh(list)
+        selectedConfig = list[1]
+    end
+})
+SetTab:Button({
+    Title    = "⭐ Set as Default",
+    Callback = function()
+        local s = selectedConfig
+        if not s or s == "(none)" then return end
+        local ok = ConfigMgr:SetDefault(s)
+        N("Config", ok and s.." is default" or "Failed")
     end
 })
 
 SetTab:Section({ Title = "About" })
-
 SetTab:Paragraph({
-    Title = "Leon X",
-    Content = "Version "..CURRENT_VERSION.." • by leonx24"
+    Title   = "Leon X",
+    Content = "v"..CURRENT_VERSION.." • by leonx24"
 })
 
-SetTab:Button({
-    Title = "Join Discord",
-    Callback = function()
-        N("Discord", "Link copied to clipboard")
-        pcall(function() setclipboard("https://discord.gg/leonx") end)
-    end
-})
-
--- Boot sequence
+-- ── Boot ──────────────────────────────────────────────────────────────────────
 PerfStats:Enable()
 task.delay(1, function()
     N("Leon X", "Welcome!")
 end)
+
