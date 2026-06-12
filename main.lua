@@ -311,7 +311,7 @@ local flySpeedSlider = MovTab:Slider({
     Title    = "Fly Speed",
     Value    = { Min = 10, Max = 300, Default = 60 },
     Step     = 1,
-    Callback = function(v) Fly:SetSpeed(v) end
+    Callback = function(v) if v >= 10 then Fly:SetSpeed(v) end end
 })
 ConfigMgr:Register("FlySpeed", flySpeedSlider)
 local flyKey = Enum.KeyCode.F
@@ -325,6 +325,7 @@ MovTab:Keybind({
 })
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= flyKey then return end
+    -- Use Fly.Enabled (actual state) instead of toggle UI (may be out of sync)
     local s = not Fly.Enabled
     flyToggle:Set(s)
     if s then Fly:Enable() else Fly:Disable() end
@@ -432,6 +433,7 @@ MovTab:Keybind({
 })
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= fcKey then return end
+    -- Use FreeCam.Enabled (actual state) instead of toggle UI
     local s = not FreeCam.Enabled
     fcToggle:Set(s)
     if s then FreeCam:Enable() else FreeCam:Disable() end
@@ -1112,6 +1114,47 @@ task.delay(1.5, function()
             local jp = jumpPowerSlider.Value or 50
             Speed:SetJumpPower(jp)
             Speed:Enable()
+        end
+    end)
+    -- Post-load: ensure Fly speed is valid (config may have loaded 0)
+    pcall(function()
+        local fs = flySpeedSlider.Value or 60
+        if fs < 10 then
+            flySpeedSlider:Set(60)
+            Fly:SetSpeed(60)
+        end
+    end)
+end)
+
+-- ── Character respawn handler ─────────────────────────────────────────────────
+-- Re-enables features that use physics instances (BodyVelocity/BodyGyro)
+-- because they get destroyed when the character respawns.
+lp.CharacterAdded:Connect(function(char)
+    task.wait(1) -- let character fully load
+    pcall(function()
+        if Fly.Enabled then Fly:Disable(); Fly:Enable() end
+        if FreeCam.Enabled then FreeCam:Disable(); FreeCam:Enable() end
+    end)
+end)
+
+-- Also handle the case where AutoLoad runs before character exists
+task.spawn(function()
+    -- Wait for character to exist
+    local tries = 0
+    while not lp.Character and tries < 30 do
+        task.wait(1)
+        tries = tries + 1
+    end
+    if not lp.Character then return end
+    task.wait(2) -- extra delay for character to fully load
+
+    -- Re-sync any toggles that were set by AutoLoad but failed due to no character
+    pcall(function()
+        if flyToggle.Value == true and not Fly.Enabled then
+            Fly:Enable()
+        end
+        if fcToggle.Value == true and not FreeCam.Enabled then
+            FreeCam:Enable()
         end
     end)
 end)

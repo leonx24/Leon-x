@@ -16,6 +16,7 @@ local lp         = Players.LocalPlayer
 
 local bv, bg, conn
 local MobileControls = nil
+local pendingSpawn = nil
 
 -- detect platform
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
@@ -23,13 +24,37 @@ local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 function Fly:Enable()
     -- Error handling: safely get character
     local success, char = pcall(function() return lp.Character end)
-    if not success or not char then return end
+    if not success or not char or not char:FindFirstChild("HumanoidRootPart") then
+        -- Character not ready yet — auto-enable when it spawns
+        self.Enabled = true
+        if not pendingSpawn then
+            pendingSpawn = lp.CharacterAdded:Connect(function(newChar)
+                task.wait(0.5) -- let character fully load
+                pendingSpawn:Disconnect()
+                pendingSpawn = nil
+                if self.Enabled then
+                    self.Enabled = false -- reset so Enable() runs fresh
+                    self:Enable()
+                end
+            end)
+        end
+        return
+    end
 
     local hrp = char:FindFirstChild("HumanoidRootPart")
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hrp or not hum then return end
 
+    -- Cancel any pending spawn connection
+    if pendingSpawn then
+        pendingSpawn:Disconnect()
+        pendingSpawn = nil
+    end
+
     self.Enabled   = true
+
+    -- Ensure speed is valid (prevent 0 speed from freezing character)
+    if not self.Speed or self.Speed < 10 then self.Speed = 60 end
 
     -- Load mobile controls on mobile devices
     if isMobile and not MobileControls then
@@ -161,6 +186,12 @@ end
 
 function Fly:Disable()
     self.Enabled = false
+
+    -- Cancel pending spawn connection
+    if pendingSpawn then
+        pendingSpawn:Disconnect()
+        pendingSpawn = nil
+    end
 
     -- Disable mobile controls
     if MobileControls then
