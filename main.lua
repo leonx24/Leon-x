@@ -240,6 +240,7 @@ local AntiRagdoll = load("modules/movements/antiragdoll.lua"); setSplashProgress
 local Invisible   = load("modules/movements/invisible.lua"); setSplashProgress(0.36)
 local FreeCam     = load("modules/movements/freecam.lua");   setSplashProgress(0.40)
 local ClickTP     = load("modules/movements/clickteleport.lua"); setSplashProgress(0.44)
+local WalkOnWater = load("modules/movements/walkonwater.lua");  setSplashProgress(0.46)
 local ESP         = load("modules/visuals/esp.lua");         setSplashProgress(0.48)
 local Tracer      = load("modules/visuals/tracer.lua");      setSplashProgress(0.52)
 local FullBright  = load("modules/visuals/fullbright.lua");  setSplashProgress(0.56)
@@ -249,6 +250,7 @@ local AntiAFK     = load("modules/player/antiafk.lua");      setSplashProgress(0
 local InfStamina  = load("modules/player/infinitestamina.lua"); setSplashProgress(0.72)
 local AntiFling   = load("modules/player/antifling.lua");    setSplashProgress(0.74)
 local Rejoin      = load("modules/player/rejoin.lua");       setSplashProgress(0.76)
+local ServerHop   = load("modules/player/serverhop.lua");    setSplashProgress(0.77)
 local Teleport    = load("modules/player/teleport.lua");     setSplashProgress(0.78)
 local HitboxExp   = load("modules/player/hitboxexpander.lua"); setSplashProgress(0.80)
 local Waypoint    = load("modules/player/waypoint.lua");     setSplashProgress(0.84)
@@ -447,6 +449,18 @@ local clickTPToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("ClickTeleport", clickTPToggle)
+
+MovTab:Section({ Title = "Water" })
+
+local wowToggle = MovTab:Toggle({
+    Title    = "Walk on Water",
+    Value    = false,
+    Callback = function(v)
+        if v then WalkOnWater:Enable() else WalkOnWater:Disable() end
+        N("Walk on Water", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("WalkOnWater", wowToggle)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL TAB
@@ -840,6 +854,14 @@ PlyTab:Button({
     end
 })
 PlyTab:Button({
+    Title    = "Server Hop",
+    Callback = function()
+        N("Server Hop", "Finding server...")
+        task.wait(0.5)
+        ServerHop:Execute()
+    end
+})
+PlyTab:Button({
     Title    = "Copy Player ID",
     Callback = function()
         pcall(function() setclipboard(tostring(lp.UserId)) end)
@@ -1186,6 +1208,7 @@ task.delay(1.5, function()
         if antiRagdollToggle.Value == true then AntiRagdoll:Enable() end
         if invisToggle.Value == true then Invisible:Enable() end
         if clickTPToggle.Value == true then ClickTP:Enable() end
+        if wowToggle.Value == true then WalkOnWater:Enable() end
 
         -- 6. Visual features
         if perfStatsToggle.Value == true then
