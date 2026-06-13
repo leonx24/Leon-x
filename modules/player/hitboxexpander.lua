@@ -69,17 +69,19 @@ local function expandHitbox(player)
         local hum = char:FindFirstChildOfClass("Humanoid")
         if not hum or hum.Health <= 0 then return end
 
-        -- Remove old data if exists
+        -- Remove old highlight/connection if exists (but keep original data)
         if modifiedData[player] then
             pcall(function() if modifiedData[player].hl then modifiedData[player].hl:Destroy() end end)
             pcall(function() if modifiedData[player].charConn then modifiedData[player].charConn:Disconnect() end end)
+        else
+            -- Only save original values on FIRST expand (not on re-expands)
+            modifiedData[player] = {
+                originalSize       = hrp.Size,
+                originalTrans      = hrp.Transparency,
+                originalCanCollide = hrp.CanCollide,
+                originalMassless   = hrp.Massless,
+            }
         end
-
-        -- Save original values
-        local origSize = hrp.Size
-        local origTrans = hrp.Transparency
-        local origCollide = hrp.CanCollide
-        local origMass = hrp.Massless
 
         -- Expand the actual HRP
         hrp.Size         = Vector3.new(HitboxExpander.Size, HitboxExpander.Size, HitboxExpander.Size)
@@ -108,10 +110,10 @@ local function expandHitbox(player)
         end)
 
         modifiedData[player] = {
-            originalSize       = origSize,
-            originalTrans      = origTrans,
-            originalCanCollide = origCollide,
-            originalMassless   = origMass,
+            originalSize       = modifiedData[player].originalSize,
+            originalTrans      = modifiedData[player].originalTrans,
+            originalCanCollide = modifiedData[player].originalCanCollide,
+            originalMassless   = modifiedData[player].originalMassless,
             hl                 = hl,
             charConn           = charConn,
         }
