@@ -258,6 +258,23 @@ local GodMode     = load("modules/player/godmode.lua");      setSplashProgress(0
 local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0.88)
 local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.90)
 
+-- ── Game-specific modules ────────────────────────────────────────────────────
+local GAME_MODULES = {
+    load("modules/games/growagarden2.lua");
+    -- add more game modules here
+}
+
+local ActiveGameModule = nil
+for _, gm in ipairs(GAME_MODULES) do
+    for _, pid in ipairs(gm.PlaceIds) do
+        if pid == game.PlaceId then
+            ActiveGameModule = gm
+            break
+        end
+    end
+    if ActiveGameModule then break end
+end
+
 Waypoint:Init()
 
 -- ── Window ────────────────────────────────────────────────────────────────────
@@ -294,6 +311,15 @@ local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
 local VisTab = Window:Tab({ Title = "Visual",   Icon = "eye" })
 local PlyTab = Window:Tab({ Title = "Player",   Icon = "user" })
 local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+
+-- Game-specific tab (only if PlaceId matches)
+local GameTab = nil
+if ActiveGameModule then
+    GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
+    ActiveGameModule:Init()
+    ActiveGameModule:WireUI(GameTab)
+    N("Game Detected", ActiveGameModule.Name)
+end
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT TAB
