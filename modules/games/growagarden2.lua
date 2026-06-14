@@ -111,15 +111,13 @@ local function isInGarden(pos)
        and pos.Z >= gardenBounds.minZ and pos.Z <= gardenBounds.maxZ
 end
 
--- ── Auto Harvest (uses CollectionService + Networking remote) ───────────────
--- HarvestPrompt tag = ONLY garden plants, not other E-key objects
+-- ── Auto Harvest (no teleport — harvest all at once) ───────────────────────
 local function startAutoHarvest()
     disconnect("harvest")
-    detectGardenBounds() -- detect player's garden bounds
+    detectGardenBounds()
 
     local actionTimer = 0
-    local ACTION_INTERVAL = 0.3 -- fast but not laggy
-    local harvestIdx = 1 -- round-robin through prompts
+    local ACTION_INTERVAL = 0.5
 
     connections.harvest = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoHarvest then return end
@@ -129,58 +127,49 @@ local function startAutoHarvest()
         actionTimer = 0
 
         pcall(function()
-            -- Get ALL prompts tagged "HarvestPrompt" (garden plants only)
-            local prompts = CollectionService:GetTagged("HarvestPrompt")
-            if #prompts == 0 then return end
-
-            -- Round-robin: harvest one prompt per tick
-            harvestIdx = (harvestIdx % math.max(#prompts, 1)) + 1
-            local prompt = prompts[harvestIdx]
-
-            if not prompt or not prompt.Parent then return end
-            if not prompt.Enabled then return end
-
-            -- Teleport to the plant
-            local model = prompt.Parent:IsA("Model") and prompt.Parent
-                or prompt.Parent:FindFirstAncestorWhichIsA("Model")
-            local pos
-            if model then
-                pos = model:GetPivot().Position
-            elseif prompt.Parent:IsA("BasePart") then
-                pos = prompt.Parent.Position
-            end
-
-            if pos then
-                -- Only harvest within your own garden
-                if not isInGarden(pos) then return end
-                teleportTo(pos)
-                task.wait(0.1)
-            end
-
-            -- Collect: trigger ProximityPrompt (hold E behavior)
+            -- Method 1: Cmdr collectall (harvest everything remotely)
             pcall(function()
-                local holdDuration = prompt.HoldDuration or 0
-                prompt:InputHoldBegin()
-                if holdDuration > 0 then
-                    task.wait(holdDuration + 0.05)
-                    prompt:InputHoldEnd()
-                else
-                    task.wait(0.05)
-                    prompt:InputHoldEnd()
+                local cmdrEvent = ReplicatedStorage:FindFirstChild("CmdrClient")
+                    and ReplicatedStorage.CmdrClient:FindFirstChild("CmdrEvent")
+                if cmdrEvent then
+                    cmdrEvent:FireServer("collectall")
                 end
             end)
 
-            -- Also fire game remote as backup
-            if net and net.Garden and net.Garden.CollectFruit then
-                pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
-            end
+            -- Get all harvest prompts in your garden
+            local prompts = CollectionService:GetTagged("HarvestPrompt")
+            if #prompts == 0 then return end
 
-            -- Also press E key as backups
-            pcall(function()
-                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                task.wait(0.05)
-                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
-            end)
+            for _, prompt in ipairs(prompts) do
+                if prompt and prompt.Parent and prompt.Enabled then
+                    -- Check garden bounds
+                    local pos
+                    local model = prompt.Parent:IsA("Model") and prompt.Parent
+                        or prompt.Parent:FindFirstAncestorWhichIsA("Model")
+                    if model then
+                        pos = model:GetPivot().Position
+                    elseif prompt.Parent:IsA("BasePart") then
+                        pos = prompt.Parent.Position
+                    end
+
+                    if pos and isInGarden(pos) then
+                        -- Method 2: Fire CollectFruit remote for each
+                        if net and net.Garden and net.Garden.CollectFruit then
+                            pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
+                        end
+
+                        -- Method 3: Trigger ProximityPrompt (hold E)
+                        pcall(function()
+                            prompt:InputHoldBegin()
+                            task.delay((prompt.HoldDuration or 0) + 0.05, function()
+                                if prompt and prompt.Parent then
+                                    prompt:InputHoldEnd()
+                                end
+                            end)
+                        end)
+                    end
+                end
+            end
         end)
     end)
 end
