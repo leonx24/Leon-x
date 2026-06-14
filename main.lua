@@ -307,19 +307,21 @@ end
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 setSplashProgress(0.92)
 
-local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
-local VisTab = Window:Tab({ Title = "Visual",   Icon = "eye" })
-local PlyTab = Window:Tab({ Title = "Player",   Icon = "user" })
-local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+-- Anti-AFK: always active on ALL maps
+AntiAFK:Enable()
 
--- Game-specific tab (only if PlaceId matches)
-local GameTab = nil
 if ActiveGameModule then
-    GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
+    -- ══ GAME MODE: only game-specific tab ═══════════════════════════════════
+    local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
     ActiveGameModule:Init()
     ActiveGameModule:WireUI(GameTab)
     N("Game Detected", ActiveGameModule.Name)
-end
+else
+    -- ══ UNIVERSAL MODE: all standard tabs ═══════════════════════════════════
+    local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
+    local VisTab = Window:Tab({ Title = "Visual",   Icon = "eye" })
+    local PlyTab = Window:Tab({ Title = "Player",   Icon = "user" })
+    local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT TAB
@@ -1000,6 +1002,7 @@ SetTab:Paragraph({
     Title   = "Leon X",
     Content = "v"..CURRENT_VERSION.." • by leonx24"
 })
+end -- end universal mode
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- FLOATING OPEN BUTTON (works on mobile + PC when window is closed)
@@ -1133,12 +1136,15 @@ end)
 -- ══════════════════════════════════════════════════════════════════════════════
 setSplashProgress(1.0)
 
-PerfStats:Enable()
+if not ActiveGameModule then PerfStats:Enable() end
 
 -- AutoLoad with delay so WindUI elements are fully ready
 task.delay(1.5, function()
     ConfigMgr:AutoLoad()
 
+    -- Anti-AFK is already auto-enabled above (universal)
+
+    if not ActiveGameModule then
     -- ── Post-load sync: activate modules based on loaded toggle states ────────
     -- ConfigManager:Load() does NOT fire callbacks, so we manually sync here
     -- in a deterministic order to avoid race conditions.
@@ -1256,21 +1262,19 @@ task.delay(1.5, function()
             end
         end)
     end)
+    end -- end if not ActiveGameModule
 end)
 
 -- ── Character respawn handler ─────────────────────────────────────────────────
--- Re-enables features that use physics instances (BodyVelocity/BodyGyro)
--- because they get destroyed when the character respawns.
+if not ActiveGameModule then
 lp.CharacterAdded:Connect(function(char)
-    task.wait(1) -- let character fully load
+    task.wait(1)
     pcall(function()
         if Fly.Enabled then Fly:Disable(); Fly:Enable() end
         if FreeCam.Enabled then FreeCam:Disable(); FreeCam:Enable() end
     end)
 end)
 
--- Also handle FreeCam if it was enabled by AutoLoad but character wasn't ready
--- (Fly handles itself via its own auto-spawn handler in fly.lua)
 task.spawn(function()
     local tries = 0
     while not lp.Character and tries < 30 do
@@ -1279,13 +1283,13 @@ task.spawn(function()
     end
     if not lp.Character then return end
     task.wait(2)
-
     pcall(function()
         if fcToggle.Value == true and not FreeCam.Enabled then
             FreeCam:Enable()
         end
     end)
 end)
+end
 
 -- Smooth splash exit
 task.spawn(function()
