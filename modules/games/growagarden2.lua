@@ -14,11 +14,12 @@ GAG.PlaceIds = { 97598239454123 }
 GAG.Enabled = false
 
 -- Feature states
-GAG.AutoHarvest  = false
-GAG.AutoSell     = false
-GAG.AutoBuySeed  = false
-GAG.AutoBuyAll   = false
-GAG.SelectedSeed = "" -- which seed to auto-buy
+GAG.AutoHarvest   = false
+GAG.AutoSell      = false
+GAG.AutoBuySeed   = false
+GAG.AutoBuyAll    = false
+GAG.AutoSeedEvent = false
+GAG.SelectedSeed  = "" -- which seed to auto-buy
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -197,6 +198,138 @@ local function startAutoBuyAll()
     end)
 end
 
+-- ── Auto Seed Event (hunts falling rainbow/gold/event seeds) ────────────────
+-- Watches workspace for new seed objects and teleports to collect them
+local seedEventKeywords = {
+    "seed", "rainbow", "gold", "event", "meteor", "star", "drop",
+    "pack", "chest", "loot", "reward", "crate", "gift"
+}
+
+local function isSeedEventObject(obj)
+    local name = obj.Name:lower()
+    for _, kw in ipairs(seedEventKeywords) do
+        if name:find(kw) then return true end
+    end
+    -- Check tags
+    local ok, tags = pcall(function() return CollectionService:GetTags(obj) end)
+    if ok then
+        for _, tag in ipairs(tags) do
+            local tagLower = tag:lower()
+            if tagLower:find("seed") or tagLower:find("event") or tagLower:find("drop") then
+                return true
+            end
+        end
+    end
+    return false
+end
+
+local function startAutoSeedEvent()
+    disconnect("seedevent")
+    disconnect("seedwatcher")
+
+    local knownObjects = {}
+    local actionTimer = 0
+    local SCAN_INTERVAL = 0.5
+
+    -- Watch for new objects added to workspace
+    connections.seedwatcher = workspace.DescendantAdded:Connect(function(obj)
+        if not GAG.Enabled or not GAG.AutoSeedEvent then return end
+        if not obj:IsA("BasePart") and not obj:IsA("Model") then return end
+        if knownObjects[obj] then return end
+
+        if isSeedEventObject(obj) then
+            knownObjects[obj] = true
+            -- Clean up when object is removed
+            obj.AncestryChanged:Connect(function()
+                if not obj:IsDescendantOf(workspace) then
+                    knownObjects[obj] = nil
+                end
+            end)
+        end
+    end)
+
+    -- Periodically scan and collect
+    connections.seedevent = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoSeedEvent then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < SCAN_INTERVAL then return end
+        actionTimer = 0
+
+        pcall(function()
+            local hrp = getHRP()
+            if not hrp then return end
+
+            -- Scan for seed event objects
+            for _, obj in ipairs(workspace:GetDescendants()) do
+                if (obj:IsA("BasePart") or obj:IsA("Model")) and isSeedEventObject(obj) then
+                    -- Skip if it's a player or NPC
+                    local skip = false
+                    local ancestor = obj:FindFirstAncestorWhichIsA("Model")
+                    if ancestor and ancestor:FindFirstChildOfClass("Humanoid") then
+                        if ancestor ~= obj then skip = true end
+                    end
+
+                    if not skip then
+                        -- Get position
+                        local pos
+                        if obj:IsA("BasePart") then
+                            pos = obj.Position
+                        elseif obj:IsA("Model") then
+                            pos = obj:GetPivot().Position
+                        end
+
+                        if pos and pos.Y > -50 and pos.Y < 500 then
+                            -- Teleport to the seed
+                            local currentY = hrp.Position.Y
+                            local targetY = math.clamp(pos.Y + 2, currentY - 15, currentY + 15)
+                            pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
+                            task.wait(0.1)
+
+                            -- Try ProximityPrompt
+                            local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt")
+                            if not prompt and obj:IsA("Model") then
+                                for _, child in ipairs(obj:GetDescendants()) do
+                                    if child:IsA("ProximityPrompt") then
+                                        prompt = child
+                                        break
+                                    end
+                                end
+                            end
+                            if prompt then
+                                pcall(function() prompt:InputHoldBegin() end)
+                                task.wait(0.1)
+                                pcall(function() prompt:InputHoldEnd() end)
+                            end
+
+                            -- Try ClickDetector
+                            local click = obj:FindFirstChildWhichIsA("ClickDetector")
+                            if not click and obj:IsA("Model") then
+                                for _, child in ipairs(obj:GetDescendants()) do
+                                    if child:IsA("ClickDetector") then
+                                        click = child
+                                        break
+                                    end
+                                end
+                            end
+                            if click then
+                                pcall(function() fireclickdetector(click) end)
+                            end
+
+                            -- Try touching the part
+                            if obj:IsA("BasePart") then
+                                pcall(function()
+                                    hrp.CFrame = CFrame.new(pos.X, pos.Y + 3, pos.Z)
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end)
+end
+
 -- ── Module Interface ────────────────────────────────────────────────────────
 function GAG:Init()
     task.wait(1)
@@ -220,10 +353,11 @@ end
 
 function GAG:Disable()
     self.Enabled = false
-    self.AutoHarvest = false
-    self.AutoSell    = false
-    self.AutoBuySeed = false
-    self.AutoBuyAll  = false
+    self.AutoHarvest   = false
+    self.AutoSell      = false
+    self.AutoBuySeed   = false
+    self.AutoBuyAll    = false
+    self.AutoSeedEvent = false
     disconnectAll()
 end
 
@@ -304,6 +438,24 @@ function GAG:WireUI(tab)
         end
     })
 
+    tab:Section({ Title = "Events" })
+
+    tab:Toggle({
+        Title    = "Auto Seed Event (Rainbow/Gold)",
+        Flag     = "GAG_AutoSeedEvent",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoSeedEvent = v
+            if v then
+                GAG.Enabled = true
+                startAutoSeedEvent()
+            else
+                disconnect("seedevent")
+                disconnect("seedwatcher")
+            end
+        end
+    })
+
     tab:Section({ Title = "Info" })
 
     tab:Paragraph({
@@ -319,6 +471,11 @@ function GAG:WireUI(tab)
     tab:Paragraph({
         Title   = "Seed Shop",
         Content = "Pick a seed from dropdown to auto-buy that one, or toggle Buy All to buy every seed at once."
+    })
+
+    tab:Paragraph({
+        Title   = "Auto Seed Event",
+        Content = "Watches for falling seed events (rainbow/gold/meteor). Teleports to them and collects via ProximityPrompt or ClickDetector."
     })
 end
 
