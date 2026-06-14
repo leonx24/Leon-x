@@ -14,9 +14,11 @@ GAG.PlaceIds = { 97598239454123 }
 GAG.Enabled = false
 
 -- Feature states
-GAG.AutoHarvest = false
-GAG.AutoSell    = false
-GAG.AutoBuySeed = false
+GAG.AutoHarvest  = false
+GAG.AutoSell     = false
+GAG.AutoBuySeed  = false
+GAG.AutoBuyAll   = false
+GAG.SelectedSeed = "" -- which seed to auto-buy
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -110,7 +112,7 @@ local function startAutoSell()
     disconnect("sell")
 
     local actionTimer = 0
-    local SELL_INTERVAL = 3 -- sell every 3 seconds
+    local SELL_INTERVAL = 1 -- sell every 1 second
 
     connections.sell = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSell then return end
@@ -127,53 +129,68 @@ local function startAutoSell()
 end
 
 -- ── Auto Buy Seed (uses SeedShop.PurchaseSeed remote) ──────────────────────
--- Dynamically gets seed names from game assets and buys them
+-- Dynamically gets seed names from game assets
+local seedNames = {}
+
 local function getSeedNames()
-    local seeds = {}
+    seedNames = {}
     pcall(function()
         local plants = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Plants")
         for _, plant in ipairs(plants:GetChildren()) do
-            seeds[#seeds + 1] = plant.Name
+            seedNames[#seedNames + 1] = plant.Name
         end
     end)
-    return seeds
-end
-
-local function startAutoBuySeed()
-    disconnect("buy")
-
-    local actionTimer = 0
-    local BUY_INTERVAL = 1 -- buy every 1 second
-    local seedIdx = 0
-
-    -- Get seed names dynamically from game assets
-    local seedNames = getSeedNames()
     if #seedNames == 0 then
-        -- Fallback: common seed names
         seedNames = {
             "Carrot", "Tomato", "Strawberry", "Blueberry", "Corn",
             "Watermelon", "Pumpkin", "Wheat", "Potato", "Onion",
             "Grape", "Apple", "Banana", "Pepper", "Lettuce",
         }
     end
+    return seedNames
+end
+
+-- Buy specific seed (cycles through selected seed)
+local function startAutoBuySeed()
+    disconnect("buy")
+
+    local actionTimer = 0
+    local BUY_INTERVAL = 1
 
     connections.buy = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoBuySeed then return end
+        if not GAG.SelectedSeed or GAG.SelectedSeed == "" then return end
 
         actionTimer = actionTimer + dt
         if actionTimer < BUY_INTERVAL then return end
         actionTimer = 0
 
-        pcall(function()
-            if not net or not net.SeedShop or not net.SeedShop.PurchaseSeed then return end
+        if net and net.SeedShop and net.SeedShop.PurchaseSeed then
+            pcall(function() net.SeedShop.PurchaseSeed:Fire(GAG.SelectedSeed) end)
+        end
+    end)
+end
 
-            -- Cycle through all seed names
-            seedIdx = (seedIdx % #seedNames) + 1
-            local seedName = seedNames[seedIdx]
+-- Buy ALL seeds at once (fires all seed purchases in one tick)
+local function startAutoBuyAll()
+    disconnect("buyall")
 
-            -- Buy seed using the game's remote
+    local actionTimer = 0
+    local BUY_ALL_INTERVAL = 2
+
+    connections.buyall = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoBuyAll then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < BUY_ALL_INTERVAL then return end
+        actionTimer = 0
+
+        if not net or not net.SeedShop or not net.SeedShop.PurchaseSeed then return end
+
+        -- Fire ALL seed purchases at once
+        for _, seedName in ipairs(seedNames) do
             pcall(function() net.SeedShop.PurchaseSeed:Fire(seedName) end)
-        end)
+        end
     end)
 end
 
@@ -189,6 +206,9 @@ function GAG:Init()
     else
         print("[Leon X] WARNING: Could not load GAG Networking module")
     end
+    -- Pre-load seed names
+    getSeedNames()
+    print("[Leon X] GAG Seeds found: " .. #seedNames)
 end
 
 function GAG:Enable()
@@ -198,8 +218,9 @@ end
 function GAG:Disable()
     self.Enabled = false
     self.AutoHarvest = false
-    self.AutoSell = false
+    self.AutoSell    = false
     self.AutoBuySeed = false
+    self.AutoBuyAll  = false
     disconnectAll()
 end
 
@@ -237,8 +258,21 @@ function GAG:WireUI(tab)
         end
     })
 
+    tab:Section({ Title = "Seed Shop" })
+
+    -- Seed dropdown
+    tab:Dropdown({
+        Title    = "Select Seed",
+        Flag     = "GAG_SelectedSeed",
+        Default  = "",
+        Values   = seedNames,
+        Callback = function(v)
+            GAG.SelectedSeed = v
+        end
+    })
+
     tab:Toggle({
-        Title    = "Auto Buy Seed",
+        Title    = "Auto Buy Selected Seed",
         Flag     = "GAG_AutoBuySeed",
         Default  = false,
         Callback = function(v)
@@ -252,6 +286,21 @@ function GAG:WireUI(tab)
         end
     })
 
+    tab:Toggle({
+        Title    = "Auto Buy ALL Seeds",
+        Flag     = "GAG_AutoBuyAll",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoBuyAll = v
+            if v then
+                GAG.Enabled = true
+                startAutoBuyAll()
+            else
+                disconnect("buyall")
+            end
+        end
+    })
+
     tab:Section({ Title = "Info" })
 
     tab:Paragraph({
@@ -261,12 +310,12 @@ function GAG:WireUI(tab)
 
     tab:Paragraph({
         Title   = "Auto Sell",
-        Content = "Fires NPCS.SellAll remote every 3s. Works from anywhere — no need to walk to Steven."
+        Content = "Fires NPCS.SellAll every 1s. Works from anywhere."
     })
 
     tab:Paragraph({
-        Title   = "Auto Buy Seed",
-        Content = "Dynamically reads seed names from game assets and buys via SeedShop.PurchaseSeed remote."
+        Title   = "Seed Shop",
+        Content = "Pick a seed from dropdown to auto-buy that one, or toggle Buy All to buy every seed at once."
     })
 end
 
