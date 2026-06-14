@@ -66,6 +66,7 @@ local function buildGui()
     pill.AnchorPoint            = Vector2.new(0.5, 0)
     pill.Position               = UDim2.new(0.5, 0, 0, 10)
     pill.Size                   = UDim2.new(0, 380, 0, 26)
+    pill.Active                 = true
     pill.Parent                 = root
 
     local corner = Instance.new("UICorner")
@@ -77,6 +78,35 @@ local function buildGui()
     stroke.Thickness    = 1
     stroke.Transparency = 0.4
     stroke.Parent       = pill
+
+    -- Drag support (touch + mouse)
+    local UIS = game:GetService("UserInputService")
+    local dragging, dragStart, startPos = false, nil, nil
+    pill.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = pill.Position
+        end
+    end)
+    UIS.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement
+        or input.UserInputType == Enum.UserInputType.Touch) then
+            local delta = input.Position - dragStart
+            pill.Position = UDim2.new(
+                0, startPos.X.Offset + delta.X,
+                0, startPos.Y.Offset + delta.Y
+            )
+            pill.AnchorPoint = Vector2.new(0, 0)
+        end
+    end)
+    UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
 
     local label = Instance.new("TextLabel")
     label.Name                   = "Stats"

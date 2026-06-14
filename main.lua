@@ -310,6 +310,9 @@ setSplashProgress(0.92)
 -- Anti-AFK: always active on ALL maps
 AntiAFK:Enable()
 
+-- PerfStats HUD: always active on ALL maps (draggable)
+PerfStats:Enable()
+
 if ActiveGameModule then
     -- ══ GAME MODE: only game-specific tab ═══════════════════════════════════
     local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
@@ -1136,7 +1139,7 @@ end)
 -- ══════════════════════════════════════════════════════════════════════════════
 setSplashProgress(1.0)
 
-if not ActiveGameModule then PerfStats:Enable() end
+-- PerfStats already enabled above (universal)
 
 -- AutoLoad with delay so WindUI elements are fully ready
 task.delay(1.5, function()

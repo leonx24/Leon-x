@@ -1,10 +1,12 @@
 -- Leon X | Grow a Garden 2
 -- PlaceId: 97598239454123
--- Auto Buy Seed, Auto Sell, Auto Collect/Harvest
+-- Auto Harvest (E key), Auto Sell, Auto Buy Seed (shop-based)
 
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
+local UIS               = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local lp = Players.LocalPlayer
 
 local GAG = {}
@@ -13,14 +15,21 @@ GAG.PlaceIds = { 97598239454123 }
 GAG.Enabled = false
 
 -- Feature states
-GAG.AutoCollect = false
+GAG.AutoHarvest = false
 GAG.AutoSell    = false
 GAG.AutoBuySeed = false
 
 local connections = {}
 
+local function disconnect(key)
+    if connections[key] then
+        pcall(function() connections[key]:Disconnect() end)
+        connections[key] = nil
+    end
+end
+
 local function disconnectAll()
-    for _, conn in pairs(connections) do
+    for k, conn in pairs(connections) do
         pcall(function() conn:Disconnect() end)
     end
     connections = {}
@@ -39,55 +48,7 @@ local function getHumanoid()
     return char:FindFirstChildOfClass("Humanoid")
 end
 
--- Find interactable objects by keywords
-local function findInteractables(keywords)
-    local results = {}
-    pcall(function()
-        for _, obj in ipairs(workspace:GetDescendants()) do
-            if obj:IsA("Part") or obj:IsA("MeshPart") or obj:IsA("Model") then
-                local name = obj.Name:lower()
-                for _, kw in ipairs(keywords) do
-                    if name:find(kw) then
-                        results[#results + 1] = obj
-                        break
-                    end
-                end
-            end
-        end
-    end)
-    return results
-end
-
--- Fire ProximityPrompt or ClickDetector on an object
-local function interact(obj)
-    if not obj then return false end
-    local prompt = obj:FindFirstChildOfClass("ProximityPrompt")
-    if prompt then
-        pcall(function() prompt:Fire() end)
-        return true
-    end
-    local click = obj:FindFirstChildOfClass("ClickDetector")
-    if click then
-        pcall(function() click:FireServer() end)
-        return true
-    end
-    -- Check children recursively (max 2 levels)
-    for _, child in ipairs(obj:GetChildren()) do
-        local p = child:FindFirstChildOfClass("ProximityPrompt")
-        if p then
-            pcall(function() p:Fire() end)
-            return true
-        end
-        local c = child:FindFirstChildOfClass("ClickDetector")
-        if c then
-            pcall(function() c:FireServer() end)
-            return true
-        end
-    end
-    return false
-end
-
--- Teleport character to a position
+-- Teleport character smoothly
 local function teleportTo(pos)
     local hrp = getHRP()
     if hrp and pos then
@@ -95,34 +56,114 @@ local function teleportTo(pos)
     end
 end
 
--- ── Auto Collect / Harvest ──────────────────────────────────────────────────
-local function startAutoCollect()
-    if connections.collect then connections.collect:Disconnect() end
+-- Simulate pressing E key (for ProximityPrompt)
+local function pressE()
+    pcall(function()
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+    end)
+end
 
-    connections.collect = RunService.Heartbeat:Connect(function()
-        if not GAG.Enabled or not GAG.AutoCollect then return end
+-- Find nearest ProximityPrompt within range
+local function findNearestPrompt(maxDist)
+    local hrp = getHRP()
+    if not hrp then return nil, nil end
+
+    local best, bestDist = nil, maxDist or 20
+    for _, prompt in ipairs(workspace:GetDescendants()) do
+        if prompt:IsA("ProximityPrompt") and prompt.Enabled then
+            local parent = prompt.Parent
+            if parent then
+                local part = parent:IsA("BasePart") and parent
+                    or (parent:IsA("Model") and parent.PrimaryPart)
+                if part then
+                    local dist = (part.Position - hrp.Position).Magnitude
+                    if dist < bestDist then
+                        best = prompt
+                        bestDist = dist
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
+
+-- ── Cached scan (non-laggy) ────────────────────────────────────────────────
+-- Instead of scanning every frame, we cache results and refresh periodically
+local cachedPrompts = {}
+local cacheRefreshTimer = 0
+local CACHE_REFRESH_INTERVAL = 3 -- seconds
+
+local function refreshPromptCache()
+    cachedPrompts = {}
+    pcall(function()
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if obj:IsA("ProximityPrompt") then
+                cachedPrompts[#cachedPrompts + 1] = obj
+            end
+        end
+    end)
+end
+
+-- ── Auto Harvest (press E near plants) ──────────────────────────────────────
+local function startAutoHarvest()
+    disconnect("harvest")
+    refreshPromptCache()
+
+    local actionTimer = 0
+    local ACTION_INTERVAL = 0.5 -- act every 0.5s, not every frame
+
+    connections.harvest = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoHarvest then return end
+
+        actionTimer = actionTimer + dt
+        cacheRefreshTimer = cacheRefreshTimer + dt
+
+        -- Refresh cache periodically
+        if cacheRefreshTimer >= CACHE_REFRESH_INTERVAL then
+            cacheRefreshTimer = 0
+            refreshPromptCache()
+        end
+
+        if actionTimer < ACTION_INTERVAL then return end
+        actionTimer = 0
 
         pcall(function()
             local hrp = getHRP()
             if not hrp then return end
 
-            -- Scan for harvestable/collectible items
-            local keywords = {
-                "harvest", "collect", "ready", "grown", "crop",
-                "fruit", "plant", "flower", "mushroom", "produce",
-                "pickup", "loot", "drop", "item", "coin", "reward"
-            }
+            -- Find nearest enabled ProximityPrompt
+            local bestPrompt = nil
+            local bestDist = 30 -- max range
 
-            local items = findInteractables(keywords)
-            for _, item in ipairs(items) do
-                local pos = item:IsA("Model") and item:GetPivot().Position or item.Position
-                local dist = (pos - hrp.Position).Magnitude
+            for _, prompt in ipairs(cachedPrompts) do
+                if prompt and prompt.Parent and prompt.Enabled then
+                    local parent = prompt.Parent
+                    local part = parent:IsA("BasePart") and parent
+                        or (parent:IsA("Model") and parent.PrimaryPart)
+                    if part then
+                        local dist = (part.Position - hrp.Position).Magnitude
+                        if dist < bestDist then
+                            bestPrompt = prompt
+                            bestDist = dist
+                        end
+                    end
+                end
+            end
 
-                if dist < 50 then
+            if bestPrompt then
+                -- Teleport near it and press E
+                local parent = bestPrompt.Parent
+                local pos = parent:IsA("BasePart") and parent.Position
+                    or (parent:IsA("Model") and parent:GetPivot().Position)
+                if pos then
                     teleportTo(pos)
-                    task.wait(0.3)
-                    interact(item)
-                    task.wait(0.2)
+                    task.wait(0.1)
+                    -- Try both methods: direct fire + key press
+                    pcall(function() bestPrompt:Fire() end)
+                    pressE()
                 end
             end
         end)
@@ -130,65 +171,164 @@ local function startAutoCollect()
 end
 
 -- ── Auto Sell ───────────────────────────────────────────────────────────────
-local function startAutoSell()
-    if connections.sell then connections.sell:Disconnect() end
+-- Scans for sell/shop interactables, walks to them, and interacts
+local sellKeywords = {
+    "sell", "shop", "store", "market", "vendor",
+    "trade", "checkout", "register", "counter"
+}
 
-    connections.sell = RunService.Heartbeat:Connect(function()
+local function startAutoSell()
+    disconnect("sell")
+
+    local actionTimer = 0
+    local SELL_INTERVAL = 2 -- try every 2 seconds
+
+    connections.sell = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSell then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < SELL_INTERVAL then return end
+        actionTimer = 0
 
         pcall(function()
             local hrp = getHRP()
             if not hrp then return end
 
-            -- Find sell points (shop, sell area, NPC)
-            local keywords = {
-                "sell", "shop", "store", "market", "stand",
-                "vendor", "trade", "npc"
-            }
+            -- Scan for sell-related ProximityPrompts
+            for _, prompt in ipairs(cachedPrompts) do
+                if prompt and prompt.Parent and prompt.Enabled then
+                    local name = prompt.Parent.Name:lower()
+                    local grandName = ""
+                    pcall(function() grandName = prompt.Parent.Parent.Name:lower() end)
 
-            local sellPoints = findInteractables(keywords)
-            for _, sp in ipairs(sellPoints) do
-                local pos = sp:IsA("Model") and sp:GetPivot().Position or sp.Position
-                local dist = (pos - hrp.Position).Magnitude
+                    local isSell = false
+                    for _, kw in ipairs(sellKeywords) do
+                        if name:find(kw) or grandName:find(kw) then
+                            isSell = true
+                            break
+                        end
+                    end
 
-                if dist < 30 then
-                    teleportTo(pos)
-                    task.wait(0.5)
-                    interact(sp)
-                    task.wait(1) -- wait for sell to process
+                    if isSell then
+                        local parent = prompt.Parent
+                        local pos = parent:IsA("BasePart") and parent.Position
+                            or (parent:IsA("Model") and parent:GetPivot().Position)
+                        if pos then
+                            teleportTo(pos)
+                            task.wait(0.2)
+                            pcall(function() prompt:Fire() end)
+                            pressE()
+                            task.wait(0.5)
+                        end
+                    end
                 end
             end
+
+            -- Also try clicking any sell GUI buttons
+            pcall(function()
+                local pg = lp:FindFirstChildOfClass("PlayerGui")
+                if pg then
+                    for _, btn in ipairs(pg:GetDescendants()) do
+                        if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                            local name = btn.Name:lower()
+                            local text = ""
+                            pcall(function() text = (btn.Text or ""):lower() end)
+                            for _, kw in ipairs(sellKeywords) do
+                                if name:find(kw) or text:find(kw) then
+                                    pcall(function()
+                                        if btn:IsA("TextButton") then
+                                            btn.MouseButton1Click:Fire()
+                                        elseif btn:IsA("ImageButton") then
+                                            btn.MouseButton1Click:Fire()
+                                        end
+                                    end)
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
         end)
     end)
 end
 
--- ── Auto Buy Seed ───────────────────────────────────────────────────────────
-local function startAutoBuySeed()
-    if connections.buy then connections.buy:Disconnect() end
+-- ── Auto Buy Seed (shop-based) ─────────────────────────────────────────────
+-- Finds shop NPCs/areas, opens shop, buys available seeds
+local shopKeywords = {
+    "seed", "shop", "store", "vendor", "buy",
+    "market", "pack", "garden", "plant"
+}
 
-    connections.buy = RunService.Heartbeat:Connect(function()
+local function startAutoBuySeed()
+    disconnect("buy")
+
+    local actionTimer = 0
+    local BUY_INTERVAL = 3 -- try every 3 seconds
+
+    connections.buy = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoBuySeed then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < BUY_INTERVAL then return end
+        actionTimer = 0
 
         pcall(function()
             local hrp = getHRP()
             if not hrp then return end
 
-            -- Find seed shop/vendor
-            local keywords = {
-                "seed", "shop", "store", "vendor", "buy",
-                "market", "pack"
-            }
+            -- Step 1: Find shop ProximityPrompts
+            for _, prompt in ipairs(cachedPrompts) do
+                if prompt and prompt.Parent and prompt.Enabled then
+                    local name = prompt.Parent.Name:lower()
+                    local grandName = ""
+                    pcall(function() grandName = prompt.Parent.Parent.Name:lower() end)
 
-            local shops = findInteractables(keywords)
-            for _, shop in ipairs(shops) do
-                local pos = shop:IsA("Model") and shop:GetPivot().Position or shop.Position
-                local dist = (pos - hrp.Position).Magnitude
+                    local isShop = false
+                    for _, kw in ipairs(shopKeywords) do
+                        if name:find(kw) or grandName:find(kw) then
+                            isShop = true
+                            break
+                        end
+                    end
 
-                if dist < 30 then
-                    teleportTo(pos)
-                    task.wait(0.5)
-                    interact(shop)
-                    task.wait(1)
+                    if isShop then
+                        local parent = prompt.Parent
+                        local pos = parent:IsA("BasePart") and parent.Position
+                            or (parent:IsA("Model") and parent:GetPivot().Position)
+                        if pos then
+                            teleportTo(pos)
+                            task.wait(0.3)
+                            pcall(function() prompt:Fire() end)
+                            pressE()
+                            task.wait(1) -- wait for shop GUI to open
+                        end
+                    end
+                end
+            end
+
+            -- Step 2: Scan for buy buttons in any open GUI
+            local pg = lp:FindFirstChildOfClass("PlayerGui")
+            if pg then
+                for _, btn in ipairs(pg:GetDescendants()) do
+                    if btn:IsA("TextButton") or btn:IsA("ImageButton") then
+                        local name = btn.Name:lower()
+                        local text = ""
+                        pcall(function() text = (btn.Text or ""):lower() end)
+
+                        local isBuy = false
+                        for _, kw in ipairs({"buy", "purchase", "seed", "pack"}) do
+                            if name:find(kw) or text:find(kw) then
+                                isBuy = true
+                                break
+                            end
+                        end
+
+                        if isBuy and btn.Visible then
+                            pcall(function() btn.MouseButton1Click:Fire() end)
+                            task.wait(0.3)
+                        end
+                    end
                 end
             end
         end)
@@ -197,8 +337,8 @@ end
 
 -- ── Module Interface ────────────────────────────────────────────────────────
 function GAG:Init()
-    -- Pre-scan to verify game is loaded
-    task.wait(2)
+    task.wait(1)
+    refreshPromptCache()
 end
 
 function GAG:Enable()
@@ -207,7 +347,7 @@ end
 
 function GAG:Disable()
     self.Enabled = false
-    self.AutoCollect = false
+    self.AutoHarvest = false
     self.AutoSell = false
     self.AutoBuySeed = false
     disconnectAll()
@@ -218,16 +358,16 @@ function GAG:WireUI(tab)
     tab:Section({ Title = "Auto Features" })
 
     tab:Toggle({
-        Title    = "Auto Collect / Harvest",
-        Flag     = "GAG_AutoCollect",
+        Title    = "Auto Harvest (press E)",
+        Flag     = "GAG_AutoHarvest",
         Default  = false,
         Callback = function(v)
-            GAG.AutoCollect = v
+            GAG.AutoHarvest = v
             if v then
                 GAG.Enabled = true
-                startAutoCollect()
+                startAutoHarvest()
             else
-                pcall(function() connections.collect:Disconnect() end)
+                disconnect("harvest")
             end
         end
     })
@@ -242,13 +382,13 @@ function GAG:WireUI(tab)
                 GAG.Enabled = true
                 startAutoSell()
             else
-                pcall(function() connections.sell:Disconnect() end)
+                disconnect("sell")
             end
         end
     })
 
     tab:Toggle({
-        Title    = "Auto Buy Seed",
+        Title    = "Auto Buy Seed (from shop)",
         Flag     = "GAG_AutoBuySeed",
         Default  = false,
         Callback = function(v)
@@ -257,21 +397,26 @@ function GAG:WireUI(tab)
                 GAG.Enabled = true
                 startAutoBuySeed()
             else
-                pcall(function() connections.buy:Disconnect() end)
+                disconnect("buy")
             end
         end
     })
 
-    tab:Section({ Title = "Info" })
+    tab:Section({ Title = "How it works" })
 
     tab:Paragraph({
-        Title   = "How it works",
-        Content = "Auto Collect: teleports to nearby plants/items and interacts.\nAuto Sell: finds sell points and sells.\nAuto Buy Seed: finds seed shops and buys."
+        Title   = "Auto Harvest",
+        Content = "Finds nearest ProximityPrompt (plant/fruit), teleports to it, and presses E. Scans every 0.5s with cached prompt list (refreshed every 3s) — no lag."
     })
 
     tab:Paragraph({
-        Title   = "Note",
-        Content = "These features scan workspace for interactable objects. Effectiveness depends on the game's object naming."
+        Title   = "Auto Sell",
+        Content = "Finds sell/shop prompts in workspace + clicks sell buttons in GUI. Tries every 2s."
+    })
+
+    tab:Paragraph({
+        Title   = "Auto Buy Seed",
+        Content = "Finds shop NPCs/areas, opens shop via E key, then clicks buy/purchase/seed buttons in the GUI. Tries every 3s."
     })
 end
 
