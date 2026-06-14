@@ -55,10 +55,67 @@ local function teleportTo(pos)
     end
 end
 
+-- ── Garden Bounds Detection ─────────────────────────────────────────────────
+-- Finds the player's own garden plot and stores its bounds
+local gardenBounds = nil -- {minX, maxX, minZ, maxZ}
+
+local function detectGardenBounds()
+    gardenBounds = nil
+    pcall(function()
+        local gardens = workspace:FindFirstChild("Gardens")
+        if not gardens then return end
+
+        local hrp = getHRP()
+        if not hrp then return end
+        local playerPos = hrp.Position
+
+        -- Find the closest plot to the player
+        local bestPlot = nil
+        local bestDist = math.huge
+
+        for _, plot in ipairs(gardens:GetChildren()) do
+            if plot.Name:find("Plot") then
+                local zonePart = plot:FindFirstChild("Visual")
+                    and plot.Visual:FindFirstChild("GardenZonePart")
+                if zonePart then
+                    local dist = (zonePart.Position - playerPos).Magnitude
+                    if dist < bestDist then
+                        bestDist = dist
+                        bestPlot = zonePart
+                    end
+                end
+            end
+        end
+
+        if bestPlot then
+            local pos = bestPlot.Position
+            local size = bestPlot.Size
+            -- Add generous padding (20 studs beyond the zone part)
+            local pad = 20
+            gardenBounds = {
+                minX = pos.X - (size.X / 2) - pad,
+                maxX = pos.X + (size.X / 2) + pad,
+                minZ = pos.Z - (size.Z / 2) - pad,
+                maxZ = pos.Z + (size.Z / 2) + pad,
+            }
+            print(string.format("[Leon X] Garden bounds: X[%.0f-%.0f] Z[%.0f-%.0f]",
+                gardenBounds.minX, gardenBounds.maxX, gardenBounds.minZ, gardenBounds.maxZ))
+        end
+    end)
+end
+
+local function isInGarden(pos)
+    -- If no bounds detected, allow all (fallback)
+    if not gardenBounds then return true end
+    return pos.X >= gardenBounds.minX and pos.X <= gardenBounds.maxX
+       and pos.Z >= gardenBounds.minZ and pos.Z <= gardenBounds.maxZ
+end
+
 -- ── Auto Harvest (uses CollectionService + Networking remote) ───────────────
 -- HarvestPrompt tag = ONLY garden plants, not other E-key objects
 local function startAutoHarvest()
     disconnect("harvest")
+    detectGardenBounds() -- detect player's garden bounds
 
     local actionTimer = 0
     local ACTION_INTERVAL = 0.3 -- fast but not laggy
@@ -94,6 +151,8 @@ local function startAutoHarvest()
             end
 
             if pos then
+                -- Only harvest within your own garden
+                if not isInGarden(pos) then return end
                 teleportTo(pos)
                 task.wait(0.05)
             end
@@ -226,6 +285,7 @@ end
 local function startAutoSeedEvent()
     disconnect("seedevent")
     disconnect("seedwatcher")
+    detectGardenBounds() -- refresh garden bounds
 
     local knownObjects = {}
     local actionTimer = 0
@@ -279,7 +339,7 @@ local function startAutoSeedEvent()
                             pos = obj:GetPivot().Position
                         end
 
-                        if pos and pos.Y > -50 and pos.Y < 500 then
+                        if pos and pos.Y > -50 and pos.Y < 500 and isInGarden(pos) then
                             -- Teleport to the seed
                             local currentY = hrp.Position.Y
                             local targetY = math.clamp(pos.Y + 2, currentY - 15, currentY + 15)
