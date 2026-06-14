@@ -622,8 +622,6 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Section({ Title = "Seed Shop" })
-
     -- Seed dropdown
     tab:Dropdown({
         Title    = "Select Seed",
@@ -665,8 +663,6 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Section({ Title = "Events" })
-
     tab:Toggle({
         Title    = "Auto Seed Event (Rainbow/Gold)",
         Flag     = "GAG_AutoSeedEvent",
@@ -683,11 +679,84 @@ function GAG:WireUI(tab, extras)
         end
     })
 
+    -- ══ VISUAL SECTION ═══════════════════════════════════════════════════════
+    tab:Section({ Title = "Visual" })
+
+    tab:Toggle({
+        Title    = "Price ESP (Plant Labels)",
+        Flag     = "GAG_PriceESP",
+        Default  = false,
+        Callback = function(v)
+            GAG.PriceESP = v
+            if v then
+                startPriceESP()
+            else
+                stopPriceESP()
+            end
+        end
+    })
+
+    -- ══ PLAYER SECTION ═══════════════════════════════════════════════════════
+    tab:Section({ Title = "Player" })
+
+    if Speed then
+        tab:Toggle({
+            Title    = "Speed Hack",
+            Flag     = "GAG_SpeedHack",
+            Default  = false,
+            Callback = function(v)
+                if v then
+                    Speed:SetWalkSpeed(50)
+                    Speed:SetJumpPower(50)
+                    Speed:Enable()
+                else
+                    Speed:Disable()
+                end
+            end
+        })
+
+        tab:Slider({
+            Title    = "Walk Speed",
+            Flag     = "GAG_WalkSpeed",
+            Value    = { Min = 16, Max = 250, Default = 50 },
+            Step     = 1,
+            Callback = function(v) Speed:SetWalkSpeed(v) end
+        })
+
+        tab:Slider({
+            Title    = "Jump Power",
+            Flag     = "GAG_JumpPower",
+            Value    = { Min = 50, Max = 500, Default = 50 },
+            Step     = 1,
+            Callback = function(v) Speed:SetJumpPower(v) end
+        })
+    end
+
+    if Fly then
+        tab:Toggle({
+            Title    = "Fly",
+            Flag     = "GAG_Fly",
+            Default  = false,
+            Callback = function(v)
+                if v then Fly:Enable() else Fly:Disable() end
+            end
+        })
+
+        tab:Slider({
+            Title    = "Fly Speed",
+            Flag     = "GAG_FlySpeed",
+            Value    = { Min = 10, Max = 300, Default = 60 },
+            Step     = 1,
+            Callback = function(v) if v >= 10 then Fly:SetSpeed(v) end end
+        })
+    end
+
+    -- ══ INFO SECTION ════════════════════════════════════════════════════
     tab:Section({ Title = "Info" })
 
     tab:Paragraph({
         Title   = "Auto Harvest",
-        Content = "Uses HarvestPrompt tags to collect only garden fruits. Fires Garden.CollectFruit remote."
+        Content = "Fires CollectFruit remote for all plants in your garden. No teleport."
     })
 
     tab:Paragraph({
@@ -696,13 +765,13 @@ function GAG:WireUI(tab, extras)
     })
 
     tab:Paragraph({
-        Title   = "Seed Shop",
-        Content = "Pick a seed from dropdown to auto-buy that one, or toggle Buy All to buy every seed at once."
+        Title   = "Price ESP",
+        Content = "Shows plant name + weight above each crop in all gardens."
     })
 
     tab:Paragraph({
         Title   = "Auto Seed Event",
-        Content = "Watches for falling seed events (rainbow/gold/meteor). Teleports to them and collects via ProximityPrompt or ClickDetector."
+        Content = "Detects falling seeds (Corn, Pineapple, etc.) and collects them."
     })
 end
 
