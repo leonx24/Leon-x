@@ -154,18 +154,33 @@ local function startAutoHarvest()
                 -- Only harvest within your own garden
                 if not isInGarden(pos) then return end
                 teleportTo(pos)
-                task.wait(0.05)
+                task.wait(0.1)
             end
 
-            -- Fire the game's own harvest remote
+            -- Collect: trigger ProximityPrompt (hold E behavior)
+            pcall(function()
+                local holdDuration = prompt.HoldDuration or 0
+                prompt:InputHoldBegin()
+                if holdDuration > 0 then
+                    task.wait(holdDuration + 0.05)
+                    prompt:InputHoldEnd()
+                else
+                    task.wait(0.05)
+                    prompt:InputHoldEnd()
+                end
+            end)
+
+            -- Also fire game remote as backup
             if net and net.Garden and net.Garden.CollectFruit then
                 pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
-            else
-                -- Fallback: direct prompt fire
-                pcall(function() prompt:InputHoldBegin() end)
-                task.wait(0.1)
-                pcall(function() prompt:InputHoldEnd() end)
             end
+
+            -- Also press E key as backup
+            pcall(function()
+                game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                task.wait(0.05)
+                game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.E, false, game)
+            end)
         end)
     end)
 end
