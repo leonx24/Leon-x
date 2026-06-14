@@ -175,7 +175,7 @@ local function startAutoHarvest()
                 pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
             end
 
-            -- Also press E key as backup
+            -- Also press E key as backups
             pcall(function()
                 game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.E, false, game)
                 task.wait(0.05)
