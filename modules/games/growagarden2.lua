@@ -49,24 +49,6 @@ local function teleportTo(pos)
     end
 end
 
--- Get Steven NPC
-local function getSteven()
-    local ok, steven = pcall(function()
-        return workspace:FindFirstChild("NPCS") and workspace.NPCS:FindFirstChild("Steven")
-    end)
-    return ok and steven or nil
-end
-
--- Get Steven's position
-local function getStevenPos()
-    local steven = getSteven()
-    if steven then
-        local hrp = steven:FindFirstChild("HumanoidRootPart")
-        if hrp then return hrp.Position end
-    end
-    return nil
-end
-
 -- ── Auto Harvest (uses CollectionService + Networking remote) ───────────────
 -- HarvestPrompt tag = ONLY garden plants, not other E-key objects
 local function startAutoHarvest()
@@ -123,13 +105,12 @@ local function startAutoHarvest()
     end)
 end
 
--- ── Auto Sell (teleport to Steven + fire NPCS.SellAll) ─────────────────────
+-- ── Auto Sell (fires NPCS.SellAll remote) ──────────────────────────────────
 local function startAutoSell()
     disconnect("sell")
 
     local actionTimer = 0
     local SELL_INTERVAL = 3 -- sell every 3 seconds
-    local sellPhase = 0 -- 0=teleport, 1=fire remote, 2=wait
 
     connections.sell = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSell then return end
@@ -138,44 +119,43 @@ local function startAutoSell()
         if actionTimer < SELL_INTERVAL then return end
         actionTimer = 0
 
-        pcall(function()
-            local stevenPos = getStevenPos()
-            if not stevenPos then return end
-
-            -- Teleport to Steven
-            teleportTo(stevenPos)
-            task.wait(0.5)
-
-            -- Try NPCS.SellAll remote (sell everything at once)
-            if net and net.NPCS and net.NPCS.SellAll then
-                pcall(function() net.NPCS.SellAll:Fire() end)
-            end
-
-            -- Also try NPCS.SellFruit as backup
-            task.wait(0.3)
-            if net and net.NPCS and net.NPCS.SellFruit then
-                pcall(function() net.NPCS.SellFruit:Fire() end)
-            end
-        end)
+        -- Sell all fruits using the game's remote (works from anywhere)
+        if net and net.NPCS and net.NPCS.SellAll then
+            pcall(function() net.NPCS.SellAll:Fire() end)
+        end
     end)
 end
 
 -- ── Auto Buy Seed (uses SeedShop.PurchaseSeed remote) ──────────────────────
--- Scans seed shop for available seeds and buys them
+-- Dynamically gets seed names from game assets and buys them
+local function getSeedNames()
+    local seeds = {}
+    pcall(function()
+        local plants = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Plants")
+        for _, plant in ipairs(plants:GetChildren()) do
+            seeds[#seeds + 1] = plant.Name
+        end
+    end)
+    return seeds
+end
+
 local function startAutoBuySeed()
     disconnect("buy")
 
     local actionTimer = 0
-    local BUY_INTERVAL = 2 -- buy every 2 seconds
+    local BUY_INTERVAL = 1 -- buy every 1 second
     local seedIdx = 0
 
-    -- Common seed names in Grow a Garden 2
-    local seedNames = {
-        "Carrot", "Tomato", "Strawberry", "Blueberry", "Corn",
-        "Watermelon", "Pumpkin", "Wheat", "Potato", "Onion",
-        "Grape", "Apple", "Banana", "Pepper", "Lettuce",
-        "Cabbage", "Sunflower", "Rose", "Tulip", "Daisy",
-    }
+    -- Get seed names dynamically from game assets
+    local seedNames = getSeedNames()
+    if #seedNames == 0 then
+        -- Fallback: common seed names
+        seedNames = {
+            "Carrot", "Tomato", "Strawberry", "Blueberry", "Corn",
+            "Watermelon", "Pumpkin", "Wheat", "Potato", "Onion",
+            "Grape", "Apple", "Banana", "Pepper", "Lettuce",
+        }
+    end
 
     connections.buy = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoBuySeed then return end
@@ -187,11 +167,11 @@ local function startAutoBuySeed()
         pcall(function()
             if not net or not net.SeedShop or not net.SeedShop.PurchaseSeed then return end
 
-            -- Round-robin through seed names
+            -- Cycle through all seed names
             seedIdx = (seedIdx % #seedNames) + 1
             local seedName = seedNames[seedIdx]
 
-            -- Try buying with seed name
+            -- Buy seed using the game's remote
             pcall(function() net.SeedShop.PurchaseSeed:Fire(seedName) end)
         end)
     end)
@@ -243,7 +223,7 @@ function GAG:WireUI(tab)
     })
 
     tab:Toggle({
-        Title    = "Auto Sell (Steven)",
+        Title    = "Auto Sell",
         Flag     = "GAG_AutoSell",
         Default  = false,
         Callback = function(v)
@@ -276,17 +256,17 @@ function GAG:WireUI(tab)
 
     tab:Paragraph({
         Title   = "Auto Harvest",
-        Content = "Uses HarvestPrompt tags to collect ONLY garden fruits. Fires Networking.Garden.CollectFruit remote."
+        Content = "Uses HarvestPrompt tags to collect only garden fruits. Fires Garden.CollectFruit remote."
     })
 
     tab:Paragraph({
         Title   = "Auto Sell",
-        Content = "Teleports to Steven NPC and fires NPCS.SellAll + SellFruit remotes."
+        Content = "Fires NPCS.SellAll remote every 3s. Works from anywhere — no need to walk to Steven."
     })
 
     tab:Paragraph({
         Title   = "Auto Buy Seed",
-        Content = "Fires SeedShop.PurchaseSeed remote with seed names. Cycles through available seeds."
+        Content = "Dynamically reads seed names from game assets and buys via SeedShop.PurchaseSeed remote."
     })
 end
 
