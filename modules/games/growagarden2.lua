@@ -20,6 +20,7 @@ GAG.AutoBuySeed   = false
 GAG.AutoBuyAll    = false
 GAG.AutoSeedEvent = false
 GAG.SelectedSeed  = "" -- which seed to auto-buy
+GAG.PriceESP      = false
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -431,6 +432,124 @@ local function startAutoSeedEvent()
     end)
 end
 
+-- ── Price ESP (shows plant name + weight above each crop) ─────────────
+local espObjects = {} -- track created BillboardGuis
+
+local function createPriceESP(plantModel)
+    -- Skip if already has ESP
+    if plantModel:FindFirstChild("LeonX_PriceESP") then return end
+
+    -- Get plant info from model name or children
+    local plantName = plantModel.Name
+    local weight = ""
+    
+    -- Try to find weight from HarvestPart attributes or model attributes
+    pcall(function()
+        -- Check model attributes
+        local w = plantModel:GetAttribute("Weight") or plantModel:GetAttribute("weight")
+        if w then weight = string.format("%.2fkg", w) end
+        
+        -- Check children for weight info
+        if weight == "" then
+            for _, child in ipairs(plantModel:GetDescendants()) do
+                if child:IsA("BasePart") then
+                    local cw = child:GetAttribute("Weight") or child:GetAttribute("weight")
+                    if cw then weight = string.format("%.2fkg", cw); break end
+                end
+            end
+        end
+    end)
+
+    -- Get position (prefer HarvestPart or PrimaryPart)
+    local pos
+    local harvestPart = plantModel:FindFirstChild("HarvestPart")
+    if harvestPart and harvestPart:IsA("BasePart") then
+        pos = harvestPart.Position + Vector3.new(0, 5, 0)
+    elseif plantModel:IsA("Model") then
+        local pp = plantModel.PrimaryPart or plantModel:FindFirstChildWhichIsA("BasePart")
+        if pp then pos = pp.Position + Vector3.new(0, 5, 0) end
+    end
+    if not pos then return end
+
+    -- Create BillboardGui
+    local gui = Instance.new("BillboardGui")
+    gui.Name = "LeonX_PriceESP"
+    gui.Size = UDim2.new(0, 120, 0, 30)
+    gui.StudsOffset = Vector3.new(0, 3, 0)
+    gui.AlwaysOnTop = true
+    gui.Adornee = harvestPart or plantModel.PrimaryPart or plantModel:FindFirstChildWhichIsA("BasePart")
+    gui.Parent = plantModel
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    label.BackgroundTransparency = 0.4
+    label.TextColor3 = Color3.fromRGB(255, 255, 100)
+    label.TextSize = 12
+    label.Font = Enum.Font.GothamBold
+    label.Text = plantName .. (weight ~= "" and ("\n" .. weight) or "")
+    label.Parent = gui
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 4)
+    corner.Parent = label
+
+    espObjects[gui] = true
+end
+
+local function startPriceESP()
+    disconnect("priceesp")
+    
+    -- Initial scan
+    pcall(function()
+        local gardens = workspace:FindFirstChild("Gardens")
+        if not gardens then return end
+        
+        for _, plot in ipairs(gardens:GetChildren()) do
+            local plants = plot:FindFirstChild("Plants")
+            if plants then
+                for _, plant in ipairs(plants:GetChildren()) do
+                    if plant:IsA("Model") then
+                        createPriceESP(plant)
+                    end
+                end
+                
+                -- Watch for new plants
+                plants.ChildAdded:Connect(function(plant)
+                    if GAG.PriceESP and plant:IsA("Model") then
+                        task.wait(0.5)
+                        createPriceESP(plant)
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+local function stopPriceESP()
+    disconnect("priceesp")
+    -- Remove all ESP Guis
+    for gui, _ in pairs(espObjects) do
+        pcall(function() gui:Destroy() end)
+    end
+    espObjects = {}
+    
+    -- Also remove from workspace
+    pcall(function()
+        local gardens = workspace:FindFirstChild("Gardens")
+        if not gardens then return end
+        for _, plot in ipairs(gardens:GetChildren()) do
+            local plants = plot:FindFirstChild("Plants")
+            if plants then
+                for _, plant in ipairs(plants:GetChildren()) do
+                    local esp = plant:FindFirstChild("LeonX_PriceESP")
+                    if esp then esp:Destroy() end
+                end
+            end
+        end
+    end)
+end
+
 -- ── Module Interface ────────────────────────────────────────────────────────
 function GAG:Init()
     task.wait(1)
@@ -459,12 +578,19 @@ function GAG:Disable()
     self.AutoBuySeed   = false
     self.AutoBuyAll    = false
     self.AutoSeedEvent = false
+    self.PriceESP      = false
+    stopPriceESP()
     disconnectAll()
 end
 
 -- ── Wire UI ─────────────────────────────────────────────────────────────────
-function GAG:WireUI(tab)
-    tab:Section({ Title = "Auto Features" })
+function GAG:WireUI(tab, extras)
+    extras = extras or {}
+    local Fly   = extras.Fly
+    local Speed = extras.Speed
+
+    -- ══ MAIN SECTION (Auto Features) ═════════════════════════════════════════
+    tab:Section({ Title = "Main — Auto Features" })
 
     tab:Toggle({
         Title    = "Auto Harvest",

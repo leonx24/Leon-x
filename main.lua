@@ -11,6 +11,7 @@ end)
 local Players      = game:GetService("Players")
 local UIS          = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
 local lp           = Players.LocalPlayer
 local gui          = lp:WaitForChild("PlayerGui")
 local isMobile     = UIS.TouchEnabled and not UIS.KeyboardEnabled
@@ -317,7 +318,11 @@ if ActiveGameModule then
     -- ══ GAME MODE: only game-specific tab ═══════════════════════════════════
     local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
     ActiveGameModule:Init()
-    ActiveGameModule:WireUI(GameTab)
+    ActiveGameModule:WireUI(GameTab, {
+        Fly   = Fly,
+        Speed = Speed,
+        Window = Window,
+    })
     N("Game Detected", ActiveGameModule.Name)
 else
     -- ══ UNIVERSAL MODE: all standard tabs ═══════════════════════════════════
