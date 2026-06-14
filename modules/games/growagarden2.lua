@@ -47,7 +47,10 @@ end
 local function teleportTo(pos)
     local hrp = getHRP()
     if hrp and pos then
-        pcall(function() hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0)) end)
+        -- Keep player's current Y height, only move XZ
+        local currentY = hrp.Position.Y
+        local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
+        pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
     end
 end
 
