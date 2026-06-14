@@ -111,10 +111,15 @@ local function isInGarden(pos)
        and pos.Z >= gardenBounds.minZ and pos.Z <= gardenBounds.maxZ
 end
 
--- ── Auto Harvest (no teleport — harvest all at once) ───────────────────────
+-- ── Auto Harvest (optimized — no E key, rapid parallel) ────────────────────
 local function startAutoHarvest()
     disconnect("harvest")
     detectGardenBounds()
+
+    -- Cache prompts with 3s refresh (avoid scanning every frame)
+    local cachedPrompts = {}
+    local lastCacheTime = 0
+    local CACHE_REFRESH = 3
 
     local actionTimer = 0
     local ACTION_INTERVAL = 0.5
@@ -126,47 +131,33 @@ local function startAutoHarvest()
         if actionTimer < ACTION_INTERVAL then return end
         actionTimer = 0
 
+        -- Refresh cache every 3 seconds
+        local now = tick()
+        if now - lastCacheTime > CACHE_REFRESH then
+            cachedPrompts = CollectionService:GetTagged("HarvestPrompt")
+            lastCacheTime = now
+        end
+
+        if #cachedPrompts == 0 then return end
+
         pcall(function()
-            -- Method 1: Cmdr collectall (harvest everything remotely)
-            pcall(function()
-                local cmdrEvent = ReplicatedStorage:FindFirstChild("CmdrClient")
-                    and ReplicatedStorage.CmdrClient:FindFirstChild("CmdrEvent")
-                if cmdrEvent then
-                    cmdrEvent:FireServer("collectall")
-                end
-            end)
-
-            -- Get all harvest prompts in your garden
-            local prompts = CollectionService:GetTagged("HarvestPrompt")
-            if #prompts == 0 then return end
-
-            for _, prompt in ipairs(prompts) do
-                if prompt and prompt.Parent and prompt.Enabled then
-                    -- Check garden bounds
-                    local pos
-                    local model = prompt.Parent:IsA("Model") and prompt.Parent
-                        or prompt.Parent:FindFirstAncestorWhichIsA("Model")
-                    if model then
-                        pos = model:GetPivot().Position
-                    elseif prompt.Parent:IsA("BasePart") then
-                        pos = prompt.Parent.Position
-                    end
-
-                    if pos and isInGarden(pos) then
-                        -- Method 2: Fire CollectFruit remote for each
-                        if net and net.Garden and net.Garden.CollectFruit then
-                            pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
+            -- Fire ALL CollectFruit remotes in parallel (fast, no wait)
+            if net and net.Garden and net.Garden.CollectFruit then
+                for _, prompt in ipairs(cachedPrompts) do
+                    if prompt and prompt.Parent and prompt.Enabled then
+                        -- Check bounds
+                        local pos
+                        local model = prompt.Parent:IsA("Model") and prompt.Parent
+                            or prompt.Parent:FindFirstAncestorWhichIsA("Model")
+                        if model then pos = model:GetPivot().Position end
+                        if not pos and prompt.Parent:IsA("BasePart") then
+                            pos = prompt.Parent.Position
                         end
 
-                        -- Method 3: Trigger ProximityPrompt (hold E)
-                        pcall(function()
-                            prompt:InputHoldBegin()
-                            task.delay((prompt.HoldDuration or 0) + 0.05, function()
-                                if prompt and prompt.Parent then
-                                    prompt:InputHoldEnd()
-                                end
-                            end)
-                        end)
+                        if pos and isInGarden(pos) then
+                            -- Fire remote instantly (no wait)
+                            pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
+                        end
                     end
                 end
             end
@@ -268,11 +259,59 @@ local seedEventKeywords = {
     "pack", "chest", "loot", "reward", "crate", "gift"
 }
 
+-- Plant/fruit names that appear as falling seed events
+local plantNames = {}
+local function loadPlantNames()
+    pcall(function()
+        local plants = ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Plants", 2)
+        if plants then
+            for _, plant in ipairs(plants:GetChildren()) do
+                plantNames[#plantNames + 1] = plant.Name:lower()
+            end
+        end
+    end)
+    -- Also add common crop names as fallback
+    local fallback = {"corn", "pineapple", "wheat", "carrot", "tomato", "strawberry", "blueberry", "pumpkin"}
+    for _, name in ipairs(fallback) do
+        local found = false
+        for _, existing in ipairs(plantNames) do
+            if existing == name then found = true; break end
+        end
+        if not found then plantNames[#plantNames + 1] = name end
+    end
+end
+
 local function isSeedEventObject(obj)
+    -- Check if it's a direct child of workspace (falling seeds appear here)
+    local isDirectChild = (obj.Parent == workspace)
+    if not isDirectChild then
+        -- Also check if it's a Model/Part in workspace with seed-related name
+        local parentName = obj.Parent and obj.Parent.Name:lower() or ""
+        if not parentName:find("workspace") then
+            -- Not a seed event object
+            return false
+        end
+    end
+
     local name = obj.Name:lower()
+
+    -- Check if name matches a plant/fruit (falling seeds use plant names)
+    for _, plantName in ipairs(plantNames) do
+        if name == plantName or name:find(plantName) then
+            -- Only count if it has FruitAnchor or Base part (indicates seed event)
+            if obj:IsA("Model") then
+                if obj:FindFirstChild("FruitAnchor") or obj:FindFirstChild("Base") then
+                    return true
+                end
+            end
+        end
+    end
+
+    -- Check keywords
     for _, kw in ipairs(seedEventKeywords) do
         if name:find(kw) then return true end
     end
+
     -- Check tags
     local ok, tags = pcall(function() return CollectionService:GetTags(obj) end)
     if ok then
@@ -283,26 +322,29 @@ local function isSeedEventObject(obj)
             end
         end
     end
+
     return false
 end
 
 local function startAutoSeedEvent()
     disconnect("seedevent")
     disconnect("seedwatcher")
-    detectGardenBounds() -- refresh garden bounds
+    detectGardenBounds()
+    loadPlantNames() -- load plant names for detection
 
     local knownObjects = {}
     local actionTimer = 0
-    local SCAN_INTERVAL = 0.5
+    local SCAN_INTERVAL = 0.3 -- faster scan for falling seeds
 
-    -- Watch for new objects added to workspace
-    connections.seedwatcher = workspace.DescendantAdded:Connect(function(obj)
+    -- Watch for new objects added to workspace (instant detection)
+    connections.seedwatcher = workspace.ChildAdded:Connect(function(obj)
         if not GAG.Enabled or not GAG.AutoSeedEvent then return end
         if not obj:IsA("BasePart") and not obj:IsA("Model") then return end
         if knownObjects[obj] then return end
 
         if isSeedEventObject(obj) then
             knownObjects[obj] = true
+            print("[Leon X] Seed event detected: " .. obj.Name)
             -- Clean up when object is removed
             obj.AncestryChanged:Connect(function()
                 if not obj:IsDescendantOf(workspace) then
@@ -312,7 +354,7 @@ local function startAutoSeedEvent()
         end
     end)
 
-    -- Periodically scan and collect
+    -- Periodically scan direct workspace children (not all descendants)
     connections.seedevent = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSeedEvent then return end
 
@@ -324,68 +366,63 @@ local function startAutoSeedEvent()
             local hrp = getHRP()
             if not hrp then return end
 
-            -- Scan for seed event objects
-            for _, obj in ipairs(workspace:GetDescendants()) do
+            -- Only check direct children of workspace (where seed events appear)
+            for _, obj in ipairs(workspace:GetChildren()) do
                 if (obj:IsA("BasePart") or obj:IsA("Model")) and isSeedEventObject(obj) then
-                    -- Skip if it's a player or NPC
-                    local skip = false
-                    local ancestor = obj:FindFirstAncestorWhichIsA("Model")
-                    if ancestor and ancestor:FindFirstChildOfClass("Humanoid") then
-                        if ancestor ~= obj then skip = true end
+                    -- Get position (prefer FruitAnchor if exists)
+                    local pos
+                    local anchor = obj:IsA("Model") and obj:FindFirstChild("FruitAnchor")
+                    if anchor and anchor:IsA("BasePart") then
+                        pos = anchor.Position
+                    elseif obj:IsA("BasePart") then
+                        pos = obj.Position
+                    elseif obj:IsA("Model") then
+                        pos = obj:GetPivot().Position
                     end
 
-                    if not skip then
-                        -- Get position
-                        local pos
-                        if obj:IsA("BasePart") then
-                            pos = obj.Position
-                        elseif obj:IsA("Model") then
-                            pos = obj:GetPivot().Position
+                    if pos then
+                        -- Teleport to the seed (clamp Y)
+                        local currentY = hrp.Position.Y
+                        local targetY = math.clamp(pos.Y + 2, currentY - 15, currentY + 15)
+                        pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
+                        task.wait(0.1)
+
+                        -- Try ProximityPrompt
+                        local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt")
+                        if not prompt and obj:IsA("Model") then
+                            for _, child in ipairs(obj:GetDescendants()) do
+                                if child:IsA("ProximityPrompt") then
+                                    prompt = child
+                                    break
+                                end
+                            end
+                        end
+                        if prompt then
+                            pcall(function() prompt:InputHoldBegin() end)
+                            task.wait(0.1)
+                            pcall(function() prompt:InputHoldEnd() end)
                         end
 
-                        if pos and pos.Y > -50 and pos.Y < 500 and isInGarden(pos) then
-                            -- Teleport to the seed
-                            local currentY = hrp.Position.Y
-                            local targetY = math.clamp(pos.Y + 2, currentY - 15, currentY + 15)
-                            pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
-                            task.wait(0.1)
-
-                            -- Try ProximityPrompt
-                            local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt")
-                            if not prompt and obj:IsA("Model") then
-                                for _, child in ipairs(obj:GetDescendants()) do
-                                    if child:IsA("ProximityPrompt") then
-                                        prompt = child
-                                        break
-                                    end
+                        -- Try ClickDetector
+                        local click = obj:FindFirstChildWhichIsA("ClickDetector")
+                        if not click and obj:IsA("Model") then
+                            for _, child in ipairs(obj:GetDescendants()) do
+                                if child:IsA("ClickDetector") then
+                                    click = child
+                                    break
                                 end
                             end
-                            if prompt then
-                                pcall(function() prompt:InputHoldBegin() end)
-                                task.wait(0.1)
-                                pcall(function() prompt:InputHoldEnd() end)
-                            end
+                        end
+                        if click then
+                            pcall(function() fireclickdetector(click) end)
+                        end
 
-                            -- Try ClickDetector
-                            local click = obj:FindFirstChildWhichIsA("ClickDetector")
-                            if not click and obj:IsA("Model") then
-                                for _, child in ipairs(obj:GetDescendants()) do
-                                    if child:IsA("ClickDetector") then
-                                        click = child
-                                        break
-                                    end
-                                end
-                            end
-                            if click then
-                                pcall(function() fireclickdetector(click) end)
-                            end
-
-                            -- Try touching the part
-                            if obj:IsA("BasePart") then
-                                pcall(function()
-                                    hrp.CFrame = CFrame.new(pos.X, pos.Y + 3, pos.Z)
-                                end)
-                            end
+                        -- Try touching the Base part
+                        local base = obj:IsA("Model") and obj:FindFirstChild("Base")
+                        if base and base:IsA("BasePart") then
+                            pcall(function()
+                                hrp.CFrame = base.CFrame
+                            end)
                         end
                     end
                 end
