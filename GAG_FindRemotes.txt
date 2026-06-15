@@ -1,0 +1,12 @@
+local net = require(game.ReplicatedStorage.SharedModules.Networking)
+local out = "=== ALL net categories ===\n"
+for k, v in pairs(net) do
+    out = out .. "  " .. k .. " = " .. type(v) .. "\n"
+    if type(v) == "table" then
+        for k2, v2 in pairs(v) do
+            out = out .. "    ." .. k2 .. " = " .. type(v2) .. "\n"
+        end
+    end
+end
+writefile("GAG_Remotes.txt", out)
+print("Done! Saved to GAG_Remotes.txt")

@@ -1,0 +1,19 @@
+local RS = game.ReplicatedStorage
+local out = "=== ReplicatedStorage children ===\n"
+for _, c in ipairs(RS:GetChildren()) do
+    out = out .. "  " .. c.Name .. " (" .. c.ClassName .. ")\n"
+end
+out = out .. "=== Assets children ===\n"
+local assets = RS:FindFirstChild("Assets")
+if assets then
+    for _, c in ipairs(assets:GetChildren()) do
+        out = out .. "  " .. c.Name .. " (" .. c.ClassName .. ")\n"
+        if c:IsA("Folder") then
+            for _, g in ipairs(c:GetChildren()) do
+                out = out .. "    " .. g.Name .. "\n"
+            end
+        end
+    end
+end
+writefile("GAG_Gear.txt", out)
+print("Done! Saved to GAG_Gear.txt")

@@ -150,67 +150,98 @@ local function startAutoHarvest()
             local hrp = getHRP()
             if not hrp then return end
 
-            -- Filter to only garden prompts that are enabled
+            -- Filter to only valid garden prompts and find ProximityPrompts
             local gardenPrompts = {}
-            for _, prompt in ipairs(cachedPrompts) do
-                if prompt and prompt.Parent and prompt.Enabled then
-                    local pos
-                    local model = prompt.Parent:IsA("Model") and prompt.Parent
-                        or prompt.Parent:FindFirstAncestorWhichIsA("Model")
-                    if model then pos = model:GetPivot().Position end
-                    if not pos and prompt.Parent:IsA("BasePart") then
-                        pos = prompt.Parent.Position
+            for _, tagged in ipairs(cachedPrompts) do
+                if tagged and tagged.Parent then
+                    -- Resolve the actual ProximityPrompt
+                    local prompt
+                    if tagged:IsA("ProximityPrompt") then
+                        prompt = tagged
+                    elseif tagged:IsA("Model") or tagged:IsA("BasePart") then
+                        prompt = tagged:FindFirstChildWhichIsA("ProximityPrompt")
                     end
-                    if pos and isInGarden(pos) then
-                        gardenPrompts[#gardenPrompts + 1] = { prompt = prompt, pos = pos }
+
+                    if prompt and prompt.Enabled then
+                        -- Find the plant model (has SeedName attribute)
+                        local model = prompt.Parent
+                        while model and not (model:IsA("Model") and model:GetAttribute("SeedName")) do
+                            if model == workspace then model = nil; break end
+                            model = model.Parent
+                        end
+                        if not model and prompt.Parent:IsA("Model") then
+                            model = prompt.Parent
+                        end
+
+                        -- Get position for garden bounds check + teleport
+                        local pos
+                        if model then
+                            local hp = model:FindFirstChild("HarvestPart")
+                            if hp and hp:IsA("BasePart") then
+                                pos = hp.Position
+                            else
+                                pos = model:GetPivot().Position
+                            end
+                        elseif prompt.Parent:IsA("BasePart") then
+                            pos = prompt.Parent.Position
+                        end
+
+                        if pos and isInGarden(pos) then
+                            gardenPrompts[#gardenPrompts + 1] = {
+                                prompt = prompt,
+                                pos    = pos,
+                                model  = model,
+                            }
+                        end
                     end
                 end
             end
 
             if #gardenPrompts == 0 then return end
 
-            -- Remote-only mode: fire all remotes without teleport
+            -- Remote-only mode: fire CollectFruit remote without teleport
             if GAG.HarvestMode == "remote" then
                 for _, entry in ipairs(gardenPrompts) do
                     local prompt = entry.prompt
                     if prompt and prompt.Parent and prompt.Enabled then
-                        -- Fire the remote (no teleport)
-                        if net and net.Garden and net.Garden.CollectFruit then
-                            pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
-                        end
+                        pcall(function()
+                            if net and net.Garden and net.Garden.CollectFruit then
+                                net.Garden.CollectFruit:Fire(prompt)
+                            end
+                        end)
                     end
                 end
             else
-                -- Teleport mode: teleport to each plant + fire remote
+                -- Teleport mode: teleport to each plant + use ProximityPrompt
                 for _, entry in ipairs(gardenPrompts) do
                     local prompt = entry.prompt
-                    local pos = entry.pos
+                    local pos    = entry.pos
 
-                    -- Re-check: prompt might have been harvested already
                     if prompt and prompt.Parent and prompt.Enabled then
-                        -- Quick teleport near the prompt
-                        local currentY = hrp.Position.Y
-                        local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
-                        pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
-
-                        -- Wait for server to register position
+                        -- Teleport directly to plant (use plant Y, small offset)
+                        pcall(function()
+                            hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
+                        end)
                         task.wait(0.3)
 
-                        -- Re-check again after teleport
+                        -- Re-check prompt still enabled after teleport
                         if prompt and prompt.Parent and prompt.Enabled then
-                            -- Fire the remote
-                            if net and net.Garden and net.Garden.CollectFruit then
-                                pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
-                            end
-
-                            -- Also trigger ProximityPrompt directly
+                            -- Primary: trigger ProximityPrompt (game's native harvest)
                             pcall(function()
                                 prompt:InputHoldBegin()
-                                task.delay(0.2, function()
-                                    if prompt and prompt.Parent then
-                                        prompt:InputHoldEnd()
-                                    end
-                                end)
+                            end)
+                            task.wait(0.2)
+                            pcall(function()
+                                if prompt and prompt.Parent then
+                                    prompt:InputHoldEnd()
+                                end
+                            end)
+
+                            -- Backup: also fire the Networking remote
+                            pcall(function()
+                                if net and net.Garden and net.Garden.CollectFruit then
+                                    net.Garden.CollectFruit:Fire(prompt)
+                                end
                             end)
                         end
                     end
@@ -321,25 +352,30 @@ local gearNames = {}
 local function getGearNames()
     gearNames = {}
     pcall(function()
-        -- Check for Gear/Tools folder in ReplicatedStorage
-        local gearFolder = ReplicatedStorage:FindFirstChild("Assets")
-            and ReplicatedStorage.Assets:FindFirstChild("Gear")
-            or ReplicatedStorage.Assets:FindFirstChild("Tools")
-            or ReplicatedStorage:FindFirstChild("Gear")
-            or ReplicatedStorage:FindFirstChild("Tools")
-        
-        if gearFolder then
-            for _, gear in ipairs(gearFolder:GetChildren()) do
-                gearNames[#gearNames + 1] = gear.Name
+        local assets = ReplicatedStorage:FindFirstChild("Assets")
+        if not assets then return end
+        -- Enumerate from all gear-related folders
+        local gearFolders = {"WateringCans", "Sprinklers"}
+        for _, folderName in ipairs(gearFolders) do
+            local folder = assets:FindFirstChild(folderName)
+            if folder then
+                for _, item in ipairs(folder:GetChildren()) do
+                    gearNames[#gearNames + 1] = item.Name
+                end
             end
         end
     end)
-    -- Fallback common gear names
-    if #gearNames == 0 then
-        gearNames = {
-            "WateringCan", "Shovel", "Sickle", "Backpack", "Sprinkler",
-            "Fertilizer", "Pesticide", "Shears", "Axe", "Pickaxe"
-        }
+    -- Add known individual tools
+    local knownGear = {
+        "Shovel", "Trowel", "Rake", "Crowbar",
+        "Power Washer", "Rainbow Carpet",
+    }
+    for _, name in ipairs(knownGear) do
+        local found = false
+        for _, existing in ipairs(gearNames) do
+            if existing == name then found = true; break end
+        end
+        if not found then gearNames[#gearNames + 1] = name end
     end
     return gearNames
 end
@@ -360,75 +396,27 @@ local function startAutoBuyGear()
         if actionTimer < BUY_INTERVAL then return end
         actionTimer = 0
 
-        -- Try to find gear purchase remote
-        local gearRemote = nil
-        pcall(function()
-            gearRemote = net and net.Shop and net.Shop.PurchaseGear
-                or net and net.GearShop and net.GearShop.Purchase
-                or net and net.Store and net.Store.BuyGear
-        end)
-
-        if gearRemote then
+        -- Use the confirmed GearShop.PurchaseGear remote
+        if net and net.GearShop and net.GearShop.PurchaseGear then
             local gear = GAG.SelectedGear[gearIndex]
             if gear then
-                pcall(function() gearRemote:Fire(gear) end)
+                pcall(function() net.GearShop.PurchaseGear:Fire(gear) end)
                 gearIndex = gearIndex + 1
                 if gearIndex > #GAG.SelectedGear then gearIndex = 1 end
-            end
-        else
-            -- Fallback: try SeedShop remote with gear name
-            if net and net.SeedShop and net.SeedShop.PurchaseSeed then
-                local gear = GAG.SelectedGear[gearIndex]
-                if gear then
-                    pcall(function() net.SeedShop.PurchaseSeed:Fire(gear) end)
-                    gearIndex = gearIndex + 1
-                    if gearIndex > #GAG.SelectedGear then gearIndex = 1 end
-                end
             end
         end
     end)
 end
 
 -- ── Garden Lock Protection ───────────────────────────────────────────────────
--- Prevents fruit stealing at night when owner is outside base
+-- NOTE: No garden lock remote exists in the Networking module.
+-- The Steal category only has BeginSteal/CompleteSteal/CancelSteal (for thieves).
+-- There is no Lock/ToggleLock/SetLocked remote for protecting gardens.
+-- This feature is kept as placeholder for future game updates.
 local function startGardenLock()
     disconnect("gardenlock")
-    detectGardenBounds()
-
-    local actionTimer = 0
-    local LOCK_INTERVAL = 2 -- check every 2 seconds
-
-    connections.gardenlock = RunService.Heartbeat:Connect(function(dt)
-        if not GAG.Enabled or not GAG.GardenLock then return end
-
-        actionTimer = actionTimer + dt
-        if actionTimer < LOCK_INTERVAL then return end
-        actionTimer = 0
-
-        pcall(function()
-            local hrp = getHRP()
-            if not hrp then return end
-
-            -- Check if player is outside their garden
-            local playerPos = hrp.Position
-            if not isInGarden(playerPos) then
-                -- Player is outside garden - try to lock it
-                -- Try various remote names for locking garden
-                local lockRemote = nil
-                if net then
-                    lockRemote = net.Garden and net.Garden.Lock
-                        or net.Garden and net.Garden.ToggleLock
-                        or net.Garden and net.Garden.SetLocked
-                        or net.Plot and net.Plot.Lock
-                        or net.Base and net.Base.Lock
-                end
-
-                if lockRemote then
-                    pcall(function() lockRemote:Fire(true) end)
-                end
-            end
-        end)
-    end)
+    print("[Leon X] Garden Lock: No lock remote found in Networking module.")
+    print("[Leon X] The game may not support automated garden locking.")
 end
 
 -- ── Auto Seed Event (hunts falling rainbow/gold/event seeds) ────────────────
@@ -657,12 +645,17 @@ local function createPriceESP(plantModel)
     local plantName = getPlantDisplayName(plantModel)
     local info = ""
 
-    -- Build info line: growth progress + fruit count
+    -- Build info line: mutation + growth progress + fruit count
     pcall(function()
+        local mutation = plantModel:GetAttribute("Mutation")
+        if mutation and type(mutation) == "string" and #mutation > 0 then
+            info = "[" .. mutation .. "]"
+        end
+
         local age = plantModel:GetAttribute("Age")
         local maxAge = plantModel:GetAttribute("MaxAge")
         if age and maxAge and type(age) == "number" and type(maxAge) == "number" then
-            info = age .. "/" .. maxAge
+            info = info .. (info ~= "" and " " or "") .. math.floor(age) .. "/" .. maxAge
         end
         
         local fruits = plantModel:FindFirstChild("Fruits")
@@ -958,7 +951,7 @@ function GAG:WireUI(tab, extras)
     tab:Section({ Title = "Protection" })
 
     tab:Toggle({
-        Title    = "Garden Lock (Anti-Steal)",
+        Title    = "Garden Lock (No Remote Found)",
         Flag     = "GAG_GardenLock",
         Default  = false,
         Callback = function(v)
@@ -972,11 +965,16 @@ function GAG:WireUI(tab, extras)
         end
     })
 
+    tab:Paragraph({
+        Title   = "Note",
+        Content = "No garden lock remote exists in the game. Lock manually in-game if available."
+    })
+
     -- ══ VISUAL SECTION ═══════════════════════════════════════════════════════
     tab:Section({ Title = "Visual" })
 
     tab:Toggle({
-        Title    = "Price ESP (Plant Labels)",
+        Title    = "Plant ESP (Labels)",
         Flag     = "GAG_PriceESP",
         Default  = false,
         Callback = function(v)
@@ -1095,12 +1093,12 @@ function GAG:WireUI(tab, extras)
 
     tab:Paragraph({
         Title   = "Garden Lock",
-        Content = "Auto-locks garden when you're outside to prevent stealing."
+        Content = "No lock remote found in Networking module. Lock manually in-game."
     })
 
     tab:Paragraph({
-        Title   = "Price ESP",
-        Content = "Shows plant name + growth above each crop."
+        Title   = "Plant ESP",
+        Content = "Shows plant name + mutation + growth above each crop."
     })
 
     tab:Paragraph({
