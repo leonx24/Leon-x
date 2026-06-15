@@ -112,18 +112,18 @@ local function isInGarden(pos)
        and pos.Z >= gardenBounds.minZ and pos.Z <= gardenBounds.maxZ
 end
 
--- ── Auto Harvest (optimized — no E key, rapid parallel) ────────────────────
+-- ── Auto Harvest (fast teleport within garden + fire remote) ────────────────
 local function startAutoHarvest()
     disconnect("harvest")
     detectGardenBounds()
 
-    -- Cache prompts with 3s refresh (avoid scanning every frame)
+    -- Cache prompts with 3s refresh
     local cachedPrompts = {}
     local lastCacheTime = 0
     local CACHE_REFRESH = 3
 
     local actionTimer = 0
-    local ACTION_INTERVAL = 0.5
+    local ACTION_INTERVAL = 0.4
 
     connections.harvest = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoHarvest then return end
@@ -142,25 +142,52 @@ local function startAutoHarvest()
         if #cachedPrompts == 0 then return end
 
         pcall(function()
-            -- Fire ALL CollectFruit remotes in parallel (fast, no wait)
-            if net and net.Garden and net.Garden.CollectFruit then
-                for _, prompt in ipairs(cachedPrompts) do
-                    if prompt and prompt.Parent and prompt.Enabled then
-                        -- Check bounds
-                        local pos
-                        local model = prompt.Parent:IsA("Model") and prompt.Parent
-                            or prompt.Parent:FindFirstAncestorWhichIsA("Model")
-                        if model then pos = model:GetPivot().Position end
-                        if not pos and prompt.Parent:IsA("BasePart") then
-                            pos = prompt.Parent.Position
-                        end
+            local hrp = getHRP()
+            if not hrp then return end
 
-                        if pos and isInGarden(pos) then
-                            -- Fire remote instantly (no wait)
-                            pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
-                        end
+            -- Filter to only garden prompts that are enabled
+            local gardenPrompts = {}
+            for _, prompt in ipairs(cachedPrompts) do
+                if prompt and prompt.Parent and prompt.Enabled then
+                    local pos
+                    local model = prompt.Parent:IsA("Model") and prompt.Parent
+                        or prompt.Parent:FindFirstAncestorWhichIsA("Model")
+                    if model then pos = model:GetPivot().Position end
+                    if not pos and prompt.Parent:IsA("BasePart") then
+                        pos = prompt.Parent.Position
+                    end
+                    if pos and isInGarden(pos) then
+                        gardenPrompts[#gardenPrompts + 1] = { prompt = prompt, pos = pos }
                     end
                 end
+            end
+
+            if #gardenPrompts == 0 then return end
+
+            -- Teleport to each plant, fire remote, move on (fast)
+            for _, entry in ipairs(gardenPrompts) do
+                local prompt = entry.prompt
+                local pos = entry.pos
+
+                -- Quick teleport near the prompt
+                local currentY = hrp.Position.Y
+                local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
+                pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
+
+                -- Fire the remote
+                if net and net.Garden and net.Garden.CollectFruit then
+                    pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
+                end
+
+                -- Also trigger ProximityPrompt directly
+                pcall(function()
+                    prompt:InputHoldBegin()
+                    task.delay(0.1, function()
+                        if prompt and prompt.Parent then
+                            prompt:InputHoldEnd()
+                        end
+                    end)
+                end)
             end
         end)
     end)
@@ -435,26 +462,91 @@ end
 -- ── Price ESP (shows plant name + weight above each crop) ─────────────
 local espObjects = {} -- track created BillboardGuis
 
+local function getPlantDisplayName(plantModel)
+    -- Try model attributes first (common game patterns)
+    local attrNames = {"Name", "PlantName", "Type", "PlantType", "DisplayName", "CropName", "FruitType"}
+    for _, attr in ipairs(attrNames) do
+        local val = plantModel:GetAttribute(attr)
+        if val and type(val) == "string" and #val > 0 and #val < 30 then
+            return val
+        end
+    end
+
+    -- Check Fruits folder children for known plant names
+    local fruits = plantModel:FindFirstChild("Fruits")
+    if fruits then
+        for _, fruit in ipairs(fruits:GetChildren()) do
+            -- Check fruit model attributes
+            for _, attr in ipairs(attrNames) do
+                local val = fruit:GetAttribute(attr)
+                if val and type(val) == "string" and #val > 0 and #val < 30 then
+                    return val
+                end
+            end
+            -- Check if fruit name matches a known seed (not UUID)
+            local name = fruit.Name
+            if #name < 30 and not name:match("^%d+_") then
+                -- Could be a real name like "Apple_2" -> extract "Apple"
+                local base = name:match("^(%a+)[_%.]")
+                if base then return base end
+            end
+        end
+    end
+
+    -- Check all StringAttributes on the model
+    pcall(function()
+        local attrs = plantModel:GetAttributes()
+        for k, v in pairs(attrs) do
+            if type(v) == "string" and #v > 0 and #v < 30 and not v:match("%x%x%x%x%x%x%x%x%-") then
+                return v
+            end
+        end
+    end)
+
+    -- Check if model name is a real name (not UUID)
+    local name = plantModel.Name
+    if #name < 30 and not name:match("^%d+_") and not name:match("%x%x%x%x%x%x%x%x%-") then
+        return name
+    end
+
+    return "Plant"
+end
+
 local function createPriceESP(plantModel)
     -- Skip if already has ESP
     if plantModel:FindFirstChild("LeonX_PriceESP") then return end
 
-    -- Get plant info from model name or children
-    local plantName = plantModel.Name
+    -- Get plant display name (resolve UUID -> real name)
+    local plantName = getPlantDisplayName(plantModel)
     local weight = ""
-    
-    -- Try to find weight from HarvestPart attributes or model attributes
+
+    -- Try to find weight from attributes
     pcall(function()
-        -- Check model attributes
         local w = plantModel:GetAttribute("Weight") or plantModel:GetAttribute("weight")
-        if w then weight = string.format("%.2fkg", w) end
-        
-        -- Check children for weight info
+            or plantModel:GetAttribute("Mass") or plantModel:GetAttribute("mass")
+        if w and type(w) == "number" then weight = string.format("%.2fkg", w) end
+
+        -- Check HarvestPart attributes
         if weight == "" then
-            for _, child in ipairs(plantModel:GetDescendants()) do
-                if child:IsA("BasePart") then
-                    local cw = child:GetAttribute("Weight") or child:GetAttribute("weight")
-                    if cw then weight = string.format("%.2fkg", cw); break end
+            local hp = plantModel:FindFirstChild("HarvestPart")
+            if hp then
+                local hw = hp:GetAttribute("Weight") or hp:GetAttribute("weight")
+                    or hp:GetAttribute("Mass") or hp:GetAttribute("mass")
+                if hw and type(hw) == "number" then weight = string.format("%.2fkg", hw) end
+            end
+        end
+
+        -- Check fruit model attributes
+        if weight == "" then
+            local fruits = plantModel:FindFirstChild("Fruits")
+            if fruits then
+                for _, fruit in ipairs(fruits:GetChildren()) do
+                    local fw = fruit:GetAttribute("Weight") or fruit:GetAttribute("weight")
+                        or fruit:GetAttribute("Mass") or fruit:GetAttribute("mass")
+                    if fw and type(fw) == "number" then
+                        weight = string.format("%.2fkg", fw)
+                        break
+                    end
                 end
             end
         end
@@ -696,11 +788,13 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    -- ══ PLAYER SECTION ═══════════════════════════════════════════════════════
-    tab:Section({ Title = "Player" })
+    -- ══ PLAYER SIDEBAR ═══════════════════════════════════════════════════════
+    local pTab = extras.PlayerTab or tab
 
     if Speed then
-        tab:Toggle({
+        pTab:Section({ Title = "Movement" })
+
+        pTab:Toggle({
             Title    = "Speed Hack",
             Flag     = "GAG_SpeedHack",
             Default  = false,
@@ -715,7 +809,7 @@ function GAG:WireUI(tab, extras)
             end
         })
 
-        tab:Slider({
+        pTab:Slider({
             Title    = "Walk Speed",
             Flag     = "GAG_WalkSpeed",
             Value    = { Min = 16, Max = 250, Default = 50 },
@@ -723,7 +817,7 @@ function GAG:WireUI(tab, extras)
             Callback = function(v) Speed:SetWalkSpeed(v) end
         })
 
-        tab:Slider({
+        pTab:Slider({
             Title    = "Jump Power",
             Flag     = "GAG_JumpPower",
             Value    = { Min = 50, Max = 500, Default = 50 },
@@ -733,7 +827,9 @@ function GAG:WireUI(tab, extras)
     end
 
     if Fly then
-        tab:Toggle({
+        pTab:Section({ Title = "Flight" })
+
+        pTab:Toggle({
             Title    = "Fly",
             Flag     = "GAG_Fly",
             Default  = false,
@@ -742,7 +838,7 @@ function GAG:WireUI(tab, extras)
             end
         })
 
-        tab:Slider({
+        pTab:Slider({
             Title    = "Fly Speed",
             Flag     = "GAG_FlySpeed",
             Value    = { Min = 10, Max = 300, Default = 60 },
@@ -756,7 +852,7 @@ function GAG:WireUI(tab, extras)
 
     tab:Paragraph({
         Title   = "Auto Harvest",
-        Content = "Fires CollectFruit remote for all plants in your garden. No teleport."
+        Content = "Fast teleport to each plant + fire remote. Garden-bounds only."
     })
 
     tab:Paragraph({

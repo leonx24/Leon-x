@@ -315,13 +315,15 @@ AntiAFK:Enable()
 PerfStats:Enable()
 
 if ActiveGameModule then
-    -- ══ GAME MODE: only game-specific tab ═══════════════════════════════════
+    -- ══ GAME MODE: game tab + player sidebar ══════════════════════════════
     local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
+    local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
     ActiveGameModule:Init()
     ActiveGameModule:WireUI(GameTab, {
-        Fly   = Fly,
-        Speed = Speed,
-        Window = Window,
+        Fly       = Fly,
+        Speed     = Speed,
+        Window    = Window,
+        PlayerTab = PlayerTab,
     })
     N("Game Detected", ActiveGameModule.Name)
 else
