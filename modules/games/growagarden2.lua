@@ -6,6 +6,7 @@ local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CollectionService = game:GetService("CollectionService")
+local UIS               = game:GetService("UserInputService")
 local lp = Players.LocalPlayer
 
 local GAG = {}
@@ -164,30 +165,39 @@ local function startAutoHarvest()
 
             if #gardenPrompts == 0 then return end
 
-            -- Teleport to each plant, fire remote, move on (fast)
+            -- Teleport to each plant, fire remote, move on
             for _, entry in ipairs(gardenPrompts) do
                 local prompt = entry.prompt
                 local pos = entry.pos
 
-                -- Quick teleport near the prompt
-                local currentY = hrp.Position.Y
-                local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
-                pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
+                -- Re-check: prompt might have been harvested already
+                if prompt and prompt.Parent and prompt.Enabled then
+                    -- Quick teleport near the prompt
+                    local currentY = hrp.Position.Y
+                    local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
+                    pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
 
-                -- Fire the remote
-                if net and net.Garden and net.Garden.CollectFruit then
-                    pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
-                end
+                    -- Small wait for server to register position
+                    task.wait(0.15)
 
-                -- Also trigger ProximityPrompt directly
-                pcall(function()
-                    prompt:InputHoldBegin()
-                    task.delay(0.1, function()
-                        if prompt and prompt.Parent then
-                            prompt:InputHoldEnd()
+                    -- Re-check again after teleport
+                    if prompt and prompt.Parent and prompt.Enabled then
+                        -- Fire the remote
+                        if net and net.Garden and net.Garden.CollectFruit then
+                            pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
                         end
-                    end)
-                end)
+
+                        -- Also trigger ProximityPrompt directly
+                        pcall(function()
+                            prompt:InputHoldBegin()
+                            task.delay(0.15, function()
+                                if prompt and prompt.Parent then
+                                    prompt:InputHoldEnd()
+                                end
+                            end)
+                        end)
+                    end
+                end
             end
         end)
     end)
@@ -464,44 +474,84 @@ local espObjects = {} -- track created BillboardGuis
 
 local function getPlantDisplayName(plantModel)
     -- Try model attributes first (common game patterns)
-    local attrNames = {"Name", "PlantName", "Type", "PlantType", "DisplayName", "CropName", "FruitType"}
+    local attrNames = {
+        "Name", "PlantName", "Type", "PlantType", "DisplayName", "CropName", 
+        "FruitType", "CropType", "SeedType", "GrowthStage", "plant", "crop",
+        "fruit", "seed", "itemName", "ItemName", "plantType"
+    }
+    
+    -- Check plant model attributes
     for _, attr in ipairs(attrNames) do
         local val = plantModel:GetAttribute(attr)
-        if val and type(val) == "string" and #val > 0 and #val < 30 then
+        if val and type(val) == "string" and #val > 0 and #val < 30 
+           and not val:match("%x%x%x%x%x%x%x%x%-") then
             return val
         end
     end
+
+    -- Check all string attributes on the model
+    pcall(function()
+        local attrs = plantModel:GetAttributes()
+        for k, v in pairs(attrs) do
+            if type(v) == "string" and #v > 0 and #v < 30 
+               and not v:match("%x%x%x%x%x%x%x%x%-")
+               and not v:match("^%d+$") then
+                return v
+            end
+        end
+    end)
 
     -- Check Fruits folder children for known plant names
     local fruits = plantModel:FindFirstChild("Fruits")
     if fruits then
         for _, fruit in ipairs(fruits:GetChildren()) do
-            -- Check fruit model attributes
+            -- Check fruit attributes first
             for _, attr in ipairs(attrNames) do
                 local val = fruit:GetAttribute(attr)
-                if val and type(val) == "string" and #val > 0 and #val < 30 then
+                if val and type(val) == "string" and #val > 0 and #val < 30 
+                   and not val:match("%x%x%x%x%x%x%x%x%-") then
                     return val
                 end
             end
-            -- Check if fruit name matches a known seed (not UUID)
+            
+            -- Check if fruit name is a real name (not UUID)
             local name = fruit.Name
-            if #name < 30 and not name:match("^%d+_") then
-                -- Could be a real name like "Apple_2" -> extract "Apple"
+            if #name < 30 and not name:match("^%d+_") and not name:match("%x%x%x%x%x%x%x%x%-") then
+                -- Extract base name: "Apple_Fruit" -> "Apple"
                 local base = name:match("^(%a+)[_%.]")
-                if base then return base end
+                if base and #base > 2 then return base end
+                if #name > 2 then return name end
             end
         end
     end
 
-    -- Check all StringAttributes on the model
-    pcall(function()
-        local attrs = plantModel:GetAttributes()
-        for k, v in pairs(attrs) do
-            if type(v) == "string" and #v > 0 and #v < 30 and not v:match("%x%x%x%x%x%x%x%x%-") then
-                return v
+    -- Check HarvestPart for attributes
+    local harvestPart = plantModel:FindFirstChild("HarvestPart")
+    if harvestPart then
+        for _, attr in ipairs(attrNames) do
+            local val = harvestPart:GetAttribute(attr)
+            if val and type(val) == "string" and #val > 0 and #val < 30 
+               and not val:match("%x%x%x%x%x%x%x%x%-") then
+                return val
             end
         end
-    end)
+    end
+
+    -- Try to match with known seed names
+    if #seedNames > 0 then
+        pcall(function()
+            local attrs = plantModel:GetAttributes()
+            for k, v in pairs(attrs) do
+                if type(v) == "string" then
+                    for _, seed in ipairs(seedNames) do
+                        if v:lower() == seed:lower() then
+                            return seed
+                        end
+                    end
+                end
+            end
+        end)
+    end
 
     -- Check if model name is a real name (not UUID)
     local name = plantModel.Name
@@ -562,6 +612,24 @@ local function createPriceESP(plantModel)
         if pp then pos = pp.Position + Vector3.new(0, 5, 0) end
     end
     if not pos then return end
+
+    -- Debug: if we couldn't find the name, log it
+    if plantName == "Plant" then
+        pcall(function()
+            local debugAttrs = {}
+            local attrs = plantModel:GetAttributes()
+            for k, v in pairs(attrs) do
+                debugAttrs[#debugAttrs + 1] = k .. "=" .. tostring(v):sub(1, 20)
+            end
+            local fruits = plantModel:FindFirstChild("Fruits")
+            if fruits then
+                for _, f in ipairs(fruits:GetChildren()) do
+                    debugAttrs[#debugAttrs + 1] = "Fruit:" .. f.Name
+                end
+            end
+            print("[Leon X ESP] Unknown plant - attrs: " .. table.concat(debugAttrs, ", "))
+        end)
+    end
 
     -- Create BillboardGui
     local gui = Instance.new("BillboardGui")
@@ -647,7 +715,7 @@ function GAG:Init()
     task.wait(1)
     -- Load the game's Networking module
     pcall(function()
-        net = require(ReplicatedStorage:WaitForChild("SharedModules"):WaitForChild("Networking"))
+        net = require(ReplicatedStorage:WaitForChild("SharedModules", 5):WaitForChild("Networking", 5))
     end)
     if net then
         print("[Leon X] GAG Networking loaded successfully")
@@ -655,7 +723,7 @@ function GAG:Init()
         print("[Leon X] WARNING: Could not load GAG Networking module")
     end
     -- Pre-load seed names
-    getSeedNames()
+    pcall(function() getSeedNames() end)
     print("[Leon X] GAG Seeds found: " .. #seedNames)
 end
 
@@ -829,7 +897,7 @@ function GAG:WireUI(tab, extras)
     if Fly then
         pTab:Section({ Title = "Flight" })
 
-        pTab:Toggle({
+        local gagFlyToggle = pTab:Toggle({
             Title    = "Fly",
             Flag     = "GAG_Fly",
             Default  = false,
@@ -845,6 +913,23 @@ function GAG:WireUI(tab, extras)
             Step     = 1,
             Callback = function(v) if v >= 10 then Fly:SetSpeed(v) end end
         })
+
+        -- F keybind for Fly
+        pTab:Keybind({
+            Title    = "Fly Keybind",
+            Flag     = "GAG_FlyKey",
+            Default  = "F",
+            Callback = function() end
+        })
+
+        UIS.InputBegan:Connect(function(input, gameProcessed)
+            if gameProcessed then return end
+            if input.KeyCode == Enum.KeyCode.F then
+                local newState = not Fly.Enabled
+                gagFlyToggle:Set(newState)
+                if newState then Fly:Enable() else Fly:Disable() end
+            end
+        end)
     end
 
     -- ══ INFO SECTION ════════════════════════════════════════════════════
