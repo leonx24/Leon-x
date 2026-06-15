@@ -311,6 +311,11 @@ local function getOwnerPlot()
             end
         end
     end
+    if best then
+        print("[Leon X] Collect: Owner plot (fallback) = " .. best.Name)
+    else
+        print("[Leon X] Collect: No owner plot found! Gardens children: " .. #gardens:GetChildren())
+    end
     return best
 end
 
@@ -336,16 +341,31 @@ local function getPlantsOnPlot(plot)
 end
 
 local function fireCollectFruit(plantId, fruitId)
-    if not net or not net.Garden or not net.Garden.CollectFruit then return false end
+    if not net then
+        print("[Leon X] Collect: net is nil (Networking not loaded)")
+        return false
+    end
+    if not net.Garden then
+        print("[Leon X] Collect: net.Garden is nil")
+        return false
+    end
+    if not net.Garden.CollectFruit then
+        print("[Leon X] Collect: net.Garden.CollectFruit is nil")
+        return false
+    end
     local ok = pcall(function()
         net.Garden.CollectFruit:Fire(plantId, fruitId or "")
     end)
+    if ok then
+        print("[Leon X] Collect: Fire(" .. tostring(plantId) .. ", " .. tostring(fruitId) .. ") OK")
+    else
+        print("[Leon X] Collect: Fire failed!")
+    end
     return ok
 end
 
 local function startAutoCollect()
     disconnect("collect")
-    detectGardenBounds()
 
     local actionTimer = 0
     local ACTION_INTERVAL = 0.5
@@ -362,40 +382,32 @@ local function startAutoCollect()
             if not plot then return end
 
             local plantsFolder = plot:FindFirstChild("Plants")
-            if not plantsFolder then return end
-
-            -- Check if we need to teleport to our garden first
-            local hrp = getHRP()
-            if not hrp then return end
-
-            local spawnPoint = plot:FindFirstChild("SpawnPoint")
-            if spawnPoint then
-                local spawnPos = spawnPoint:IsA("BasePart") and spawnPoint.Position or spawnPoint:GetPivot().Position
-                local dist = (hrp.Position - spawnPos).Magnitude
-                if dist > 50 then
-                    pcall(function()
-                        hrp.CFrame = CFrame.new(spawnPos.X, spawnPos.Y + 1, spawnPos.Z)
-                    end)
-                    task.wait(0.3)
-                end
+            if not plantsFolder then
+                print("[Leon X] Collect: No Plants folder on plot " .. plot.Name)
+                return
             end
 
-            -- Iterate all plants and collect fruits
+            print("[Leon X] Collect: Scanning " .. #plantsFolder:GetChildren() .. " plants on " .. plot.Name)
+
+            -- Iterate all plants and collect fruits via remote (no teleport needed)
             for _, plant in ipairs(plantsFolder:GetChildren()) do
                 if not GAG.AutoCollect then break end
                 if plant:IsA("Model") then
                     local plantId = plant:GetAttribute("PlantId")
                     local fruitId = plant:GetAttribute("FruitId") or ""
 
+                    if plantId then
+                        print("[Leon X] Collect: Plant=" .. plant.Name .. " PlantId=" .. tostring(plantId) .. " FruitId=" .. tostring(fruitId))
+                    end
+
                     if plantId and fruitId ~= "" then
-                        -- This plant has fruits ready to collect
                         fireCollectFruit(plantId, fruitId)
-                        task.wait(0.01) -- small delay between collects
+                        task.wait(0.01)
                     end
                 end
             end
 
-            -- Also collect all fruits (empty fruitId = collect everything)
+            -- Also fire with empty fruitId to collect everything
             for _, plant in ipairs(plantsFolder:GetChildren()) do
                 if not GAG.AutoCollect then break end
                 if plant:IsA("Model") then
