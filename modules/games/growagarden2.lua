@@ -15,8 +15,9 @@ GAG.PlaceIds = { 97598239454123 }
 GAG.Enabled = false
 
 -- Feature states
-GAG.AutoCollect   = false
-GAG.AutoSell      = false
+GAG.AutoCollect       = false
+GAG.AutoCollectAndSell = false
+GAG.AutoSell          = false
 GAG.AutoBuySeed   = false
 GAG.AutoBuyAll    = false
 GAG.AutoSeedEvent = false
@@ -50,16 +51,6 @@ local function getHRP()
     local char = lp.Character
     if not char then return nil end
     return char:FindFirstChild("HumanoidRootPart")
-end
-
-local function teleportTo(pos)
-    local hrp = getHRP()
-    if hrp and pos then
-        -- Keep player's current Y height, only move XZ
-        local currentY = hrp.Position.Y
-        local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
-        pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
-    end
 end
 
 -- ── Garden Bounds Detection ─────────────────────────────────────────────────
@@ -275,29 +266,22 @@ local function startAutoBuyGear()
     end)
 end
 
--- ── Garden Lock Protection ───────────────────────────────────────────────────
--- NOTE: No garden lock remote exists in the Networking module.
--- The Steal category only has BeginSteal/CompleteSteal/CancelSteal (for thieves).
--- There is no Lock/ToggleLock/SetLocked remote for protecting gardens.
--- This feature is kept as placeholder for future game updates.
-local function startGardenLock()
-    disconnect("gardenlock")
-    print("[Leon X] Garden Lock: No lock remote found in Networking module.")
-    print("[Leon X] The game may not support automated garden locking.")
-end
-
 -- ── Auto Collect (own garden fruits via correct remote pattern) ─────────────
--- From deobfuscated script: Networker.Fire('CollectFruit', plantId, fruitId_or_empty)
+local cachedOwnerPlot = nil
+
 local function getOwnerPlot()
+    if cachedOwnerPlot and cachedOwnerPlot.Parent then return cachedOwnerPlot end
     local gardens = workspace:FindFirstChild("Gardens")
     if not gardens then return nil end
+
+    -- Check by name/UserId first
     for _, plot in ipairs(gardens:GetChildren()) do
-        -- Check plot ownership by name (contains player name or UserId)
         if plot.Name:find(lp.Name) or plot.Name:find(tostring(lp.UserId)) then
+            cachedOwnerPlot = plot
             return plot
         end
     end
-    -- Fallback: find closest plot
+    -- Fallback: closest plot
     local hrp = getHRP()
     if not hrp then return nil end
     local best, bestDist = nil, math.huge
@@ -311,57 +295,47 @@ local function getOwnerPlot()
             end
         end
     end
-    if best then
-        print("[Leon X] Collect: Owner plot (fallback) = " .. best.Name)
-    else
-        print("[Leon X] Collect: No owner plot found! Gardens children: " .. #gardens:GetChildren())
-    end
+    cachedOwnerPlot = best
     return best
 end
 
-local function getPlantsOnPlot(plot)
-    if not plot then return {} end
+local function fireCollectFruit(plantId, fruitId)
+    if not net or not net.Garden or not net.Garden.CollectFruit then return false end
+    return pcall(function()
+        net.Garden.CollectFruit:Fire(plantId, fruitId or "")
+    end)
+end
+
+local function collectAllFruits()
+    local plot = getOwnerPlot()
+    if not plot then return 0 end
     local plantsFolder = plot:FindFirstChild("Plants")
-    if not plantsFolder then return {} end
-    local result = {}
+    if not plantsFolder then return 0 end
+
+    local count = 0
     for _, plant in ipairs(plantsFolder:GetChildren()) do
+        if not GAG.AutoCollect and not GAG.AutoCollectAndSell then break end
         if plant:IsA("Model") then
             local plantId = plant:GetAttribute("PlantId")
             if plantId then
-                local fruitId = plant:GetAttribute("FruitId") or ""
-                result[#result + 1] = {
-                    model   = plant,
-                    plantId = plantId,
-                    fruitId = fruitId,
-                }
+                local fruitsFolder = plant:FindFirstChild("Fruits")
+                if fruitsFolder then
+                    for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                        if fruit:IsA("Model") or fruit:IsA("BasePart") then
+                            local fruitId = fruit:GetAttribute("FruitId") or ""
+                            if fruitId ~= "" then
+                                if fireCollectFruit(plantId, fruitId) then
+                                    count = count + 1
+                                end
+                                task.wait(0.01)
+                            end
+                        end
+                    end
+                end
             end
         end
     end
-    return result
-end
-
-local function fireCollectFruit(plantId, fruitId)
-    if not net then
-        print("[Leon X] Collect: net is nil (Networking not loaded)")
-        return false
-    end
-    if not net.Garden then
-        print("[Leon X] Collect: net.Garden is nil")
-        return false
-    end
-    if not net.Garden.CollectFruit then
-        print("[Leon X] Collect: net.Garden.CollectFruit is nil")
-        return false
-    end
-    local ok = pcall(function()
-        net.Garden.CollectFruit:Fire(plantId, fruitId or "")
-    end)
-    if ok then
-        print("[Leon X] Collect: Fire(" .. tostring(plantId) .. ", " .. tostring(fruitId) .. ") OK")
-    else
-        print("[Leon X] Collect: Fire failed!")
-    end
-    return ok
+    return count
 end
 
 local function startAutoCollect()
@@ -369,50 +343,23 @@ local function startAutoCollect()
 
     local actionTimer = 0
     local ACTION_INTERVAL = 0.5
-    local loggedOnce = false
 
     connections.collect = RunService.Heartbeat:Connect(function(dt)
-        if not GAG.Enabled or not GAG.AutoCollect then return end
+        if not GAG.Enabled then return end
+        if not GAG.AutoCollect and not GAG.AutoCollectAndSell then return end
 
         actionTimer = actionTimer + dt
         if actionTimer < ACTION_INTERVAL then return end
         actionTimer = 0
 
         pcall(function()
-            local plot = getOwnerPlot()
-            if not plot then return end
+            local collected = collectAllFruits()
 
-            local plantsFolder = plot:FindFirstChild("Plants")
-            if not plantsFolder then return end
-
-            -- Iterate all plants, then iterate their Fruits folder
-            for _, plant in ipairs(plantsFolder:GetChildren()) do
-                if not GAG.AutoCollect then break end
-                if plant:IsA("Model") then
-                    local plantId = plant:GetAttribute("PlantId")
-                    if plantId then
-                        -- Get fruits from the Fruits folder inside this plant
-                        local fruitsFolder = plant:FindFirstChild("Fruits")
-                        if fruitsFolder then
-                            for _, fruit in ipairs(fruitsFolder:GetChildren()) do
-                                if not GAG.AutoCollect then break end
-                                if fruit:IsA("Model") or fruit:IsA("BasePart") then
-                                    local fruitId = fruit:GetAttribute("FruitId") or ""
-                                    if fruitId ~= "" then
-                                        fireCollectFruit(plantId, fruitId)
-                                        task.wait(0.01)
-                                    end
-                                end
-                            end
-                        end
-                    end
+            -- Auto sell after collecting if enabled
+            if GAG.AutoCollectAndSell and collected > 0 then
+                if net and net.NPCS and net.NPCS.SellAll then
+                    pcall(function() net.NPCS.SellAll:Fire() end)
                 end
-            end
-
-            -- Log once per cycle for debugging
-            if not loggedOnce then
-                loggedOnce = true
-                print("[Leon X] Collect: First cycle done, " .. #plantsFolder:GetChildren() .. " plants scanned on " .. plot.Name)
             end
         end)
     end)
@@ -750,8 +697,66 @@ local function startAutoSeedEvent()
     end)
 end
 
--- ── Price ESP (shows plant name + weight above each crop) ─────────────
+-- ── Price ESP (shows plant name + weight + price above each crop) ─────────────
 local espObjects = {} -- track created BillboardGuis
+local fruitPriceCache = {} -- cache prices to avoid repeated lookups
+
+local function getFruitPrice(plantModel)
+    -- Try to get price from plant model attributes first
+    local price = plantModel:GetAttribute("Price") or plantModel:GetAttribute("Value")
+    if price and type(price) == "number" then return price end
+
+    -- Try to get price from ReplicatedStorage plant assets
+    local seedName = plantModel:GetAttribute("SeedName")
+    if not seedName or type(seedName) ~= "string" or #seedName == 0 then return nil end
+
+    -- Check cache first
+    if fruitPriceCache[seedName] then return fruitPriceCache[seedName] end
+
+    -- Look up in game assets
+    pcall(function()
+        local assets = ReplicatedStorage:FindFirstChild("Assets")
+        if not assets then return end
+
+        -- Check Plants folder
+        local plants = assets:FindFirstChild("Plants")
+        if plants then
+            local plantAsset = plants:FindFirstChild(seedName)
+            if plantAsset then
+                local p = plantAsset:GetAttribute("Price") or plantAsset:GetAttribute("Value")
+                    or plantAsset:GetAttribute("SellPrice") or plantAsset:GetAttribute("BasePrice")
+                if p and type(p) == "number" then
+                    fruitPriceCache[seedName] = p
+                    return
+                end
+                -- Check for Price/Value in children
+                for _, child in ipairs(plantAsset:GetChildren()) do
+                    if child:IsA("ValueBase") or child:IsA("IntValue") or child:IsA("NumberValue") then
+                        if child.Name:lower():find("price") or child.Name:lower():find("value") then
+                            fruitPriceCache[seedName] = child.Value
+                            return
+                        end
+                    end
+                end
+            end
+        end
+
+        -- Check for a Prices/Values module
+        local pricesModule = assets:FindFirstChild("Prices") or assets:FindFirstChild("FruitPrices")
+            or ReplicatedStorage:FindFirstChild("Prices") or ReplicatedStorage:FindFirstChild("FruitPrices")
+        if pricesModule and pricesModule:IsA("ModuleScript") then
+            local prices = require(pricesModule)
+            if type(prices) == "table" then
+                local p = prices[seedName] or prices[seedName:lower()]
+                if p and type(p) == "number" then
+                    fruitPriceCache[seedName] = p
+                end
+            end
+        end
+    end)
+
+    return fruitPriceCache[seedName]
+end
 
 local function getPlantDisplayName(plantModel)
     -- GAG uses SeedName for the real plant name, Mutation for special types
@@ -796,6 +801,7 @@ local function createPriceESP(plantModel)
     -- Get plant display name (resolve UUID -> real name)
     local plantName = getPlantDisplayName(plantModel)
     local info = ""
+    local priceText = ""
 
     -- Build info line: mutation + growth progress + fruit count
     pcall(function()
@@ -809,13 +815,19 @@ local function createPriceESP(plantModel)
         if age and maxAge and type(age) == "number" and type(maxAge) == "number" then
             info = info .. (info ~= "" and " " or "") .. math.floor(age) .. "/" .. maxAge
         end
-        
+
         local fruits = plantModel:FindFirstChild("Fruits")
         if fruits then
             local fruitCount = #fruits:GetChildren()
             if fruitCount > 0 then
                 info = info .. (info ~= "" and " | " or "") .. fruitCount .. " fruits"
             end
+        end
+
+        -- Get price
+        local price = getFruitPrice(plantModel)
+        if price then
+            priceText = "$" .. tostring(price)
         end
     end)
 
@@ -848,10 +860,19 @@ local function createPriceESP(plantModel)
         end)
     end
 
+    -- Build display text
+    local displayText = plantName
+    if info ~= "" then
+        displayText = displayText .. "\n" .. info
+    end
+    if priceText ~= "" then
+        displayText = displayText .. "\n" .. priceText
+    end
+
     -- Create BillboardGui
     local gui = Instance.new("BillboardGui")
     gui.Name = "LeonX_PriceESP"
-    gui.Size = UDim2.new(0, 120, 0, 30)
+    gui.Size = UDim2.new(0, 140, 0, 40)
     gui.StudsOffset = Vector3.new(0, 3, 0)
     gui.AlwaysOnTop = true
     gui.Adornee = harvestPart or plantModel.PrimaryPart or plantModel:FindFirstChildWhichIsA("BasePart")
@@ -862,9 +883,9 @@ local function createPriceESP(plantModel)
     label.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
     label.BackgroundTransparency = 0.4
     label.TextColor3 = Color3.fromRGB(255, 255, 100)
-    label.TextSize = 12
+    label.TextSize = 11
     label.Font = Enum.Font.GothamBold
-    label.Text = plantName .. (info ~= "" and ("\n" .. info) or "")
+    label.Text = displayText
     label.Parent = gui
 
     local corner = Instance.new("UICorner")
@@ -951,8 +972,9 @@ end
 
 function GAG:Disable()
     self.Enabled = false
-    self.AutoCollect   = false
-    self.AutoSell      = false
+    self.AutoCollect       = false
+    self.AutoCollectAndSell = false
+    self.AutoSell          = false
     self.AutoBuySeed   = false
     self.AutoBuyAll    = false
     self.AutoSeedEvent = false
@@ -969,11 +991,26 @@ function GAG:WireUI(tab, extras)
     local Fly   = extras.Fly
     local Speed = extras.Speed
 
-    -- ══ MAIN SECTION (Auto Features) ═════════════════════════════════════════
-    tab:Section({ Title = "Main — Auto Features" })
+    -- ══ FARMING ═══════════════════════════════════════════════════════════
+    tab:Section({ Title = "Farming" })
 
     tab:Toggle({
-        Title    = "Auto Collect Fruits",
+        Title    = "Auto Collect + Sell",
+        Flag     = "GAG_AutoCollectAndSell",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoCollectAndSell = v
+            if v then
+                GAG.Enabled = true
+                startAutoCollect()
+            else
+                disconnect("collect")
+            end
+        end
+    })
+
+    tab:Toggle({
+        Title    = "Auto Collect Only",
         Flag     = "GAG_AutoCollect",
         Default  = false,
         Callback = function(v)
@@ -988,7 +1025,7 @@ function GAG:WireUI(tab, extras)
     })
 
     tab:Toggle({
-        Title    = "Auto Sell",
+        Title    = "Auto Sell Only",
         Flag     = "GAG_AutoSell",
         Default  = false,
         Callback = function(v)
@@ -1002,7 +1039,25 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    -- Seed dropdown (multi-select)
+    tab:Toggle({
+        Title    = "Auto Seed Event (Rainbow/Gold)",
+        Flag     = "GAG_AutoSeedEvent",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoSeedEvent = v
+            if v then
+                GAG.Enabled = true
+                startAutoSeedEvent()
+            else
+                disconnect("seedevent")
+                disconnect("seedwatcher")
+            end
+        end
+    })
+
+    -- ══ SHOP ═══════════════════════════════════════════════════════════════
+    tab:Section({ Title = "Shop" })
+
     tab:Dropdown({
         Title    = "Select Seeds (Multi)",
         Flag     = "GAG_SelectedSeeds",
@@ -1044,26 +1099,6 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
-        Title    = "Auto Seed Event (Rainbow/Gold)",
-        Flag     = "GAG_AutoSeedEvent",
-        Default  = false,
-        Callback = function(v)
-            GAG.AutoSeedEvent = v
-            if v then
-                GAG.Enabled = true
-                startAutoSeedEvent()
-            else
-                disconnect("seedevent")
-                disconnect("seedwatcher")
-            end
-        end
-    })
-
-    -- ══ SHOP SECTION ═════════════════════════════════════════════════════════
-    tab:Section({ Title = "Shop — Gear" })
-
-    -- Multi-select gear dropdown
     tab:Dropdown({
         Title    = "Select Gear (Multi)",
         Flag     = "GAG_SelectedGear",
@@ -1090,8 +1125,8 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    -- ══ STEAL SECTION ═══════════════════════════════════════════════════════
-    tab:Section({ Title = "Steal" })
+    -- ══ PVP / STEAL ══════════════════════════════════════════════════════
+    tab:Section({ Title = "PvP / Steal" })
 
     tab:Toggle({
         Title    = "Auto Steal (Other Gardens)",
@@ -1104,23 +1139,6 @@ function GAG:WireUI(tab, extras)
                 startAutoSteal()
             else
                 disconnect("steal")
-            end
-        end
-    })
-
-    -- ══ PROTECTION SECTION ═══════════════════════════════════════════════════
-    tab:Section({ Title = "Protection / Combat" })
-
-    tab:Toggle({
-        Title    = "Anti Fling",
-        Flag     = "GAG_AntiFling",
-        Default  = false,
-        Callback = function(v)
-            local AntiFling = extras.AntiFling
-            if AntiFling then
-                pcall(function()
-                    if v then AntiFling:Enable() else AntiFling:Disable() end
-                end)
             end
         end
     })
@@ -1148,11 +1166,25 @@ function GAG:WireUI(tab, extras)
         Callback = function(v) GAG.FlingRadius = v end
     })
 
-    -- ══ VISUAL SECTION ═══════════════════════════════════════════════════════
+    tab:Toggle({
+        Title    = "Anti Fling",
+        Flag     = "GAG_AntiFling",
+        Default  = false,
+        Callback = function(v)
+            local AntiFling = extras.AntiFling
+            if AntiFling then
+                pcall(function()
+                    if v then AntiFling:Enable() else AntiFling:Disable() end
+                end)
+            end
+        end
+    })
+
+    -- ══ VISUAL ═══════════════════════════════════════════════════════════
     tab:Section({ Title = "Visual" })
 
     tab:Toggle({
-        Title    = "Plant ESP (Labels)",
+        Title    = "Plant ESP (Labels + Info)",
         Flag     = "GAG_PriceESP",
         Default  = false,
         Callback = function(v)
@@ -1165,7 +1197,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    -- ══ PLAYER SIDEBAR ═══════════════════════════════════════════════════════
+    -- ══ PLAYER SIDEBAR ═══════════════════════════════════════════════════
     local pTab = extras.PlayerTab or tab
 
     if Speed then
@@ -1203,6 +1235,7 @@ function GAG:WireUI(tab, extras)
             Step     = 1,
             Callback = function(v) pcall(function() Speed:SetJumpPower(v) end) end
         })
+
         pTab:Toggle({
             Title    = "Infinite Jump",
             Flag     = "GAG_InfiniteJump",
@@ -1258,7 +1291,6 @@ function GAG:WireUI(tab, extras)
             end
         })
 
-        -- F keybind for Fly
         pTab:Keybind({
             Title    = "Fly Keybind",
             Flag     = "GAG_FlyKey",
@@ -1278,7 +1310,7 @@ function GAG:WireUI(tab, extras)
         end)
     end
 
-    -- ══ UTILITY SIDEBAR ════════════════════════════════════════════════════
+    -- ══ UTILITY ══════════════════════════════════════════════════════════
     tab:Section({ Title = "Utility" })
 
     tab:Button({
@@ -1304,7 +1336,6 @@ function GAG:WireUI(tab, extras)
             if SHop then
                 pcall(function() SHop:Execute() end)
             else
-                -- Inline server hop fallback
                 pcall(function()
                     local HttpService = game:GetService("HttpService")
                     local TeleportService = game:GetService("TeleportService")
@@ -1333,34 +1364,6 @@ function GAG:WireUI(tab, extras)
                 end)
             end
         end
-    })
-
-    -- ══ INFO SECTION ════════════════════════════════════════════════════
-    tab:Section({ Title = "Info" })
-
-    tab:Paragraph({
-        Title   = "Auto Harvest",
-        Content = "Teleport mode: TP + ProximityPrompt. Remote mode: CollectFruit remote."
-    })
-
-    tab:Paragraph({
-        Title   = "Auto Steal",
-        Content = "Steals fruits from other players' gardens using HoldToSteal prompts."
-    })
-
-    tab:Paragraph({
-        Title   = "Auto Fling",
-        Content = "Pushes nearby players away with velocity force."
-    })
-
-    tab:Paragraph({
-        Title   = "Plant ESP",
-        Content = "Shows plant name + mutation + growth above each crop."
-    })
-
-    tab:Paragraph({
-        Title   = "Utility",
-        Content = "Rejoin/Server Hop for quick server switching."
     })
 end
 
