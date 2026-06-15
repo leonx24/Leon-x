@@ -473,87 +473,33 @@ end
 local espObjects = {} -- track created BillboardGuis
 
 local function getPlantDisplayName(plantModel)
-    -- Try model attributes first (common game patterns)
-    local attrNames = {
-        "Name", "PlantName", "Type", "PlantType", "DisplayName", "CropName", 
-        "FruitType", "CropType", "SeedType", "GrowthStage", "plant", "crop",
-        "fruit", "seed", "itemName", "ItemName", "plantType"
-    }
+    -- GAG uses SeedName for the real plant name, Mutation for special types
+    local seedName = plantModel:GetAttribute("SeedName")
+    local mutation = plantModel:GetAttribute("Mutation")
     
-    -- Check plant model attributes
-    for _, attr in ipairs(attrNames) do
-        local val = plantModel:GetAttribute(attr)
-        if val and type(val) == "string" and #val > 0 and #val < 30 
-           and not val:match("%x%x%x%x%x%x%x%x%-") then
-            return val
+    if seedName and type(seedName) == "string" and #seedName > 0 then
+        if mutation and type(mutation) == "string" and #mutation > 0 then
+            return mutation .. " " .. seedName
         end
+        return seedName
     end
 
-    -- Check all string attributes on the model
-    pcall(function()
-        local attrs = plantModel:GetAttributes()
-        for k, v in pairs(attrs) do
-            if type(v) == "string" and #v > 0 and #v < 30 
-               and not v:match("%x%x%x%x%x%x%x%x%-")
-               and not v:match("^%d+$") then
-                return v
-            end
-        end
-    end)
-
-    -- Check Fruits folder children for known plant names
+    -- Fallback: check CorePartName on first fruit
     local fruits = plantModel:FindFirstChild("Fruits")
     if fruits then
         for _, fruit in ipairs(fruits:GetChildren()) do
-            -- Check fruit attributes first
-            for _, attr in ipairs(attrNames) do
-                local val = fruit:GetAttribute(attr)
-                if val and type(val) == "string" and #val > 0 and #val < 30 
-                   and not val:match("%x%x%x%x%x%x%x%x%-") then
-                    return val
+            local coreName = fruit:GetAttribute("CorePartName")
+            if coreName and type(coreName) == "string" and #coreName > 0 then
+                local fruitMut = fruit:GetAttribute("Mutation")
+                if fruitMut and type(fruitMut) == "string" and #fruitMut > 0 then
+                    return fruitMut .. " " .. coreName
                 end
-            end
-            
-            -- Check if fruit name is a real name (not UUID)
-            local name = fruit.Name
-            if #name < 30 and not name:match("^%d+_") and not name:match("%x%x%x%x%x%x%x%x%-") then
-                -- Extract base name: "Apple_Fruit" -> "Apple"
-                local base = name:match("^(%a+)[_%.]")
-                if base and #base > 2 then return base end
-                if #name > 2 then return name end
+                return coreName
             end
         end
     end
 
-    -- Check HarvestPart for attributes
-    local harvestPart = plantModel:FindFirstChild("HarvestPart")
-    if harvestPart then
-        for _, attr in ipairs(attrNames) do
-            local val = harvestPart:GetAttribute(attr)
-            if val and type(val) == "string" and #val > 0 and #val < 30 
-               and not val:match("%x%x%x%x%x%x%x%x%-") then
-                return val
-            end
-        end
-    end
-
-    -- Try to match with known seed names
-    if #seedNames > 0 then
-        pcall(function()
-            local attrs = plantModel:GetAttributes()
-            for k, v in pairs(attrs) do
-                if type(v) == "string" then
-                    for _, seed in ipairs(seedNames) do
-                        if v:lower() == seed:lower() then
-                            return seed
-                        end
-                    end
-                end
-            end
-        end)
-    end
-
-    -- Check if model name is a real name (not UUID)
+    -- Last resort: model name if not UUID
     local name = plantModel.Name
     if #name < 30 and not name:match("^%d+_") and not name:match("%x%x%x%x%x%x%x%x%-") then
         return name
@@ -568,36 +514,21 @@ local function createPriceESP(plantModel)
 
     -- Get plant display name (resolve UUID -> real name)
     local plantName = getPlantDisplayName(plantModel)
-    local weight = ""
+    local info = ""
 
-    -- Try to find weight from attributes
+    -- Build info line: growth progress + fruit count
     pcall(function()
-        local w = plantModel:GetAttribute("Weight") or plantModel:GetAttribute("weight")
-            or plantModel:GetAttribute("Mass") or plantModel:GetAttribute("mass")
-        if w and type(w) == "number" then weight = string.format("%.2fkg", w) end
-
-        -- Check HarvestPart attributes
-        if weight == "" then
-            local hp = plantModel:FindFirstChild("HarvestPart")
-            if hp then
-                local hw = hp:GetAttribute("Weight") or hp:GetAttribute("weight")
-                    or hp:GetAttribute("Mass") or hp:GetAttribute("mass")
-                if hw and type(hw) == "number" then weight = string.format("%.2fkg", hw) end
-            end
+        local age = plantModel:GetAttribute("Age")
+        local maxAge = plantModel:GetAttribute("MaxAge")
+        if age and maxAge and type(age) == "number" and type(maxAge) == "number" then
+            info = age .. "/" .. maxAge
         end
-
-        -- Check fruit model attributes
-        if weight == "" then
-            local fruits = plantModel:FindFirstChild("Fruits")
-            if fruits then
-                for _, fruit in ipairs(fruits:GetChildren()) do
-                    local fw = fruit:GetAttribute("Weight") or fruit:GetAttribute("weight")
-                        or fruit:GetAttribute("Mass") or fruit:GetAttribute("mass")
-                    if fw and type(fw) == "number" then
-                        weight = string.format("%.2fkg", fw)
-                        break
-                    end
-                end
+        
+        local fruits = plantModel:FindFirstChild("Fruits")
+        if fruits then
+            local fruitCount = #fruits:GetChildren()
+            if fruitCount > 0 then
+                info = info .. (info ~= "" and " | " or "") .. fruitCount .. " fruits"
             end
         end
     end)
@@ -647,7 +578,7 @@ local function createPriceESP(plantModel)
     label.TextColor3 = Color3.fromRGB(255, 255, 100)
     label.TextSize = 12
     label.Font = Enum.Font.GothamBold
-    label.Text = plantName .. (weight ~= "" and ("\n" .. weight) or "")
+    label.Text = plantName .. (info ~= "" and ("\n" .. info) or "")
     label.Parent = gui
 
     local corner = Instance.new("UICorner")
