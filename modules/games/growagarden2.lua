@@ -369,6 +369,7 @@ local function startAutoCollect()
 
     local actionTimer = 0
     local ACTION_INTERVAL = 0.5
+    local loggedOnce = false
 
     connections.collect = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoCollect then return end
@@ -382,48 +383,43 @@ local function startAutoCollect()
             if not plot then return end
 
             local plantsFolder = plot:FindFirstChild("Plants")
-            if not plantsFolder then
-                print("[Leon X] Collect: No Plants folder on plot " .. plot.Name)
-                return
-            end
+            if not plantsFolder then return end
 
-            print("[Leon X] Collect: Scanning " .. #plantsFolder:GetChildren() .. " plants on " .. plot.Name)
-
-            -- Iterate all plants and collect fruits via remote (no teleport needed)
-            for _, plant in ipairs(plantsFolder:GetChildren()) do
-                if not GAG.AutoCollect then break end
-                if plant:IsA("Model") then
-                    local plantId = plant:GetAttribute("PlantId")
-                    local fruitId = plant:GetAttribute("FruitId") or ""
-
-                    if plantId then
-                        print("[Leon X] Collect: Plant=" .. plant.Name .. " PlantId=" .. tostring(plantId) .. " FruitId=" .. tostring(fruitId))
-                    end
-
-                    if plantId and fruitId ~= "" then
-                        fireCollectFruit(plantId, fruitId)
-                        task.wait(0.01)
-                    end
-                end
-            end
-
-            -- Also fire with empty fruitId to collect everything
+            -- Iterate all plants, then iterate their Fruits folder
             for _, plant in ipairs(plantsFolder:GetChildren()) do
                 if not GAG.AutoCollect then break end
                 if plant:IsA("Model") then
                     local plantId = plant:GetAttribute("PlantId")
                     if plantId then
-                        fireCollectFruit(plantId, "")
-                        task.wait(0.01)
+                        -- Get fruits from the Fruits folder inside this plant
+                        local fruitsFolder = plant:FindFirstChild("Fruits")
+                        if fruitsFolder then
+                            for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                                if not GAG.AutoCollect then break end
+                                if fruit:IsA("Model") or fruit:IsA("BasePart") then
+                                    local fruitId = fruit:GetAttribute("FruitId") or ""
+                                    if fruitId ~= "" then
+                                        fireCollectFruit(plantId, fruitId)
+                                        task.wait(0.01)
+                                    end
+                                end
+                            end
+                        end
                     end
                 end
+            end
+
+            -- Log once per cycle for debugging
+            if not loggedOnce then
+                loggedOnce = true
+                print("[Leon X] Collect: First cycle done, " .. #plantsFolder:GetChildren() .. " plants scanned on " .. plot.Name)
             end
         end)
     end)
 end
 
 -- ── Auto Steal (steal fruits from other gardens) ────────────────────────────
--- Uses same CollectFruit remote pattern + Steal remotes for cross-garden
+-- Uses CollectFruit remote with correct PlantId + FruitId from Fruits folder
 local function startAutoSteal()
     disconnect("steal")
     detectGardenBounds()
@@ -445,17 +441,17 @@ local function startAutoSteal()
             local gardens = workspace:FindFirstChild("Gardens")
             if not gardens then return end
 
+            local stolen = false
+
             for _, plot in ipairs(gardens:GetChildren()) do
-                if not GAG.AutoSteal then break end
+                if stolen or not GAG.AutoSteal then break end
 
                 local plantsFolder = plot:FindFirstChild("Plants")
                 if plantsFolder then
                     for _, plant in ipairs(plantsFolder:GetChildren()) do
-                        if not GAG.AutoSteal then break end
+                        if stolen or not GAG.AutoSteal then break end
                         if plant:IsA("Model") then
                             local plantId = plant:GetAttribute("PlantId")
-                            local fruitId = plant:GetAttribute("FruitId") or ""
-
                             if plantId then
                                 -- Get plant position
                                 local pos
@@ -468,21 +464,27 @@ local function startAutoSteal()
 
                                 -- Only steal from OTHER gardens (not own)
                                 if pos and not isInGarden(pos) then
-                                    -- Check if plant actually has fruits
-                                    local fruits = plant:FindFirstChild("Fruits")
-                                    local hasFruits = fruits and #fruits:GetChildren() > 0
-
-                                    if hasFruits or fruitId ~= "" then
+                                    -- Check Fruits folder for actual fruits
+                                    local fruitsFolder = plant:FindFirstChild("Fruits")
+                                    if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
                                         -- Teleport to the fruit
                                         pcall(function()
                                             hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
                                         end)
                                         task.wait(0.3)
 
-                                        -- Method 1: Fire CollectFruit remote (same remote as own garden)
-                                        fireCollectFruit(plantId, fruitId)
+                                        -- Fire CollectFruit for each fruit
+                                        for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                                            if fruit:IsA("Model") or fruit:IsA("BasePart") then
+                                                local fruitId = fruit:GetAttribute("FruitId") or ""
+                                                if fruitId ~= "" then
+                                                    fireCollectFruit(plantId, fruitId)
+                                                    task.wait(0.05)
+                                                end
+                                            end
+                                        end
 
-                                        -- Method 2: Trigger ProximityPrompt if present
+                                        -- Also trigger ProximityPrompt if present
                                         local prompt
                                         for _, desc in ipairs(plant:GetDescendants()) do
                                             if desc:IsA("ProximityPrompt") then
@@ -499,7 +501,7 @@ local function startAutoSteal()
                                             end)
                                         end
 
-                                        -- Method 3: Steal remotes (plant Model as argument)
+                                        -- Also try Steal remotes
                                         if net and net.Steal then
                                             pcall(function()
                                                 if net.Steal.BeginSteal then
@@ -514,7 +516,7 @@ local function startAutoSteal()
                                             end)
                                         end
 
-                                        break -- one steal per tick to avoid spam
+                                        stolen = true -- one plant per tick
                                     end
                                 end
                             end
