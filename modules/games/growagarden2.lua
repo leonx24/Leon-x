@@ -20,8 +20,12 @@ GAG.AutoSell      = false
 GAG.AutoBuySeed   = false
 GAG.AutoBuyAll    = false
 GAG.AutoSeedEvent = false
-GAG.SelectedSeed  = "" -- which seed to auto-buy
+GAG.SelectedSeed  = {} -- multi-select seeds to auto-buy
 GAG.PriceESP      = false
+GAG.AutoBuyGear   = false
+GAG.SelectedGear  = {} -- multi-select gears to auto-buy
+GAG.GardenLock    = false -- protect garden from stealing
+GAG.HarvestMode   = "remote" -- "remote" (no teleport) or "teleport" (with teleport)
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -113,7 +117,7 @@ local function isInGarden(pos)
        and pos.Z >= gardenBounds.minZ and pos.Z <= gardenBounds.maxZ
 end
 
--- ── Auto Harvest (fast teleport within garden + fire remote) ────────────────
+-- ── Auto Harvest (remote-only or teleport mode) ────────────────────────────
 local function startAutoHarvest()
     disconnect("harvest")
     detectGardenBounds()
@@ -124,7 +128,7 @@ local function startAutoHarvest()
     local CACHE_REFRESH = 3
 
     local actionTimer = 0
-    local ACTION_INTERVAL = 0.4
+    local ACTION_INTERVAL = 0.5 -- slower to prevent server rejection
 
     connections.harvest = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoHarvest then return end
@@ -165,37 +169,50 @@ local function startAutoHarvest()
 
             if #gardenPrompts == 0 then return end
 
-            -- Teleport to each plant, fire remote, move on
-            for _, entry in ipairs(gardenPrompts) do
-                local prompt = entry.prompt
-                local pos = entry.pos
-
-                -- Re-check: prompt might have been harvested already
-                if prompt and prompt.Parent and prompt.Enabled then
-                    -- Quick teleport near the prompt
-                    local currentY = hrp.Position.Y
-                    local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
-                    pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
-
-                    -- Small wait for server to register position
-                    task.wait(0.15)
-
-                    -- Re-check again after teleport
+            -- Remote-only mode: fire all remotes without teleport
+            if GAG.HarvestMode == "remote" then
+                for _, entry in ipairs(gardenPrompts) do
+                    local prompt = entry.prompt
                     if prompt and prompt.Parent and prompt.Enabled then
-                        -- Fire the remote
+                        -- Fire the remote (no teleport)
                         if net and net.Garden and net.Garden.CollectFruit then
                             pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
                         end
+                    end
+                end
+            else
+                -- Teleport mode: teleport to each plant + fire remote
+                for _, entry in ipairs(gardenPrompts) do
+                    local prompt = entry.prompt
+                    local pos = entry.pos
 
-                        -- Also trigger ProximityPrompt directly
-                        pcall(function()
-                            prompt:InputHoldBegin()
-                            task.delay(0.15, function()
-                                if prompt and prompt.Parent then
-                                    prompt:InputHoldEnd()
-                                end
+                    -- Re-check: prompt might have been harvested already
+                    if prompt and prompt.Parent and prompt.Enabled then
+                        -- Quick teleport near the prompt
+                        local currentY = hrp.Position.Y
+                        local targetY = math.clamp(pos.Y + 2, currentY - 10, currentY + 10)
+                        pcall(function() hrp.CFrame = CFrame.new(pos.X, targetY, pos.Z) end)
+
+                        -- Wait for server to register position
+                        task.wait(0.3)
+
+                        -- Re-check again after teleport
+                        if prompt and prompt.Parent and prompt.Enabled then
+                            -- Fire the remote
+                            if net and net.Garden and net.Garden.CollectFruit then
+                                pcall(function() net.Garden.CollectFruit:Fire(prompt, "") end)
+                            end
+
+                            -- Also trigger ProximityPrompt directly
+                            pcall(function()
+                                prompt:InputHoldBegin()
+                                task.delay(0.2, function()
+                                    if prompt and prompt.Parent then
+                                        prompt:InputHoldEnd()
+                                    end
+                                end)
                             end)
-                        end)
+                        end
                     end
                 end
             end
@@ -246,23 +263,30 @@ local function getSeedNames()
     return seedNames
 end
 
--- Buy specific seed (cycles through selected seed)
+-- Buy selected seeds (multi-select support)
 local function startAutoBuySeed()
     disconnect("buy")
 
     local actionTimer = 0
     local BUY_INTERVAL = 1
+    local seedIndex = 1
 
     connections.buy = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoBuySeed then return end
-        if not GAG.SelectedSeed or GAG.SelectedSeed == "" then return end
+        if not GAG.SelectedSeed or #GAG.SelectedSeed == 0 then return end
 
         actionTimer = actionTimer + dt
         if actionTimer < BUY_INTERVAL then return end
         actionTimer = 0
 
         if net and net.SeedShop and net.SeedShop.PurchaseSeed then
-            pcall(function() net.SeedShop.PurchaseSeed:Fire(GAG.SelectedSeed) end)
+            -- Cycle through selected seeds
+            local seed = GAG.SelectedSeed[seedIndex]
+            if seed then
+                pcall(function() net.SeedShop.PurchaseSeed:Fire(seed) end)
+                seedIndex = seedIndex + 1
+                if seedIndex > #GAG.SelectedSeed then seedIndex = 1 end
+            end
         end
     end)
 end
@@ -287,6 +311,123 @@ local function startAutoBuyAll()
         for _, seedName in ipairs(seedNames) do
             pcall(function() net.SeedShop.PurchaseSeed:Fire(seedName) end)
         end
+    end)
+end
+
+-- ── Gear Auto-Buy ────────────────────────────────────────────────────────────
+-- Dynamically gets gear names from game assets
+local gearNames = {}
+
+local function getGearNames()
+    gearNames = {}
+    pcall(function()
+        -- Check for Gear/Tools folder in ReplicatedStorage
+        local gearFolder = ReplicatedStorage:FindFirstChild("Assets")
+            and ReplicatedStorage.Assets:FindFirstChild("Gear")
+            or ReplicatedStorage.Assets:FindFirstChild("Tools")
+            or ReplicatedStorage:FindFirstChild("Gear")
+            or ReplicatedStorage:FindFirstChild("Tools")
+        
+        if gearFolder then
+            for _, gear in ipairs(gearFolder:GetChildren()) do
+                gearNames[#gearNames + 1] = gear.Name
+            end
+        end
+    end)
+    -- Fallback common gear names
+    if #gearNames == 0 then
+        gearNames = {
+            "WateringCan", "Shovel", "Sickle", "Backpack", "Sprinkler",
+            "Fertilizer", "Pesticide", "Shears", "Axe", "Pickaxe"
+        }
+    end
+    return gearNames
+end
+
+-- Buy selected gears (multi-select support)
+local function startAutoBuyGear()
+    disconnect("buygear")
+
+    local actionTimer = 0
+    local BUY_INTERVAL = 1
+    local gearIndex = 1
+
+    connections.buygear = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoBuyGear then return end
+        if not GAG.SelectedGear or #GAG.SelectedGear == 0 then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < BUY_INTERVAL then return end
+        actionTimer = 0
+
+        -- Try to find gear purchase remote
+        local gearRemote = nil
+        pcall(function()
+            gearRemote = net and net.Shop and net.Shop.PurchaseGear
+                or net and net.GearShop and net.GearShop.Purchase
+                or net and net.Store and net.Store.BuyGear
+        end)
+
+        if gearRemote then
+            local gear = GAG.SelectedGear[gearIndex]
+            if gear then
+                pcall(function() gearRemote:Fire(gear) end)
+                gearIndex = gearIndex + 1
+                if gearIndex > #GAG.SelectedGear then gearIndex = 1 end
+            end
+        else
+            -- Fallback: try SeedShop remote with gear name
+            if net and net.SeedShop and net.SeedShop.PurchaseSeed then
+                local gear = GAG.SelectedGear[gearIndex]
+                if gear then
+                    pcall(function() net.SeedShop.PurchaseSeed:Fire(gear) end)
+                    gearIndex = gearIndex + 1
+                    if gearIndex > #GAG.SelectedGear then gearIndex = 1 end
+                end
+            end
+        end
+    end)
+end
+
+-- ── Garden Lock Protection ───────────────────────────────────────────────────
+-- Prevents fruit stealing at night when owner is outside base
+local function startGardenLock()
+    disconnect("gardenlock")
+    detectGardenBounds()
+
+    local actionTimer = 0
+    local LOCK_INTERVAL = 2 -- check every 2 seconds
+
+    connections.gardenlock = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.GardenLock then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < LOCK_INTERVAL then return end
+        actionTimer = 0
+
+        pcall(function()
+            local hrp = getHRP()
+            if not hrp then return end
+
+            -- Check if player is outside their garden
+            local playerPos = hrp.Position
+            if not isInGarden(playerPos) then
+                -- Player is outside garden - try to lock it
+                -- Try various remote names for locking garden
+                local lockRemote = nil
+                if net then
+                    lockRemote = net.Garden and net.Garden.Lock
+                        or net.Garden and net.Garden.ToggleLock
+                        or net.Garden and net.Garden.SetLocked
+                        or net.Plot and net.Plot.Lock
+                        or net.Base and net.Base.Lock
+                end
+
+                if lockRemote then
+                    pcall(function() lockRemote:Fire(true) end)
+                end
+            end
+        end)
     end)
 end
 
@@ -653,9 +794,10 @@ function GAG:Init()
     else
         print("[Leon X] WARNING: Could not load GAG Networking module")
     end
-    -- Pre-load seed names
+    -- Pre-load seed and gear names
     pcall(function() getSeedNames() end)
-    print("[Leon X] GAG Seeds found: " .. #seedNames)
+    pcall(function() getGearNames() end)
+    print("[Leon X] GAG Seeds found: " .. #seedNames .. ", Gear found: " .. #gearNames)
 end
 
 function GAG:Enable()
@@ -682,6 +824,17 @@ function GAG:WireUI(tab, extras)
 
     -- ══ MAIN SECTION (Auto Features) ═════════════════════════════════════════
     tab:Section({ Title = "Main — Auto Features" })
+
+    -- Harvest Mode selector
+    tab:Dropdown({
+        Title    = "Harvest Mode",
+        Flag     = "GAG_HarvestMode",
+        Default  = "remote",
+        Values   = {"remote", "teleport"},
+        Callback = function(v)
+            GAG.HarvestMode = v
+        end
+    })
 
     tab:Toggle({
         Title    = "Auto Harvest",
@@ -713,19 +866,20 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    -- Seed dropdown
+    -- Seed dropdown (multi-select)
     tab:Dropdown({
-        Title    = "Select Seed",
-        Flag     = "GAG_SelectedSeed",
-        Default  = "",
+        Title    = "Select Seeds (Multi)",
+        Flag     = "GAG_SelectedSeeds",
+        Default  = {},
         Values   = seedNames,
+        Multi    = true,
         Callback = function(v)
-            GAG.SelectedSeed = v
+            GAG.SelectedSeed = type(v) == "table" and v or {v}
         end
     })
 
     tab:Toggle({
-        Title    = "Auto Buy Selected Seed",
+        Title    = "Auto Buy Selected Seeds",
         Flag     = "GAG_AutoBuySeed",
         Default  = false,
         Callback = function(v)
@@ -770,6 +924,54 @@ function GAG:WireUI(tab, extras)
         end
     })
 
+    -- ══ SHOP SECTION ═════════════════════════════════════════════════════════
+    tab:Section({ Title = "Shop — Gear" })
+
+    -- Multi-select gear dropdown
+    tab:Dropdown({
+        Title    = "Select Gear (Multi)",
+        Flag     = "GAG_SelectedGear",
+        Default  = {},
+        Values   = gearNames,
+        Multi    = true,
+        Callback = function(v)
+            GAG.SelectedGear = type(v) == "table" and v or {v}
+        end
+    })
+
+    tab:Toggle({
+        Title    = "Auto Buy Selected Gear",
+        Flag     = "GAG_AutoBuyGear",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoBuyGear = v
+            if v then
+                GAG.Enabled = true
+                startAutoBuyGear()
+            else
+                disconnect("buygear")
+            end
+        end
+    })
+
+    -- ══ PROTECTION SECTION ═══════════════════════════════════════════════════
+    tab:Section({ Title = "Protection" })
+
+    tab:Toggle({
+        Title    = "Garden Lock (Anti-Steal)",
+        Flag     = "GAG_GardenLock",
+        Default  = false,
+        Callback = function(v)
+            GAG.GardenLock = v
+            if v then
+                GAG.Enabled = true
+                startGardenLock()
+            else
+                disconnect("gardenlock")
+            end
+        end
+    })
+
     -- ══ VISUAL SECTION ═══════════════════════════════════════════════════════
     tab:Section({ Title = "Visual" })
 
@@ -798,13 +1000,15 @@ function GAG:WireUI(tab, extras)
             Flag     = "GAG_SpeedHack",
             Default  = false,
             Callback = function(v)
-                if v then
-                    Speed:SetWalkSpeed(50)
-                    Speed:SetJumpPower(50)
-                    Speed:Enable()
-                else
-                    Speed:Disable()
-                end
+                pcall(function()
+                    if v then
+                        Speed:SetWalkSpeed(50)
+                        Speed:SetJumpPower(50)
+                        Speed:Enable()
+                    else
+                        Speed:Disable()
+                    end
+                end)
             end
         })
 
@@ -813,7 +1017,7 @@ function GAG:WireUI(tab, extras)
             Flag     = "GAG_WalkSpeed",
             Value    = { Min = 16, Max = 250, Default = 50 },
             Step     = 1,
-            Callback = function(v) Speed:SetWalkSpeed(v) end
+            Callback = function(v) pcall(function() Speed:SetWalkSpeed(v) end) end
         })
 
         pTab:Slider({
@@ -821,7 +1025,7 @@ function GAG:WireUI(tab, extras)
             Flag     = "GAG_JumpPower",
             Value    = { Min = 50, Max = 500, Default = 50 },
             Step     = 1,
-            Callback = function(v) Speed:SetJumpPower(v) end
+            Callback = function(v) pcall(function() Speed:SetJumpPower(v) end) end
         })
     end
 
@@ -833,7 +1037,9 @@ function GAG:WireUI(tab, extras)
             Flag     = "GAG_Fly",
             Default  = false,
             Callback = function(v)
-                if v then Fly:Enable() else Fly:Disable() end
+                pcall(function()
+                    if v then Fly:Enable() else Fly:Disable() end
+                end)
             end
         })
 
@@ -842,7 +1048,11 @@ function GAG:WireUI(tab, extras)
             Flag     = "GAG_FlySpeed",
             Value    = { Min = 10, Max = 300, Default = 60 },
             Step     = 1,
-            Callback = function(v) if v >= 10 then Fly:SetSpeed(v) end end
+            Callback = function(v)
+                pcall(function()
+                    if v >= 10 then Fly:SetSpeed(v) end
+                end)
+            end
         })
 
         -- F keybind for Fly
@@ -856,9 +1066,11 @@ function GAG:WireUI(tab, extras)
         UIS.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
             if input.KeyCode == Enum.KeyCode.F then
-                local newState = not Fly.Enabled
-                gagFlyToggle:Set(newState)
-                if newState then Fly:Enable() else Fly:Disable() end
+                pcall(function()
+                    local newState = not Fly.Enabled
+                    gagFlyToggle:Set(newState)
+                    if newState then Fly:Enable() else Fly:Disable() end
+                end)
             end
         end)
     end
@@ -868,7 +1080,7 @@ function GAG:WireUI(tab, extras)
 
     tab:Paragraph({
         Title   = "Auto Harvest",
-        Content = "Fast teleport to each plant + fire remote. Garden-bounds only."
+        Content = "Remote mode (no TP) or Teleport mode. Garden-bounds only."
     })
 
     tab:Paragraph({
@@ -877,8 +1089,18 @@ function GAG:WireUI(tab, extras)
     })
 
     tab:Paragraph({
+        Title   = "Auto Buy",
+        Content = "Multi-select seeds/gear to auto-purchase."
+    })
+
+    tab:Paragraph({
+        Title   = "Garden Lock",
+        Content = "Auto-locks garden when you're outside to prevent stealing."
+    })
+
+    tab:Paragraph({
         Title   = "Price ESP",
-        Content = "Shows plant name + weight above each crop in all gardens."
+        Content = "Shows plant name + growth above each crop."
     })
 
     tab:Paragraph({
