@@ -24,8 +24,11 @@ GAG.SelectedSeed  = {} -- multi-select seeds to auto-buy
 GAG.PriceESP      = false
 GAG.AutoBuyGear   = false
 GAG.SelectedGear  = {} -- multi-select gears to auto-buy
-GAG.GardenLock    = false -- protect garden from stealing
-GAG.HarvestMode   = "remote" -- "remote" (no teleport) or "teleport" (with teleport)
+GAG.GardenLock    = false
+GAG.HarvestMode   = "remote"
+GAG.AutoSteal     = false
+GAG.AutoFling     = false
+GAG.FlingRadius   = 20
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -419,6 +422,151 @@ local function startGardenLock()
     print("[Leon X] The game may not support automated garden locking.")
 end
 
+-- ── Auto Steal (steal fruits from other gardens at night) ─────────────────
+local function startAutoSteal()
+    disconnect("steal")
+
+    local cachedPrompts = {}
+    local lastCacheTime = 0
+    local CACHE_REFRESH = 3
+    local actionTimer = 0
+    local ACTION_INTERVAL = 1
+
+    connections.steal = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoSteal then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < ACTION_INTERVAL then return end
+        actionTimer = 0
+
+        local now = tick()
+        if now - lastCacheTime > CACHE_REFRESH then
+            -- Look for steal-related prompts (HoldToSteal tag or similar)
+            cachedPrompts = {}
+            pcall(function()
+                local stealTagged = CollectionService:GetTagged("HoldToSteal")
+                for _, p in ipairs(stealTagged) do
+                    cachedPrompts[#cachedPrompts + 1] = p
+                end
+                -- Also try HarvestPrompt outside own garden
+                local harvestTagged = CollectionService:GetTagged("HarvestPrompt")
+                for _, p in ipairs(harvestTagged) do
+                    cachedPrompts[#cachedPrompts + 1] = p
+                end
+            end)
+            lastCacheTime = now
+        end
+
+        if #cachedPrompts == 0 then return end
+
+        pcall(function()
+            local hrp = getHRP()
+            if not hrp then return end
+
+            for _, tagged in ipairs(cachedPrompts) do
+                if tagged and tagged.Parent then
+
+                -- Resolve ProximityPrompt
+                local prompt
+                if tagged:IsA("ProximityPrompt") then
+                    prompt = tagged
+                elseif tagged:IsA("Model") or tagged:IsA("BasePart") then
+                    prompt = tagged:FindFirstChildWhichIsA("ProximityPrompt")
+                end
+
+                if prompt and prompt.Enabled then
+                    -- Skip if in own garden (only steal from others)
+                    local pos
+                    if tagged:IsA("BasePart") then
+                        pos = tagged.Position
+                    elseif tagged:IsA("Model") then
+                        pos = tagged:GetPivot().Position
+                    elseif prompt.Parent:IsA("BasePart") then
+                        pos = prompt.Parent.Position
+                    end
+
+                    if pos and not isInGarden(pos) then
+                        -- Teleport to the fruit
+                        pcall(function()
+                            hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
+                        end)
+                        task.wait(0.3)
+
+                        -- Trigger steal via ProximityPrompt
+                        if prompt and prompt.Parent and prompt.Enabled then
+                            pcall(function() prompt:InputHoldBegin() end)
+                            task.wait(0.5)
+                            pcall(function()
+                                if prompt and prompt.Parent then
+                                    prompt:InputHoldEnd()
+                                end
+                            end)
+                        end
+
+                        -- Also fire Steal remotes as backup
+                        if net and net.Steal then
+                            pcall(function()
+                                if net.Steal.BeginSteal then
+                                    net.Steal.BeginSteal:Fire(prompt)
+                                end
+                            end)
+                            task.wait(0.3)
+                            pcall(function()
+                                if net.Steal.CompleteSteal then
+                                    net.Steal.CompleteSteal:Fire(prompt)
+                                end
+                            end)
+                        end
+                    end
+                end
+                end -- close if tagged
+            end
+        end)
+    end)
+end
+
+-- ── Auto Fling (push nearby players away) ───────────────────────────────
+local function startAutoFling()
+    disconnect("fling")
+
+    local actionTimer = 0
+    local FLING_INTERVAL = 0.3
+
+    connections.fling = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoFling then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < FLING_INTERVAL then return end
+        actionTimer = 0
+
+        pcall(function()
+            local hrp = getHRP()
+            if not hrp then return end
+            local myPos = hrp.Position
+
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= lp then
+                    local char = player.Character
+                    if char then
+                        local theirHRP = char:FindFirstChild("HumanoidRootPart")
+                        local theirHum = char:FindFirstChildOfClass("Humanoid")
+                        if theirHRP and theirHum and theirHum.Health > 0 then
+                            local dist = (theirHRP.Position - myPos).Magnitude
+                            if dist < GAG.FlingRadius then
+                                -- Push them away with velocity spike
+                                local dir = (theirHRP.Position - myPos).Unit
+                                pcall(function()
+                                    theirHRP.AssemblyLinearVelocity = dir * 500 + Vector3.new(0, 200, 0)
+                                end)
+                            end
+                        end
+                    end
+                end
+            end
+        end)
+    end)
+end
+
 -- ── Auto Seed Event (hunts falling rainbow/gold/event seeds) ────────────────
 -- Watches workspace for new seed objects and teleports to collect them
 local seedEventKeywords = {
@@ -805,6 +953,8 @@ function GAG:Disable()
     self.AutoBuyAll    = false
     self.AutoSeedEvent = false
     self.PriceESP      = false
+    self.AutoSteal     = false
+    self.AutoFling     = false
     stopPriceESP()
     disconnectAll()
 end
@@ -947,27 +1097,62 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    -- ══ PROTECTION SECTION ═══════════════════════════════════════════════════
-    tab:Section({ Title = "Protection" })
+    -- ══ STEAL SECTION ═══════════════════════════════════════════════════════
+    tab:Section({ Title = "Steal" })
 
     tab:Toggle({
-        Title    = "Garden Lock (No Remote Found)",
-        Flag     = "GAG_GardenLock",
+        Title    = "Auto Steal (Other Gardens)",
+        Flag     = "GAG_AutoSteal",
         Default  = false,
         Callback = function(v)
-            GAG.GardenLock = v
+            GAG.AutoSteal = v
             if v then
                 GAG.Enabled = true
-                startGardenLock()
+                startAutoSteal()
             else
-                disconnect("gardenlock")
+                disconnect("steal")
             end
         end
     })
 
-    tab:Paragraph({
-        Title   = "Note",
-        Content = "No garden lock remote exists in the game. Lock manually in-game if available."
+    -- ══ PROTECTION SECTION ═══════════════════════════════════════════════════
+    tab:Section({ Title = "Protection / Combat" })
+
+    tab:Toggle({
+        Title    = "Anti Fling",
+        Flag     = "GAG_AntiFling",
+        Default  = false,
+        Callback = function(v)
+            local AntiFling = extras.AntiFling
+            if AntiFling then
+                pcall(function()
+                    if v then AntiFling:Enable() else AntiFling:Disable() end
+                end)
+            end
+        end
+    })
+
+    tab:Toggle({
+        Title    = "Auto Fling (Push Players)",
+        Flag     = "GAG_AutoFling",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoFling = v
+            if v then
+                GAG.Enabled = true
+                startAutoFling()
+            else
+                disconnect("fling")
+            end
+        end
+    })
+
+    tab:Slider({
+        Title    = "Fling Radius",
+        Flag     = "GAG_FlingRadius",
+        Value    = { Min = 5, Max = 50, Default = 20 },
+        Step     = 1,
+        Callback = function(v) GAG.FlingRadius = v end
     })
 
     -- ══ VISUAL SECTION ═══════════════════════════════════════════════════════
@@ -1025,6 +1210,33 @@ function GAG:WireUI(tab, extras)
             Step     = 1,
             Callback = function(v) pcall(function() Speed:SetJumpPower(v) end) end
         })
+        pTab:Toggle({
+            Title    = "Infinite Jump",
+            Flag     = "GAG_InfiniteJump",
+            Default  = false,
+            Callback = function(v)
+                local InfJump = extras.InfiniteJump
+                if InfJump then
+                    pcall(function()
+                        if v then InfJump:Enable() else InfJump:Disable() end
+                    end)
+                end
+            end
+        })
+
+        pTab:Toggle({
+            Title    = "Anti-AFK",
+            Flag     = "GAG_AntiAFK",
+            Default  = false,
+            Callback = function(v)
+                local AntiAFK = extras.AntiAFK
+                if AntiAFK then
+                    pcall(function()
+                        if v then AntiAFK:Enable() else AntiAFK:Disable() end
+                    end)
+                end
+            end
+        })
     end
 
     if Fly then
@@ -1073,27 +1285,79 @@ function GAG:WireUI(tab, extras)
         end)
     end
 
+    -- ══ UTILITY SIDEBAR ════════════════════════════════════════════════════
+    tab:Section({ Title = "Utility" })
+
+    tab:Button({
+        Title    = "Rejoin Server",
+        Flag     = "GAG_Rejoin",
+        Callback = function()
+            local Rejoin = extras.Rejoin
+            if Rejoin then
+                pcall(function() Rejoin:Execute() end)
+            else
+                pcall(function()
+                    game:GetService("TeleportService"):Teleport(game.PlaceId, lp)
+                end)
+            end
+        end
+    })
+
+    tab:Button({
+        Title    = "Server Hop",
+        Flag     = "GAG_ServerHop",
+        Callback = function()
+            local SHop = extras.ServerHop
+            if SHop then
+                pcall(function() SHop:Execute() end)
+            else
+                -- Inline server hop fallback
+                pcall(function()
+                    local HttpService = game:GetService("HttpService")
+                    local TeleportService = game:GetService("TeleportService")
+                    local url = string.format(
+                        "https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100",
+                        game.PlaceId
+                    )
+                    local response = game:HttpGet(url)
+                    local data = HttpService:JSONDecode(response)
+                    if data and data.data then
+                        local servers = {}
+                        for _, s in ipairs(data.data) do
+                            if s.id and s.id ~= game.JobId and s.playing and s.maxPlayers then
+                                if s.playing < s.maxPlayers then
+                                    servers[#servers + 1] = s.id
+                                end
+                            end
+                        end
+                        if #servers > 0 then
+                            local target = servers[math.random(1, #servers)]
+                            TeleportService:TeleportToPlaceInstance(game.PlaceId, target, lp)
+                            return
+                        end
+                    end
+                    TeleportService:Teleport(game.PlaceId, lp)
+                end)
+            end
+        end
+    })
+
     -- ══ INFO SECTION ════════════════════════════════════════════════════
     tab:Section({ Title = "Info" })
 
     tab:Paragraph({
         Title   = "Auto Harvest",
-        Content = "Remote mode (no TP) or Teleport mode. Garden-bounds only."
+        Content = "Teleport mode: TP + ProximityPrompt. Remote mode: CollectFruit remote."
     })
 
     tab:Paragraph({
-        Title   = "Auto Sell",
-        Content = "Fires NPCS.SellAll every 1s. Works from anywhere."
+        Title   = "Auto Steal",
+        Content = "Steals fruits from other players' gardens using HoldToSteal prompts."
     })
 
     tab:Paragraph({
-        Title   = "Auto Buy",
-        Content = "Multi-select seeds/gear to auto-purchase."
-    })
-
-    tab:Paragraph({
-        Title   = "Garden Lock",
-        Content = "No lock remote found in Networking module. Lock manually in-game."
+        Title   = "Auto Fling",
+        Content = "Pushes nearby players away with velocity force."
     })
 
     tab:Paragraph({
@@ -1102,8 +1366,8 @@ function GAG:WireUI(tab, extras)
     })
 
     tab:Paragraph({
-        Title   = "Auto Seed Event",
-        Content = "Detects falling seeds (Corn, Pineapple, etc.) and collects them."
+        Title   = "Utility",
+        Content = "Rejoin/Server Hop for quick server switching."
     })
 end
 

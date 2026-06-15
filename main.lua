@@ -320,10 +320,15 @@ if ActiveGameModule then
     local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
     ActiveGameModule:Init()
     ActiveGameModule:WireUI(GameTab, {
-        Fly       = Fly,
-        Speed     = Speed,
-        Window    = Window,
-        PlayerTab = PlayerTab,
+        Fly          = Fly,
+        Speed        = Speed,
+        Window       = Window,
+        PlayerTab    = PlayerTab,
+        AntiAFK      = AntiAFK,
+        InfiniteJump = InfJump,
+        AntiFling    = AntiFling,
+        Rejoin       = Rejoin,
+        ServerHop    = ServerHop,
     })
     N("Game Detected", ActiveGameModule.Name)
 else
