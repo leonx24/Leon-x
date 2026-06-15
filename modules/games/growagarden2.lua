@@ -1,6 +1,6 @@
 -- Leon X | Grow a Garden 2
 -- PlaceId: 97598239454123
--- Auto Harvest, Auto Sell, Auto Buy Seed (using game remotes)
+-- Auto Collect, Auto Sell, Auto Buy Seed, Auto Steal, Auto Fling (using game remotes)
 
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
@@ -15,7 +15,7 @@ GAG.PlaceIds = { 97598239454123 }
 GAG.Enabled = false
 
 -- Feature states
-GAG.AutoHarvest   = false
+GAG.AutoCollect   = false
 GAG.AutoSell      = false
 GAG.AutoBuySeed   = false
 GAG.AutoBuyAll    = false
@@ -24,8 +24,6 @@ GAG.SelectedSeed  = {} -- multi-select seeds to auto-buy
 GAG.PriceESP      = false
 GAG.AutoBuyGear   = false
 GAG.SelectedGear  = {} -- multi-select gears to auto-buy
-GAG.GardenLock    = false
-GAG.HarvestMode   = "remote"
 GAG.AutoSteal     = false
 GAG.AutoFling     = false
 GAG.FlingRadius   = 20
@@ -118,140 +116,6 @@ local function isInGarden(pos)
     if not gardenBounds then return true end
     return pos.X >= gardenBounds.minX and pos.X <= gardenBounds.maxX
        and pos.Z >= gardenBounds.minZ and pos.Z <= gardenBounds.maxZ
-end
-
--- ── Auto Harvest (remote-only or teleport mode) ────────────────────────────
-local function startAutoHarvest()
-    disconnect("harvest")
-    detectGardenBounds()
-
-    -- Cache prompts with 3s refresh
-    local cachedPrompts = {}
-    local lastCacheTime = 0
-    local CACHE_REFRESH = 3
-
-    local actionTimer = 0
-    local ACTION_INTERVAL = 0.5 -- slower to prevent server rejection
-
-    connections.harvest = RunService.Heartbeat:Connect(function(dt)
-        if not GAG.Enabled or not GAG.AutoHarvest then return end
-
-        actionTimer = actionTimer + dt
-        if actionTimer < ACTION_INTERVAL then return end
-        actionTimer = 0
-
-        -- Refresh cache every 3 seconds
-        local now = tick()
-        if now - lastCacheTime > CACHE_REFRESH then
-            cachedPrompts = CollectionService:GetTagged("HarvestPrompt")
-            lastCacheTime = now
-        end
-
-        if #cachedPrompts == 0 then return end
-
-        pcall(function()
-            local hrp = getHRP()
-            if not hrp then return end
-
-            -- Filter to only valid garden prompts and find ProximityPrompts
-            local gardenPrompts = {}
-            for _, tagged in ipairs(cachedPrompts) do
-                if tagged and tagged.Parent then
-                    -- Resolve the actual ProximityPrompt
-                    local prompt
-                    if tagged:IsA("ProximityPrompt") then
-                        prompt = tagged
-                    elseif tagged:IsA("Model") or tagged:IsA("BasePart") then
-                        prompt = tagged:FindFirstChildWhichIsA("ProximityPrompt")
-                    end
-
-                    if prompt and prompt.Enabled then
-                        -- Find the plant model (has SeedName attribute)
-                        local model = prompt.Parent
-                        while model and not (model:IsA("Model") and model:GetAttribute("SeedName")) do
-                            if model == workspace then model = nil; break end
-                            model = model.Parent
-                        end
-                        if not model and prompt.Parent:IsA("Model") then
-                            model = prompt.Parent
-                        end
-
-                        -- Get position for garden bounds check + teleport
-                        local pos
-                        if model then
-                            local hp = model:FindFirstChild("HarvestPart")
-                            if hp and hp:IsA("BasePart") then
-                                pos = hp.Position
-                            else
-                                pos = model:GetPivot().Position
-                            end
-                        elseif prompt.Parent:IsA("BasePart") then
-                            pos = prompt.Parent.Position
-                        end
-
-                        if pos and isInGarden(pos) then
-                            gardenPrompts[#gardenPrompts + 1] = {
-                                prompt = prompt,
-                                pos    = pos,
-                                model  = model,
-                            }
-                        end
-                    end
-                end
-            end
-
-            if #gardenPrompts == 0 then return end
-
-            -- Remote-only mode: fire CollectFruit remote without teleport
-            if GAG.HarvestMode == "remote" then
-                for _, entry in ipairs(gardenPrompts) do
-                    local prompt = entry.prompt
-                    if prompt and prompt.Parent and prompt.Enabled then
-                        pcall(function()
-                            if net and net.Garden and net.Garden.CollectFruit then
-                                net.Garden.CollectFruit:Fire(prompt)
-                            end
-                        end)
-                    end
-                end
-            else
-                -- Teleport mode: teleport to each plant + use ProximityPrompt
-                for _, entry in ipairs(gardenPrompts) do
-                    local prompt = entry.prompt
-                    local pos    = entry.pos
-
-                    if prompt and prompt.Parent and prompt.Enabled then
-                        -- Teleport directly to plant (use plant Y, small offset)
-                        pcall(function()
-                            hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
-                        end)
-                        task.wait(0.3)
-
-                        -- Re-check prompt still enabled after teleport
-                        if prompt and prompt.Parent and prompt.Enabled then
-                            -- Primary: trigger ProximityPrompt (game's native harvest)
-                            pcall(function()
-                                prompt:InputHoldBegin()
-                            end)
-                            task.wait(0.2)
-                            pcall(function()
-                                if prompt and prompt.Parent then
-                                    prompt:InputHoldEnd()
-                                end
-                            end)
-
-                            -- Backup: also fire the Networking remote
-                            pcall(function()
-                                if net and net.Garden and net.Garden.CollectFruit then
-                                    net.Garden.CollectFruit:Fire(prompt)
-                                end
-                            end)
-                        end
-                    end
-                end
-            end
-        end)
-    end)
 end
 
 -- ── Auto Sell (fires NPCS.SellAll remote) ──────────────────────────────────
@@ -422,15 +286,138 @@ local function startGardenLock()
     print("[Leon X] The game may not support automated garden locking.")
 end
 
--- ── Auto Steal (steal fruits from other gardens at night) ─────────────────
+-- ── Auto Collect (own garden fruits via correct remote pattern) ─────────────
+-- From deobfuscated script: Networker.Fire('CollectFruit', plantId, fruitId_or_empty)
+local function getOwnerPlot()
+    local gardens = workspace:FindFirstChild("Gardens")
+    if not gardens then return nil end
+    for _, plot in ipairs(gardens:GetChildren()) do
+        -- Check plot ownership by name (contains player name or UserId)
+        if plot.Name:find(lp.Name) or plot.Name:find(tostring(lp.UserId)) then
+            return plot
+        end
+    end
+    -- Fallback: find closest plot
+    local hrp = getHRP()
+    if not hrp then return nil end
+    local best, bestDist = nil, math.huge
+    for _, plot in ipairs(gardens:GetChildren()) do
+        if plot.Name:find("Plot") then
+            local zone = plot:FindFirstChild("Visual")
+                and plot.Visual:FindFirstChild("GardenZonePart")
+            if zone then
+                local d = (zone.Position - hrp.Position).Magnitude
+                if d < bestDist then bestDist = d; best = plot end
+            end
+        end
+    end
+    return best
+end
+
+local function getPlantsOnPlot(plot)
+    if not plot then return {} end
+    local plantsFolder = plot:FindFirstChild("Plants")
+    if not plantsFolder then return {} end
+    local result = {}
+    for _, plant in ipairs(plantsFolder:GetChildren()) do
+        if plant:IsA("Model") then
+            local plantId = plant:GetAttribute("PlantId")
+            if plantId then
+                local fruitId = plant:GetAttribute("FruitId") or ""
+                result[#result + 1] = {
+                    model   = plant,
+                    plantId = plantId,
+                    fruitId = fruitId,
+                }
+            end
+        end
+    end
+    return result
+end
+
+local function fireCollectFruit(plantId, fruitId)
+    if not net or not net.Garden or not net.Garden.CollectFruit then return false end
+    local ok = pcall(function()
+        net.Garden.CollectFruit:Fire(plantId, fruitId or "")
+    end)
+    return ok
+end
+
+local function startAutoCollect()
+    disconnect("collect")
+    detectGardenBounds()
+
+    local actionTimer = 0
+    local ACTION_INTERVAL = 0.5
+
+    connections.collect = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoCollect then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < ACTION_INTERVAL then return end
+        actionTimer = 0
+
+        pcall(function()
+            local plot = getOwnerPlot()
+            if not plot then return end
+
+            local plantsFolder = plot:FindFirstChild("Plants")
+            if not plantsFolder then return end
+
+            -- Check if we need to teleport to our garden first
+            local hrp = getHRP()
+            if not hrp then return end
+
+            local spawnPoint = plot:FindFirstChild("SpawnPoint")
+            if spawnPoint then
+                local spawnPos = spawnPoint:IsA("BasePart") and spawnPoint.Position or spawnPoint:GetPivot().Position
+                local dist = (hrp.Position - spawnPos).Magnitude
+                if dist > 50 then
+                    pcall(function()
+                        hrp.CFrame = CFrame.new(spawnPos.X, spawnPos.Y + 1, spawnPos.Z)
+                    end)
+                    task.wait(0.3)
+                end
+            end
+
+            -- Iterate all plants and collect fruits
+            for _, plant in ipairs(plantsFolder:GetChildren()) do
+                if not GAG.AutoCollect then break end
+                if plant:IsA("Model") then
+                    local plantId = plant:GetAttribute("PlantId")
+                    local fruitId = plant:GetAttribute("FruitId") or ""
+
+                    if plantId and fruitId ~= "" then
+                        -- This plant has fruits ready to collect
+                        fireCollectFruit(plantId, fruitId)
+                        task.wait(0.01) -- small delay between collects
+                    end
+                end
+            end
+
+            -- Also collect all fruits (empty fruitId = collect everything)
+            for _, plant in ipairs(plantsFolder:GetChildren()) do
+                if not GAG.AutoCollect then break end
+                if plant:IsA("Model") then
+                    local plantId = plant:GetAttribute("PlantId")
+                    if plantId then
+                        fireCollectFruit(plantId, "")
+                        task.wait(0.01)
+                    end
+                end
+            end
+        end)
+    end)
+end
+
+-- ── Auto Steal (steal fruits from other gardens) ────────────────────────────
+-- Uses same CollectFruit remote pattern + Steal remotes for cross-garden
 local function startAutoSteal()
     disconnect("steal")
+    detectGardenBounds()
 
-    local cachedPrompts = {}
-    local lastCacheTime = 0
-    local CACHE_REFRESH = 3
     local actionTimer = 0
-    local ACTION_INTERVAL = 1
+    local ACTION_INTERVAL = 1.5
 
     connections.steal = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSteal then return end
@@ -439,105 +426,100 @@ local function startAutoSteal()
         if actionTimer < ACTION_INTERVAL then return end
         actionTimer = 0
 
-        local now = tick()
-        if now - lastCacheTime > CACHE_REFRESH then
-            -- Look for steal-related prompts (HoldToSteal tag or similar)
-            cachedPrompts = {}
-            pcall(function()
-                local stealTagged = CollectionService:GetTagged("HoldToSteal")
-                for _, p in ipairs(stealTagged) do
-                    cachedPrompts[#cachedPrompts + 1] = p
-                end
-                -- Also try HarvestPrompt outside own garden
-                local harvestTagged = CollectionService:GetTagged("HarvestPrompt")
-                for _, p in ipairs(harvestTagged) do
-                    cachedPrompts[#cachedPrompts + 1] = p
-                end
-            end)
-            lastCacheTime = now
-        end
-
-        if #cachedPrompts == 0 then return end
-
         pcall(function()
             local hrp = getHRP()
             if not hrp then return end
 
-            for _, tagged in ipairs(cachedPrompts) do
-                if tagged and tagged.Parent then
+            local gardens = workspace:FindFirstChild("Gardens")
+            if not gardens then return end
 
-                -- Resolve ProximityPrompt
-                local prompt
-                if tagged:IsA("ProximityPrompt") then
-                    prompt = tagged
-                elseif tagged:IsA("Model") or tagged:IsA("BasePart") then
-                    prompt = tagged:FindFirstChildWhichIsA("ProximityPrompt")
-                end
+            for _, plot in ipairs(gardens:GetChildren()) do
+                if not GAG.AutoSteal then break end
 
-                if prompt and prompt.Enabled then
-                    -- Skip if in own garden (only steal from others)
-                    local pos
-                    if tagged:IsA("BasePart") then
-                        pos = tagged.Position
-                    elseif tagged:IsA("Model") then
-                        pos = tagged:GetPivot().Position
-                    elseif prompt.Parent:IsA("BasePart") then
-                        pos = prompt.Parent.Position
-                    end
+                local plantsFolder = plot:FindFirstChild("Plants")
+                if plantsFolder then
+                    for _, plant in ipairs(plantsFolder:GetChildren()) do
+                        if not GAG.AutoSteal then break end
+                        if plant:IsA("Model") then
+                            local plantId = plant:GetAttribute("PlantId")
+                            local fruitId = plant:GetAttribute("FruitId") or ""
 
-                    if pos and not isInGarden(pos) then
-                        -- Teleport to the fruit
-                        pcall(function()
-                            hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
-                        end)
-                        task.wait(0.3)
-
-                        -- Trigger steal via ProximityPrompt
-                        if prompt and prompt.Parent and prompt.Enabled then
-                            pcall(function() prompt:InputHoldBegin() end)
-                            task.wait(0.5)
-                            pcall(function()
-                                if prompt and prompt.Parent then
-                                    prompt:InputHoldEnd()
+                            if plantId then
+                                -- Get plant position
+                                local pos
+                                local harvestPart = plant:FindFirstChild("HarvestPart")
+                                if harvestPart and harvestPart:IsA("BasePart") then
+                                    pos = harvestPart.Position
+                                else
+                                    pos = plant:GetPivot().Position
                                 end
-                            end)
+
+                                -- Only steal from OTHER gardens (not own)
+                                if pos and not isInGarden(pos) then
+                                    -- Check if plant actually has fruits
+                                    local fruits = plant:FindFirstChild("Fruits")
+                                    local hasFruits = fruits and #fruits:GetChildren() > 0
+
+                                    if hasFruits or fruitId ~= "" then
+                                        -- Teleport to the fruit
+                                        pcall(function()
+                                            hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
+                                        end)
+                                        task.wait(0.3)
+
+                                        -- Method 1: Fire CollectFruit remote (same remote as own garden)
+                                        fireCollectFruit(plantId, fruitId)
+
+                                        -- Method 2: Trigger ProximityPrompt if present
+                                        local prompt
+                                        for _, desc in ipairs(plant:GetDescendants()) do
+                                            if desc:IsA("ProximityPrompt") then
+                                                prompt = desc; break
+                                            end
+                                        end
+                                        if prompt and prompt.Enabled then
+                                            pcall(function() prompt:InputHoldBegin() end)
+                                            task.wait(0.4)
+                                            pcall(function()
+                                                if prompt and prompt.Parent then
+                                                    prompt:InputHoldEnd()
+                                                end
+                                            end)
+                                        end
+
+                                        -- Method 3: Steal remotes (plant Model as argument)
+                                        if net and net.Steal then
+                                            pcall(function()
+                                                if net.Steal.BeginSteal then
+                                                    net.Steal.BeginSteal:Fire(plant)
+                                                end
+                                            end)
+                                            task.wait(0.15)
+                                            pcall(function()
+                                                if net.Steal.CompleteSteal then
+                                                    net.Steal.CompleteSteal:Fire(plant)
+                                                end
+                                            end)
+                                        end
+
+                                        break -- one steal per tick to avoid spam
+                                    end
+                                end
+                            end
                         end
-
-                        -- Also fire Steal remotes as backup
-                        if net and net.Steal then
-                            pcall(function()
-                                if net.Steal.BeginSteal then
-                                    net.Steal.BeginSteal:Fire(prompt)
-                                end
-                            end)
-                            task.wait(0.3)
-                            pcall(function()
-                                if net.Steal.CompleteSteal then
-                                    net.Steal.CompleteSteal:Fire(prompt)
-                                end
-                            end)
-                        end
                     end
                 end
-                end -- close if tagged
             end
         end)
     end)
 end
 
--- ── Auto Fling (push nearby players away) ───────────────────────────────
+-- ── Auto Fling (push nearby players away from you) ──────────────────────
 local function startAutoFling()
     disconnect("fling")
 
-    local actionTimer = 0
-    local FLING_INTERVAL = 0.3
-
     connections.fling = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoFling then return end
-
-        actionTimer = actionTimer + dt
-        if actionTimer < FLING_INTERVAL then return end
-        actionTimer = 0
 
         pcall(function()
             local hrp = getHRP()
@@ -553,10 +535,18 @@ local function startAutoFling()
                         if theirHRP and theirHum and theirHum.Health > 0 then
                             local dist = (theirHRP.Position - myPos).Magnitude
                             if dist < GAG.FlingRadius then
-                                -- Push them away with velocity spike
+                                -- Push them away from you with high velocity
                                 local dir = (theirHRP.Position - myPos).Unit
+                                if dir.Magnitude < 0.01 then
+                                    dir = Vector3.new(1, 0.5, 0) -- fallback direction
+                                end
                                 pcall(function()
-                                    theirHRP.AssemblyLinearVelocity = dir * 500 + Vector3.new(0, 200, 0)
+                                    theirHRP.AssemblyLinearVelocity = dir * 800 + Vector3.new(0, 300, 0)
+                                    theirHRP.AssemblyAngularVelocity = Vector3.new(
+                                        math.random(-50, 50),
+                                        math.random(-50, 50),
+                                        math.random(-50, 50)
+                                    )
                                 end)
                             end
                         end
@@ -947,7 +937,7 @@ end
 
 function GAG:Disable()
     self.Enabled = false
-    self.AutoHarvest   = false
+    self.AutoCollect   = false
     self.AutoSell      = false
     self.AutoBuySeed   = false
     self.AutoBuyAll    = false
@@ -968,28 +958,17 @@ function GAG:WireUI(tab, extras)
     -- ══ MAIN SECTION (Auto Features) ═════════════════════════════════════════
     tab:Section({ Title = "Main — Auto Features" })
 
-    -- Harvest Mode selector
-    tab:Dropdown({
-        Title    = "Harvest Mode",
-        Flag     = "GAG_HarvestMode",
-        Default  = "remote",
-        Values   = {"remote", "teleport"},
-        Callback = function(v)
-            GAG.HarvestMode = v
-        end
-    })
-
     tab:Toggle({
-        Title    = "Auto Harvest",
-        Flag     = "GAG_AutoHarvest",
+        Title    = "Auto Collect Fruits",
+        Flag     = "GAG_AutoCollect",
         Default  = false,
         Callback = function(v)
-            GAG.AutoHarvest = v
+            GAG.AutoCollect = v
             if v then
                 GAG.Enabled = true
-                startAutoHarvest()
+                startAutoCollect()
             else
-                disconnect("harvest")
+                disconnect("collect")
             end
         end
     })
