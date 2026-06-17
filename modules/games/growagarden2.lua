@@ -478,14 +478,15 @@ local function startAutoSteal()
                                                 end)
                                             end
 
-                                            -- Also try Steal remotes
-                                            if net and net.Steal then
+                                            -- Only try Steal remotes if plant belongs to another player
+                                            local plantUserId = plant:GetAttribute("UserId")
+                                            if plantUserId and plantUserId ~= lp.UserId and net and net.Steal then
                                                 pcall(function()
                                                     if net.Steal.BeginSteal then
                                                         net.Steal.BeginSteal:Fire(plant)
                                                     end
                                                 end)
-                                                task.wait(0.1)
+                                                task.wait(0.5)
                                                 pcall(function()
                                                     if net.Steal.CompleteSteal then
                                                         net.Steal.CompleteSteal:Fire(plant)
