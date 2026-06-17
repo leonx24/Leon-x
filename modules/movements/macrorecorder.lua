@@ -1,10 +1,12 @@
 -- Leon X | Macro Recorder
--- Records player movement paths and plays them back
--- Useful for auto-farming routes, checkpoint runs, etc.
+-- Records player inputs (keyboard, mouse, jumps) and movement paths
+-- Replays using VirtualInputManager for realistic input simulation
+-- Includes anti-fall protection
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local UIS = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 local lp = Players.LocalPlayer
 
 local MacroRecorder = {}
@@ -17,19 +19,29 @@ MacroRecorder.Paused = false
 -- Settings
 MacroRecorder.PlaybackSpeed = 1.0 -- multiplier
 MacroRecorder.Loop = false
-MacroRecorder.RecordInterval = 0.1 -- seconds between position captures
+MacroRecorder.RecordInterval = 0.05 -- seconds between captures (faster for input accuracy)
 MacroRecorder.SmoothPlayback = true -- interpolate between points
+MacroRecorder.AntiFall = true -- auto-recover if falling
+MacroRecorder.FallThreshold = 5 -- studs below last safe Y = falling
+MacroRecorder.RecordInputs = true -- record keyboard/mouse inputs
 
 -- Data
-MacroRecorder.CurrentMacro = nil -- { name = "", points = { {pos, time, cf}, ... } }
+MacroRecorder.CurrentMacro = nil -- { name = "", points = { {pos, time, cf, inputs}, ... } }
 MacroRecorder.SavedMacros = {} -- { [name] = { points = {...}, created = time } }
-MacroRecorder.RecordedPoints = {} -- points being recorded right now
+MacroRecorder.RecordedPoints = {}
 
 local playbackConnection = nil
 local recordConnection = nil
+local inputConnection = nil
 local lastRecordTime = 0
 local playbackIndex = 1
 local playbackStartTime = 0
+
+-- Input tracking
+local pressedKeys = {} -- currently pressed keys
+local mouseDown = false
+local lastSafePosition = nil -- for anti-fall
+local lastSafeY = 0
 
 -- ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -109,6 +121,37 @@ end
 
 -- ── Recording ────────────────────────────────────────────────────────────────
 
+-- Get current pressed keys state
+local function getCurrentInputs()
+    local inputs = {}
+    
+    -- Movement keys (WASD)
+    if UIS:IsKeyDown(Enum.KeyCode.W) then inputs.W = true end
+    if UIS:IsKeyDown(Enum.KeyCode.A) then inputs.A = true end
+    if UIS:IsKeyDown(Enum.KeyCode.S) then inputs.S = true end
+    if UIS:IsKeyDown(Enum.KeyCode.D) then inputs.D = true end
+    
+    -- Jump
+    if UIS:IsKeyDown(Enum.KeyCode.Space) then inputs.Space = true end
+    
+    -- Sprint/Shift
+    if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then inputs.LShift = true end
+    if UIS:IsKeyDown(Enum.KeyCode.RightShift) then inputs.RShift = true end
+    
+    -- Crouch
+    if UIS:IsKeyDown(Enum.KeyCode.LeftControl) then inputs.LCtrl = true end
+    
+    -- Mouse buttons
+    if UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton1) then inputs.MB1 = true end
+    if UIS:IsMouseButtonPressed(Enum.UserInputType.MouseButton2) then inputs.MB2 = true end
+    
+    -- Check if any input is active
+    local hasInput = false
+    for _ in pairs(inputs) do hasInput = true; break end
+    
+    return hasInput and inputs or nil
+end
+
 function MacroRecorder:StartRecording(name)
     if self.Recording then return false end
     if self.Playing then self:StopPlayback() end
@@ -121,8 +164,31 @@ function MacroRecorder:StartRecording(name)
         created = os.time()
     }
     
+    -- Reset tracking
+    pressedKeys = {}
+    mouseDown = false
+    lastSafePosition = nil
+    lastSafeY = 0
     lastRecordTime = 0
     local startTime = tick()
+    
+    -- Connect input tracking
+    inputConnection = UIS.InputBegan:Connect(function(input, processed)
+        if processed then return end
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            pressedKeys[input.KeyCode.Name] = true
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouseDown = true
+        end
+    end)
+    
+    local inputEndConn = UIS.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.Keyboard then
+            pressedKeys[input.KeyCode.Name] = nil
+        elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
+            mouseDown = false
+        end
+    end)
     
     recordConnection = RunService.Heartbeat:Connect(function(dt)
         if not self.Recording then return end
@@ -132,17 +198,29 @@ function MacroRecorder:StartRecording(name)
         lastRecordTime = now
         
         local hrp = getHRP()
-        if hrp then
-            self.RecordedPoints[#self.RecordedPoints + 1] = {
-                pos = { hrp.Position.X, hrp.Position.Y, hrp.Position.Z },
-                cf = {
-                    hrp.CFrame:GetComponents()
-                },
-                time = now,
-                -- Also record camera info for potential use
-                look = { hrp.CFrame.LookVector.X, hrp.CFrame.LookVector.Y, hrp.CFrame.LookVector.Z }
-            }
+        if not hrp then return end
+        
+        local pos = hrp.Position
+        
+        -- Update safe position (only when not falling fast)
+        local velocity = hrp.AssemblyLinearVelocity
+        if velocity.Y > -10 then -- not falling fast
+            lastSafePosition = pos
+            lastSafeY = pos.Y
         end
+        
+        -- Get current inputs
+        local inputs = self.RecordInputs and getCurrentInputs() or nil
+        
+        self.RecordedPoints[#self.RecordedPoints + 1] = {
+            pos = { pos.X, pos.Y, pos.Z },
+            cf = { hrp.CFrame:GetComponents() },
+            time = now,
+            look = { hrp.CFrame.LookVector.X, hrp.CFrame.LookVector.Y, hrp.CFrame.LookVector.Z },
+            inputs = inputs, -- keyboard/mouse state
+            jumping = inputs and inputs.Space or false,
+            moving = inputs and (inputs.W or inputs.A or inputs.S or inputs.D) or false
+        }
     end)
     
     print("[Leon X] MacroRecorder: Recording started - " .. (name or "unnamed"))
@@ -157,6 +235,10 @@ function MacroRecorder:StopRecording()
         recordConnection:Disconnect()
         recordConnection = nil
     end
+    if inputConnection then
+        inputConnection:Disconnect()
+        inputConnection = nil
+    end
     
     if self.CurrentMacro then
         self.CurrentMacro.points = self.RecordedPoints
@@ -164,8 +246,16 @@ function MacroRecorder:StopRecording()
             and self.RecordedPoints[#self.RecordedPoints].time 
             or 0
         
+        -- Count input events
+        local jumpCount = 0
+        local moveCount = 0
+        for _, p in ipairs(self.RecordedPoints) do
+            if p.jumping then jumpCount = jumpCount + 1 end
+            if p.moving then moveCount = moveCount + 1 end
+        end
+        
         print("[Leon X] MacroRecorder: Stopped. Captured " .. #self.RecordedPoints .. " points (" .. 
-            string.format("%.1f", self.CurrentMacro.duration) .. "s)")
+            string.format("%.1f", self.CurrentMacro.duration) .. "s, " .. jumpCount .. " jumps, " .. moveCount .. " moves)")
         
         return self.CurrentMacro
     end
@@ -174,6 +264,84 @@ function MacroRecorder:StopRecording()
 end
 
 -- ── Playback ─────────────────────────────────────────────────────────────────
+
+-- Simulate keyboard/mouse inputs using VirtualInputManager
+local function simulateInputs(inputs)
+    if not inputs then return end
+    
+    -- Movement keys
+    local keyMap = {
+        W = Enum.KeyCode.W,
+        A = Enum.KeyCode.A,
+        S = Enum.KeyCode.S,
+        D = Enum.KeyCode.D,
+        Space = Enum.KeyCode.Space,
+        LShift = Enum.KeyCode.LeftShift,
+        RShift = Enum.KeyCode.RightShift,
+        LCtrl = Enum.KeyCode.LeftControl
+    }
+    
+    for keyName, pressed in pairs(inputs) do
+        local keyCode = keyMap[keyName]
+        if keyCode then
+            pcall(function()
+                VirtualInputManager:SetKeyDown(keyCode)
+            end)
+        end
+    end
+    
+    -- Mouse buttons
+    if inputs.MB1 then
+        pcall(function()
+            VirtualInputManager:SetMouseButtonDown(0) -- left click
+        end)
+    end
+    if inputs.MB2 then
+        pcall(function()
+            VirtualInputManager:SetMouseButtonDown(1) -- right click
+        end)
+    end
+end
+
+-- Release all simulated inputs
+local function releaseAllInputs()
+    pcall(function()
+        -- Release all movement keys
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.W)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.A)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.S)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.D)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.Space)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.LeftShift)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.RightShift)
+        VirtualInputManager:SetKeyUp(Enum.KeyCode.LeftControl)
+        
+        -- Release mouse buttons
+        VirtualInputManager:SetMouseButtonUp(0)
+        VirtualInputManager:SetMouseButtonUp(1)
+    end)
+end
+
+-- Check if player is falling and recover
+local function checkAndRecoverFromFall(hrp)
+    if not hrp or not MacroRecorder.AntiFall then return false end
+    
+    local pos = hrp.Position
+    local velocity = hrp.AssemblyLinearVelocity
+    
+    -- Check if falling (high negative Y velocity)
+    if velocity.Y < -20 then -- falling fast
+        -- Teleport back to last safe position
+        if lastSafePosition then
+            hrp.CFrame = CFrame.new(lastSafePosition)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0) -- reset velocity
+            print("[Leon X] MacroRecorder: Anti-fall activated! Recovered to safe position")
+            return true
+        end
+    end
+    
+    return false
+end
 
 function MacroRecorder:StartPlayback(macro)
     if not macro or not macro.points or #macro.points == 0 then
@@ -188,10 +356,19 @@ function MacroRecorder:StartPlayback(macro)
     self.CurrentMacro = macro
     playbackIndex = 1
     playbackStartTime = tick()
+    lastSafePosition = nil
+    lastSafeY = 0
     
     local points = macro.points
     local speed = self.PlaybackSpeed
     local smooth = self.SmoothPlayback
+    local useInputs = self.RecordInputs
+    
+    -- Initialize safe position from first point
+    if points[1] and points[1].pos then
+        lastSafePosition = Vector3.new(points[1].pos[1], points[1].pos[2], points[1].pos[3])
+        lastSafeY = points[1].pos[2]
+    end
     
     playbackConnection = RunService.Heartbeat:Connect(function(dt)
         if not self.Playing or self.Paused then return end
@@ -211,6 +388,13 @@ function MacroRecorder:StartPlayback(macro)
         local hrp = getHRP()
         if not hrp then return end
         
+        -- Anti-fall check
+        if checkAndRecoverFromFall(hrp) then
+            -- After recovery, skip to next point
+            playbackIndex = playbackIndex + 1
+            return
+        end
+        
         -- Teleport to position
         if smooth and point.cf and #point.cf == 12 then
             local cf = CFrame.new(unpack(point.cf))
@@ -220,12 +404,24 @@ function MacroRecorder:StartPlayback(macro)
             hrp.CFrame = CFrame.new(pos)
         end
         
+        -- Update safe position if we're not falling
+        local currentY = hrp.Position.Y
+        if currentY >= lastSafeY - 2 then
+            lastSafePosition = hrp.Position
+            lastSafeY = currentY
+        end
+        
+        -- Simulate inputs (keyboard/mouse)
+        if useInputs and point.inputs then
+            simulateInputs(point.inputs)
+        end
+        
         -- Move to next point based on time and speed
         playbackIndex = playbackIndex + math.max(1, math.floor(speed))
     end)
     
     print("[Leon X] MacroRecorder: Playing - " .. (macro.name or "unnamed") .. 
-        " (" .. #points .. " points, " .. speed .. "x speed)")
+        " (" .. #points .. " points, " .. speed .. "x speed" .. (useInputs and ", inputs" or "") .. ")")
     return true
 end
 
@@ -236,6 +432,10 @@ function MacroRecorder:StopPlayback()
         playbackConnection:Disconnect()
         playbackConnection = nil
     end
+    
+    -- Release all simulated inputs
+    releaseAllInputs()
+    
     playbackIndex = 1
     print("[Leon X] MacroRecorder: Playback stopped")
 end
@@ -414,6 +614,18 @@ end
 
 function MacroRecorder:SetSmoothPlayback(smooth)
     self.SmoothPlayback = smooth
+end
+
+function MacroRecorder:SetAntiFall(enabled)
+    self.AntiFall = enabled
+end
+
+function MacroRecorder:SetRecordInputs(enabled)
+    self.RecordInputs = enabled
+end
+
+function MacroRecorder:SetFallThreshold(threshold)
+    self.FallThreshold = tonumber(threshold) or 5
 end
 
 -- ── Status ───────────────────────────────────────────────────────────────────

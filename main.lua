@@ -615,6 +615,20 @@ local loopToggle = MacroTab:Toggle({
 })
 ConfigMgr:Register("MacroLoop", loopToggle)
 
+local antiFallToggle = MacroTab:Toggle({
+    Title = "Anti-Fall (auto-recover)",
+    Value = true,
+    Callback = function(v) MacroRec.AntiFall = v end
+})
+ConfigMgr:Register("MacroAntiFall", antiFallToggle)
+
+local recordInputsToggle = MacroTab:Toggle({
+    Title = "Record Inputs (jump, WASD, click)",
+    Value = true,
+    Callback = function(v) MacroRec.RecordInputs = v end
+})
+ConfigMgr:Register("MacroRecordInputs", recordInputsToggle)
+
 MacroTab:Section({ Title = "Save / Load" })
 
 MacroTab:Button({
