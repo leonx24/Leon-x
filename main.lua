@@ -329,6 +329,8 @@ if ActiveGameModule then
         AntiFling    = AntiFling,
         Rejoin       = Rejoin,
         ServerHop    = ServerHop,
+        ConfigMgr    = ConfigMgr,
+        N            = N,
     })
     N("Game Detected", ActiveGameModule.Name)
 else

@@ -28,6 +28,8 @@ GAG.SelectedGear  = {} -- multi-select gears to auto-buy
 GAG.AutoSteal     = false
 GAG.AutoFling     = false
 GAG.FlingRadius   = 20
+GAG.ShovelFling   = false
+GAG.ShovelPower   = 500
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -553,6 +555,96 @@ local function startAutoFling()
     end)
 end
 
+-- ── Shovel Fling (fling players when hit with shovel) ───────────────────────
+-- Detects when player hits someone with a shovel tool and applies velocity
+local shovelFlingConn = nil
+local shovelEquipped = false
+local currentShovel = nil
+
+local function startShovelFling()
+    disconnect("shovelfling")
+    
+    local char = lp.Character
+    if not char then return end
+    
+    -- Watch for tool equipped
+    local function onChildAdded(child)
+        if child:IsA("Tool") and (child.Name:lower():find("shovel") or child.Name:lower():find("spade")) then
+            shovelEquipped = true
+            currentShovel = child
+            
+            -- Watch for tool activation (click/swing)
+            child.Activated:Connect(function()
+                if not GAG.ShovelFling or not shovelEquipped then return end
+                
+                pcall(function()
+                    local hrp = getHRP()
+                    if not hrp then return end
+                    
+                    -- Check for hit player by proximity and raycast
+                    local myPos = hrp.Position
+                    local lookDir = hrp.CFrame.LookVector
+                    
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= lp then
+                            local theirChar = player.Character
+                            if theirChar then
+                                local theirHRP = theirChar:FindFirstChild("HumanoidRootPart")
+                                local theirHum = theirChar:FindFirstChildOfClass("Humanoid")
+                                if theirHRP and theirHum and theirHum.Health > 0 then
+                                    local dist = (theirHRP.Position - myPos).Magnitude
+                                    -- Check if player is in front and close enough
+                                    local toTarget = (theirHRP.Position - myPos).Unit
+                                    local dot = lookDir:Dot(toTarget)
+                                    
+                                    if dist < 15 and dot > 0.3 then
+                                        -- Fling the target
+                                        local flingDir = (theirHRP.Position - myPos).Unit
+                                        local power = GAG.ShovelPower
+                                        pcall(function()
+                                            theirHRP.AssemblyLinearVelocity = flingDir * power + Vector3.new(0, power * 0.6, 0)
+                                            theirHRP.AssemblyAngularVelocity = Vector3.new(
+                                                math.random(-100, 100),
+                                                math.random(-100, 100),
+                                                math.random(-100, 100)
+                                            )
+                                        end)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end)
+            end)
+            
+            -- Watch for tool unequipped
+            child.Unequipped:Connect(function()
+                shovelEquipped = false
+                currentShovel = nil
+            end)
+        end
+    end
+    
+    -- Connect to character child added
+    shovelFlingConn = char.ChildAdded:Connect(onChildAdded)
+    
+    -- Also check existing tools
+    for _, child in ipairs(char:GetChildren()) do
+        if child:IsA("Tool") and (child.Name:lower():find("shovel") or child.Name:lower():find("spade")) then
+            onChildAdded(child)
+            break
+        end
+    end
+    
+    connections.shovelfling = shovelFlingConn
+end
+
+local function stopShovelFling()
+    disconnect("shovelfling")
+    shovelEquipped = false
+    currentShovel = nil
+end
+
 -- ── Auto Seed Event (hunts falling rainbow/gold/event seeds) ────────────────
 -- Watches workspace for new seed objects and teleports to collect them
 local seedEventKeywords = {
@@ -1016,7 +1108,9 @@ function GAG:Disable()
     self.PriceESP      = false
     self.AutoSteal     = false
     self.AutoFling     = false
+    self.ShovelFling   = false
     stopPriceESP()
+    stopShovelFling()
     disconnectAll()
 end
 
@@ -1217,6 +1311,29 @@ function GAG:WireUI(tab, extras)
         end
     })
 
+    tab:Toggle({
+        Title    = "Shovel Fling (Hit to Fling)",
+        Flag     = "GAG_ShovelFling",
+        Default  = false,
+        Callback = function(v)
+            GAG.ShovelFling = v
+            if v then
+                GAG.Enabled = true
+                startShovelFling()
+            else
+                stopShovelFling()
+            end
+        end
+    })
+
+    tab:Slider({
+        Title    = "Shovel Fling Power",
+        Flag     = "GAG_ShovelPower",
+        Value    = { Min = 100, Max = 1000, Default = 500 },
+        Step     = 50,
+        Callback = function(v) GAG.ShovelPower = v end
+    })
+
     -- ══ VISUAL ═══════════════════════════════════════════════════════════
     tab:Section({ Title = "Visual" })
 
@@ -1402,6 +1519,110 @@ function GAG:WireUI(tab, extras)
             end
         end
     })
+
+    -- ══ SETTINGS SIDEBAR ═════════════════════════════════════════════════
+    local ConfigMgr = extras.ConfigMgr
+    local Window = extras.Window
+    
+    if ConfigMgr and Window then
+        local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+        
+        SettingsTab:Section({ Title = "Config" })
+        
+        local cfgNameIn = SettingsTab:Input({
+            Title       = "Config Name",
+            Placeholder = "e.g. myconfig",
+            Value       = "default",
+            Callback    = function() end
+        })
+        
+        local function getCfgName()
+            local v = cfgNameIn.Value
+            return (v and v ~= "") and v or "default"
+        end
+        
+        local function getCfgList()
+            local l = ConfigMgr:List()
+            return #l > 0 and l or {"(none)"}
+        end
+        
+        local selectedConfig = nil
+        local cfgDrop = SettingsTab:Dropdown({
+            Title    = "Select Config",
+            Values   = getCfgList(),
+            Value    = 1,
+            Callback = function(v) selectedConfig = v end
+        })
+        do local list = getCfgList(); selectedConfig = list[1] end
+        
+        SettingsTab:Button({
+            Title    = "Save Config",
+            Callback = function()
+                local n = getCfgName()
+                local ok = ConfigMgr:Save(n)
+                if ok then
+                    local list = getCfgList()
+                    cfgDrop:Refresh(list)
+                    selectedConfig = n
+                    cfgDrop:Select(n)
+                    if extras.N then extras.N("Config", "Saved: "..n)
+                    else print("[Leon X] Config saved: "..n) end
+                else
+                    if extras.N then extras.N("Config", "Save failed")
+                    else print("[Leon X] Config save failed") end
+                end
+            end
+        })
+        
+        SettingsTab:Button({
+            Title    = "Load Config",
+            Callback = function()
+                local s = selectedConfig
+                if not s or s == "(none)" then return end
+                local ok = ConfigMgr:Load(s)
+                if ok then
+                    if extras.N then extras.N("Config", "Loaded: "..s)
+                    else print("[Leon X] Config loaded: "..s) end
+                else
+                    if extras.N then extras.N("Config", "Load failed")
+                    else print("[Leon X] Config load failed") end
+                end
+            end
+        })
+        
+        SettingsTab:Button({
+            Title    = "Delete Config",
+            Callback = function()
+                local s = selectedConfig
+                if not s or s == "(none)" then return end
+                ConfigMgr:Delete(s)
+                local list = getCfgList()
+                cfgDrop:Refresh(list)
+                selectedConfig = list[1]
+                if extras.N then extras.N("Config", "Deleted: "..s)
+                else print("[Leon X] Config deleted: "..s) end
+            end
+        })
+        
+        SettingsTab:Button({
+            Title    = "Set as Default",
+            Callback = function()
+                local s = selectedConfig
+                if not s or s == "(none)" then return end
+                local ok = ConfigMgr:SetDefault(s)
+                if ok then
+                    if extras.N then extras.N("Config", s.." is now default")
+                    else print("[Leon X] Default config set: "..s) end
+                end
+            end
+        })
+        
+        SettingsTab:Section({ Title = "About" })
+        SettingsTab:Paragraph({
+            Title   = "Leon X - Grow a Garden 2",
+            Content = "v1.5 • by leonx24"
+        })
+    end
 end
 
 return GAG
