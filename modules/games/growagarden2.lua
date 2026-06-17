@@ -271,19 +271,59 @@ end
 -- ── Auto Collect (own garden fruits via correct remote pattern) ─────────────
 local cachedOwnerPlot = nil
 
+-- Verifies a plot actually belongs to us (no closest-plot fallback)
+local function verifyOwnPlot(plot)
+    if not plot then return false end
+    if plot.Name:find(lp.Name, 1, true) then return true end
+    if plot.Name:find(lp.DisplayName, 1, true) then return true end
+    if plot.Name:find(tostring(lp.UserId), 1, true) then return true end
+    local uid = plot:GetAttribute("UserId")
+    if uid and tonumber(uid) == lp.UserId then return true end
+    -- Check Owner attribute (some games use this)
+    local owner = plot:GetAttribute("Owner") or plot:GetAttribute("owner")
+    if owner and (tostring(owner) == lp.Name or tostring(owner) == tostring(lp.UserId)) then
+        return true
+    end
+    return false
+end
+
 local function getOwnerPlot()
-    if cachedOwnerPlot and cachedOwnerPlot.Parent then return cachedOwnerPlot end
+    -- Validate cached plot still exists AND belongs to us
+    if cachedOwnerPlot and cachedOwnerPlot.Parent then
+        if verifyOwnPlot(cachedOwnerPlot) then
+            return cachedOwnerPlot
+        end
+        -- Cache is stale, invalidate
+        cachedOwnerPlot = nil
+    end
     local gardens = workspace:FindFirstChild("Gardens")
     if not gardens then return nil end
 
     -- Check by name/UserId first
     for _, plot in ipairs(gardens:GetChildren()) do
-        if plot.Name:find(lp.Name) or plot.Name:find(tostring(lp.UserId)) then
+        if plot.Name:find(lp.Name) or plot.Name:find(lp.DisplayName) or plot.Name:find(tostring(lp.UserId)) then
             cachedOwnerPlot = plot
             return plot
         end
     end
-    -- Fallback: closest plot
+    -- Check UserId attribute
+    for _, plot in ipairs(gardens:GetChildren()) do
+        local uid = plot:GetAttribute("UserId")
+        if uid and tonumber(uid) == lp.UserId then
+            cachedOwnerPlot = plot
+            return plot
+        end
+    end
+    -- Debug: print available plot names to help diagnose
+    pcall(function()
+        local names = {}
+        for _, plot in ipairs(gardens:GetChildren()) do
+            names[#names + 1] = plot.Name
+        end
+        print("[Leon X] GAG: Could not find owner plot by name/UserId. Available plots: " .. table.concat(names, ", "))
+        print("[Leon X] GAG: Player Name=" .. lp.Name .. ", DisplayName=" .. lp.DisplayName .. ", UserId=" .. lp.UserId)
+    end)
+    -- Fallback: closest plot (only reliable when standing at own garden)
     local hrp = getHRP()
     if not hrp then return nil end
     local best, bestDist = nil, math.huge
@@ -309,10 +349,31 @@ local function fireCollectFruit(plantId, fruitId)
 end
 
 local function collectAllFruits()
+    -- Try verified plot first (reliable name/UserId match)
     local plot = getOwnerPlot()
-    if not plot then return 0 end
+    if plot and not verifyOwnPlot(plot) then
+        -- Closest-plot fallback was used; try to find our plot fresh
+        plot = nil
+        local gardens = workspace:FindFirstChild("Gardens")
+        if gardens then
+            for _, p in ipairs(gardens:GetChildren()) do
+                if verifyOwnPlot(p) then
+                    plot = p
+                    cachedOwnerPlot = p
+                    break
+                end
+            end
+        end
+    end
+    if not plot then
+        print("[Leon X] Auto Collect: no owner plot found")
+        return 0
+    end
     local plantsFolder = plot:FindFirstChild("Plants")
-    if not plantsFolder then return 0 end
+    if not plantsFolder then
+        print("[Leon X] Auto Collect: no Plants folder in " .. plot.Name)
+        return 0
+    end
 
     local count = 0
     for _, plant in ipairs(plantsFolder:GetChildren()) do
@@ -336,6 +397,9 @@ local function collectAllFruits()
                 end
             end
         end
+    end
+    if count > 0 then
+        print("[Leon X] Auto Collect: collected " .. count .. " fruits from " .. plot.Name)
     end
     return count
 end
@@ -1151,6 +1215,34 @@ function GAG:Init()
     end)
     if net then
         print("[Leon X] GAG Networking loaded successfully")
+        -- Diagnostic: print available remotes
+        pcall(function()
+            local remotes = {}
+            if net.Garden then
+                for k, v in pairs(net.Garden) do
+                    remotes[#remotes + 1] = "Garden." .. k
+                end
+            end
+            if net.NPCS then
+                for k, v in pairs(net.NPCS) do
+                    remotes[#remotes + 1] = "NPCS." .. k
+                end
+            end
+            if net.Shop then
+                for k, v in pairs(net.Shop) do
+                    remotes[#remotes + 1] = "Shop." .. k
+                end
+            end
+            if net.Steal then
+                for k, v in pairs(net.Steal) do
+                    remotes[#remotes + 1] = "Steal." .. k
+                end
+            end
+            print("[Leon X] GAG Remotes: " .. table.concat(remotes, ", "))
+            if not net.Garden or not net.Garden.CollectFruit then
+                print("[Leon X] WARNING: Garden.CollectFruit not found!")
+            end
+        end)
     else
         print("[Leon X] WARNING: Could not load GAG Networking module")
     end
