@@ -370,12 +370,18 @@ function MacroRecorder:StartPlayback(macro)
         lastSafeY = points[1].pos[2]
     end
     
+    -- Track playback timing
+    local playbackElapsed = 0 -- elapsed playback time
+    local nextPointTime = 0 -- when to move to next point (in playback time)
+    
     playbackConnection = RunService.Heartbeat:Connect(function(dt)
         if not self.Playing or self.Paused then return end
         if playbackIndex > #points then
             if self.Loop then
                 playbackIndex = 1
                 playbackStartTime = tick()
+                playbackElapsed = 0
+                nextPointTime = 0
             else
                 self:StopPlayback()
                 return
@@ -388,20 +394,32 @@ function MacroRecorder:StartPlayback(macro)
         local hrp = getHRP()
         if not hrp then return end
         
+        -- Advance playback time (scaled by speed)
+        playbackElapsed = playbackElapsed + dt * speed
+        
+        -- Wait until it's time for this point
+        if playbackElapsed < nextPointTime then
+            return
+        end
+        
         -- Anti-fall check
         if checkAndRecoverFromFall(hrp) then
             -- After recovery, skip to next point
             playbackIndex = playbackIndex + 1
+            if points[playbackIndex] then
+                nextPointTime = points[playbackIndex].time or (nextPointTime + 0.1)
+            end
             return
         end
         
-        -- Teleport to position
+        -- Move to position (smoothly using Humanoid.MoveTo or teleport)
+        local targetPos = Vector3.new(point.pos[1], point.pos[2], point.pos[3])
+        
         if smooth and point.cf and #point.cf == 12 then
             local cf = CFrame.new(unpack(point.cf))
             hrp.CFrame = cf
         else
-            local pos = Vector3.new(point.pos[1], point.pos[2], point.pos[3])
-            hrp.CFrame = CFrame.new(pos)
+            hrp.CFrame = CFrame.new(targetPos)
         end
         
         -- Update safe position if we're not falling
@@ -414,10 +432,18 @@ function MacroRecorder:StartPlayback(macro)
         -- Simulate inputs (keyboard/mouse)
         if useInputs and point.inputs then
             simulateInputs(point.inputs)
+        else
+            -- Release inputs if no inputs recorded for this point
+            if useInputs then
+                releaseAllInputs()
+            end
         end
         
-        -- Move to next point based on time and speed
-        playbackIndex = playbackIndex + math.max(1, math.floor(speed))
+        -- Calculate when to move to next point (based on recorded timing)
+        playbackIndex = playbackIndex + 1
+        if points[playbackIndex] then
+            nextPointTime = points[playbackIndex].time or (point.time + 0.05)
+        end
     end)
     
     print("[Leon X] MacroRecorder: Playing - " .. (macro.name or "unnamed") .. 
