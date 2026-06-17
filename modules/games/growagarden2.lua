@@ -371,14 +371,35 @@ end
 -- Uses CollectFruit remote with correct PlantId + FruitId from Fruits folder
 local stolenPlants = {} -- track visited plants to avoid getting stuck
 
+local function isOwnPlot(plot)
+    -- Check by plot name containing player name or UserId
+    if plot.Name:find(lp.Name, 1, true) or plot.Name:find(tostring(lp.UserId), 1, true) then
+        return true
+    end
+    -- Check UserId attribute on plot
+    local plotUserId = plot:GetAttribute("UserId")
+    if plotUserId and tonumber(plotUserId) == lp.UserId then
+        return true
+    end
+    -- Direct object comparison with cached owner plot only
+    -- Do NOT call getOwnerPlot() here -- its closest-plot fallback
+    -- incorrectly labels other people's gardens as ours
+    if cachedOwnerPlot and plot == cachedOwnerPlot then
+        return true
+    end
+    return false
+end
+
 local function startAutoSteal()
     disconnect("steal")
-    detectGardenBounds()
-    stolenPlants = {} -- reset visited list
+    stolenPlants = {} -- reset visited list (keys are "PlantId::FruitId")
+
+    -- Resolve owner plot once at start (by name/UserId only)
+    getOwnerPlot()
 
     local actionTimer = 0
-    local ACTION_INTERVAL = 0.8 -- faster cycling
-    local MAX_PLANTS_PER_TICK = 3 -- process multiple plants per tick
+    local ACTION_INTERVAL = 0.6
+    local MAX_PLANTS_PER_TICK = 5
 
     connections.steal = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSteal then return end
@@ -394,69 +415,47 @@ local function startAutoSteal()
             local gardens = workspace:FindFirstChild("Gardens")
             if not gardens then return end
 
-            -- Refresh bounds periodically
-            if not gardenBounds then detectGardenBounds() end
-
             local processed = 0
-            local myUserId = lp.UserId
 
             for _, plot in ipairs(gardens:GetChildren()) do
                 if processed >= MAX_PLANTS_PER_TICK or not GAG.AutoSteal then break end
 
-                -- Skip owner's own garden by checking plot name or UserId attribute
-                local isOwnPlot = false
-                if plot.Name:find(lp.Name) or plot.Name:find(tostring(myUserId)) then
-                    isOwnPlot = true
-                end
-                -- Also check UserId attribute on the plot
-                if not isOwnPlot then
-                    local plotUserId = plot:GetAttribute("UserId")
-                    if plotUserId and plotUserId == myUserId then
-                        isOwnPlot = true
-                    end
-                end
-                -- Also check the cached owner plot
-                if not isOwnPlot and cachedOwnerPlot and plot == cachedOwnerPlot then
-                    isOwnPlot = true
-                end
-
-                if not isOwnPlot then
+                -- Skip own garden
+                if not isOwnPlot(plot) then
                     local plantsFolder = plot:FindFirstChild("Plants")
                     if plantsFolder then
                         for _, plant in ipairs(plantsFolder:GetChildren()) do
                             if processed >= MAX_PLANTS_PER_TICK or not GAG.AutoSteal then break end
                             if plant:IsA("Model") then
                                 local plantId = plant:GetAttribute("PlantId")
-                                if plantId and not stolenPlants[plantId] then
-                                    -- Get plant position
-                                    local pos
-                                    local harvestPart = plant:FindFirstChild("HarvestPart")
-                                    if harvestPart and harvestPart:IsA("BasePart") then
-                                        pos = harvestPart.Position
-                                    else
-                                        pcall(function() pos = plant:GetPivot().Position end)
-                                    end
+                                if plantId then
+                                    -- Check Fruits folder for actual fruits
+                                    local fruitsFolder = plant:FindFirstChild("Fruits")
+                                    if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
+                                        -- Get plant position
+                                        local pos
+                                        local harvestPart = plant:FindFirstChild("HarvestPart")
+                                        if harvestPart and harvestPart:IsA("BasePart") then
+                                            pos = harvestPart.Position
+                                        else
+                                            pcall(function() pos = plant:GetPivot().Position end)
+                                        end
 
-                                    -- Only steal from OTHER gardens (not own bounds)
-                                    if pos and not isInGarden(pos) then
-                                        -- Check Fruits folder for actual fruits
-                                        local fruitsFolder = plant:FindFirstChild("Fruits")
-                                        if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
-                                            -- Mark as visited
-                                            stolenPlants[plantId] = true
-                                            processed = processed + 1
-
+                                        if pos then
                                             -- Teleport to the fruit
                                             pcall(function()
                                                 hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
                                             end)
-                                            task.wait(0.2)
+                                            task.wait(0.15)
 
-                                            -- Fire CollectFruit for each fruit
+                                            -- Fire CollectFruit for each unvisited fruit
                                             for _, fruit in ipairs(fruitsFolder:GetChildren()) do
                                                 if fruit:IsA("Model") or fruit:IsA("BasePart") then
                                                     local fruitId = fruit:GetAttribute("FruitId") or ""
-                                                    if fruitId ~= "" then
+                                                    local fruitKey = plantId .. "::" .. fruitId
+                                                    if fruitId ~= "" and not stolenPlants[fruitKey] then
+                                                        stolenPlants[fruitKey] = true
+                                                        processed = processed + 1
                                                         fireCollectFruit(plantId, fruitId)
                                                         task.wait(0.03)
                                                     end
@@ -480,15 +479,15 @@ local function startAutoSteal()
                                                 end)
                                             end
 
-                                            -- Only try Steal remotes if plant belongs to another player
+                                            -- Also try Steal remotes if available
                                             local plantUserId = plant:GetAttribute("UserId")
-                                            if plantUserId and plantUserId ~= lp.UserId and net and net.Steal then
+                                            if plantUserId and tonumber(plantUserId) ~= lp.UserId and net and net.Steal then
                                                 pcall(function()
                                                     if net.Steal.BeginSteal then
                                                         net.Steal.BeginSteal:Fire(plant)
                                                     end
                                                 end)
-                                                task.wait(0.5)
+                                                task.wait(0.3)
                                                 pcall(function()
                                                     if net.Steal.CompleteSteal then
                                                         net.Steal.CompleteSteal:Fire(plant)
@@ -557,92 +556,160 @@ end
 
 -- ── Shovel Fling (fling players when hit with shovel) ───────────────────────
 -- Detects when player hits someone with a shovel tool and applies velocity
-local shovelFlingConn = nil
 local shovelEquipped = false
 local currentShovel = nil
+local flingTargets = {} -- { player = { hrp, startTime } }
+local FLING_DURATION = 0.6 -- seconds to sustain fling force
 
-local function startShovelFling()
-    disconnect("shovelfling")
+local function applyFlingForce(targetHRP)
+    local hrp = getHRP()
+    if not hrp or not targetHRP or not targetHRP.Parent then return end
     
-    local char = lp.Character
-    if not char then return end
+    local myPos = hrp.Position
+    local flingDir = (targetHRP.Position - myPos)
+    if flingDir.Magnitude < 0.1 then
+        flingDir = Vector3.new(1, 0.5, 0)
+    else
+        flingDir = flingDir.Unit
+    end
+    local power = GAG.ShovelPower
     
-    -- Watch for tool equipped
-    local function onChildAdded(child)
-        if child:IsA("Tool") and (child.Name:lower():find("shovel") or child.Name:lower():find("spade")) then
-            shovelEquipped = true
-            currentShovel = child
+    pcall(function()
+        targetHRP.AssemblyLinearVelocity = flingDir * power + Vector3.new(0, power * 0.7, 0)
+        targetHRP.AssemblyAngularVelocity = Vector3.new(
+            math.random(-100, 100),
+            math.random(-100, 100),
+            math.random(-100, 100)
+        )
+    end)
+end
+
+local function startFlingSustain(targetPlayer)
+    local theirChar = targetPlayer.Character
+    if not theirChar then return end
+    local theirHRP = theirChar:FindFirstChild("HumanoidRootPart")
+    if not theirHRP then return end
+    
+    flingTargets[targetPlayer] = { hrp = theirHRP, startTime = tick() }
+end
+
+local function isShovelTool(tool)
+    if not tool or not tool:IsA("Tool") then return false end
+    local name = tool.Name:lower()
+    return name:find("shovel") or name:find("spade") or name:find("digger")
+end
+
+local function hookShovel(tool)
+    if not tool then return end
+    shovelEquipped = true
+    currentShovel = tool
+    
+    -- Store the Activated connection
+    local activConn = tool.Activated:Connect(function()
+        if not GAG.ShovelFling or not shovelEquipped then return end
+        
+        pcall(function()
+            local hrp = getHRP()
+            if not hrp then return end
+            local myPos = hrp.Position
             
-            -- Watch for tool activation (click/swing)
-            child.Activated:Connect(function()
-                if not GAG.ShovelFling or not shovelEquipped then return end
-                
-                pcall(function()
-                    local hrp = getHRP()
-                    if not hrp then return end
-                    
-                    -- Check for hit player by proximity and raycast
-                    local myPos = hrp.Position
-                    local lookDir = hrp.CFrame.LookVector
-                    
-                    for _, player in ipairs(Players:GetPlayers()) do
-                        if player ~= lp then
-                            local theirChar = player.Character
-                            if theirChar then
-                                local theirHRP = theirChar:FindFirstChild("HumanoidRootPart")
-                                local theirHum = theirChar:FindFirstChildOfClass("Humanoid")
-                                if theirHRP and theirHum and theirHum.Health > 0 then
-                                    local dist = (theirHRP.Position - myPos).Magnitude
-                                    -- Check if player is in front and close enough
-                                    local toTarget = (theirHRP.Position - myPos).Unit
-                                    local dot = lookDir:Dot(toTarget)
-                                    
-                                    if dist < 15 and dot > 0.3 then
-                                        -- Fling the target
-                                        local flingDir = (theirHRP.Position - myPos).Unit
-                                        local power = GAG.ShovelPower
-                                        pcall(function()
-                                            theirHRP.AssemblyLinearVelocity = flingDir * power + Vector3.new(0, power * 0.6, 0)
-                                            theirHRP.AssemblyAngularVelocity = Vector3.new(
-                                                math.random(-100, 100),
-                                                math.random(-100, 100),
-                                                math.random(-100, 100)
-                                            )
-                                        end)
-                                    end
-                                end
+            for _, player in ipairs(Players:GetPlayers()) do
+                if player ~= lp then
+                    local theirChar = player.Character
+                    if theirChar then
+                        local theirHRP = theirChar:FindFirstChild("HumanoidRootPart")
+                        local theirHum = theirChar:FindFirstChildOfClass("Humanoid")
+                        if theirHRP and theirHum and theirHum.Health > 0 then
+                            local dist = (theirHRP.Position - myPos).Magnitude
+                            if dist < 15 then
+                                -- Start sustained fling
+                                startFlingSustain(player)
                             end
                         end
                     end
-                end)
-            end)
-            
-            -- Watch for tool unequipped
-            child.Unequipped:Connect(function()
-                shovelEquipped = false
-                currentShovel = nil
-            end)
+                end
+            end
+        end)
+    end)
+    
+    -- Track the connection for cleanup
+    connections["shovel_activated"] = activConn
+    
+    tool.Unequipped:Connect(function()
+        shovelEquipped = false
+        currentShovel = nil
+    end)
+end
+
+local function startShovelFling()
+    disconnect("shovelfling")
+    disconnect("shovel_activated")
+    disconnect("shovel_charadded")
+    disconnect("shovel_respawn")
+    flingTargets = {}
+    
+    local function hookCharacter(char)
+        disconnect("shovel_charadded")
+        disconnect("shovel_activated")
+        if not char then return end
+        
+        -- Check existing tools in character (already equipped)
+        for _, child in ipairs(char:GetChildren()) do
+            if isShovelTool(child) then
+                hookShovel(child)
+                break
+            end
         end
+        
+        -- Watch for new tools added to character (equipping)
+        local charAddedConn = char.ChildAdded:Connect(function(child)
+            if isShovelTool(child) then
+                hookShovel(child)
+            end
+        end)
+        connections["shovel_charadded"] = charAddedConn
     end
     
-    -- Connect to character child added
-    shovelFlingConn = char.ChildAdded:Connect(onChildAdded)
+    -- Hook current character
+    hookCharacter(lp.Character)
     
-    -- Also check existing tools
-    for _, child in ipairs(char:GetChildren()) do
-        if child:IsA("Tool") and (child.Name:lower():find("shovel") or child.Name:lower():find("spade")) then
-            onChildAdded(child)
-            break
+    -- Handle respawn
+    connections["shovel_respawn"] = lp.CharacterAdded:Connect(function(char)
+        shovelEquipped = false
+        currentShovel = nil
+        task.wait(0.5) -- wait for character to fully load
+        if GAG.ShovelFling then
+            hookCharacter(char)
         end
-    end
+    end)
     
-    connections.shovelfling = shovelFlingConn
+    -- Heartbeat loop to sustain fling force on targets
+    connections.shovelfling = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.ShovelFling then return end
+        
+        local now = tick()
+        for player, data in pairs(flingTargets) do
+            if now - data.startTime < FLING_DURATION then
+                if data.hrp and data.hrp.Parent then
+                    applyFlingForce(data.hrp)
+                else
+                    flingTargets[player] = nil
+                end
+            else
+                flingTargets[player] = nil
+            end
+        end
+    end)
 end
 
 local function stopShovelFling()
     disconnect("shovelfling")
+    disconnect("shovel_activated")
+    disconnect("shovel_charadded")
+    disconnect("shovel_respawn")
     shovelEquipped = false
     currentShovel = nil
+    flingTargets = {}
 end
 
 -- ── Auto Seed Event (hunts falling rainbow/gold/event seeds) ────────────────
