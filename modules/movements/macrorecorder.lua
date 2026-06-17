@@ -51,6 +51,12 @@ local function getHRP()
     return char:FindFirstChild("HumanoidRootPart")
 end
 
+local function getHumanoid()
+    local char = lp.Character
+    if not char then return nil end
+    return char:FindFirstChildOfClass("Humanoid")
+end
+
 local function getWalkSpeed()
     local char = lp.Character
     if not char then return 16 end
@@ -265,40 +271,47 @@ end
 
 -- ── Playback ─────────────────────────────────────────────────────────────────
 
--- Simulate keyboard/mouse inputs using VirtualInputManager
+-- Simulate keyboard/mouse inputs using VirtualInputManager + Humanoid
 local function simulateInputs(inputs)
     if not inputs then return end
     
-    -- Movement keys
+    local hum = getHumanoid()
+    
+    -- Movement keys via VirtualInputManager
     local keyMap = {
         W = Enum.KeyCode.W,
         A = Enum.KeyCode.A,
         S = Enum.KeyCode.S,
         D = Enum.KeyCode.D,
-        Space = Enum.KeyCode.Space,
         LShift = Enum.KeyCode.LeftShift,
         RShift = Enum.KeyCode.RightShift,
         LCtrl = Enum.KeyCode.LeftControl
     }
     
     for keyName, pressed in pairs(inputs) do
-        local keyCode = keyMap[keyName]
-        if keyCode then
+        if keyMap[keyName] then
             pcall(function()
-                VirtualInputManager:SetKeyDown(keyCode)
+                VirtualInputManager:SetKeyDown(keyMap[keyName])
             end)
         end
+    end
+    
+    -- Jump via Humanoid (more reliable than VirtualInputManager for jump)
+    if inputs.Space and hum then
+        pcall(function()
+            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        end)
     end
     
     -- Mouse buttons
     if inputs.MB1 then
         pcall(function()
-            VirtualInputManager:SetMouseButtonDown(0) -- left click
+            VirtualInputManager:SetMouseButtonDown(0)
         end)
     end
     if inputs.MB2 then
         pcall(function()
-            VirtualInputManager:SetMouseButtonDown(1) -- right click
+            VirtualInputManager:SetMouseButtonDown(1)
         end)
     end
 end
@@ -412,14 +425,26 @@ function MacroRecorder:StartPlayback(macro)
             return
         end
         
-        -- Move to position (smoothly using Humanoid.MoveTo or teleport)
+        -- Target position
         local targetPos = Vector3.new(point.pos[1], point.pos[2], point.pos[3])
+        local dist = (hrp.Position - targetPos).Magnitude
         
-        if smooth and point.cf and #point.cf == 12 then
-            local cf = CFrame.new(unpack(point.cf))
-            hrp.CFrame = cf
+        -- Use Humanoid:MoveTo for smooth walking (natural movement)
+        -- Only teleport if distance is too large (anti-fall recovery or huge gap)
+        local hum = getHumanoid()
+        if hum and dist < 20 then
+            -- Natural walk to target
+            pcall(function()
+                hum:MoveTo(targetPos)
+            end)
         else
-            hrp.CFrame = CFrame.new(targetPos)
+            -- Teleport for large gaps (safety fallback)
+            if smooth and point.cf and #point.cf == 12 then
+                local cf = CFrame.new(unpack(point.cf))
+                hrp.CFrame = cf
+            else
+                hrp.CFrame = CFrame.new(targetPos)
+            end
         end
         
         -- Update safe position if we're not falling
