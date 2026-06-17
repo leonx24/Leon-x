@@ -384,90 +384,125 @@ function MacroRecorder:StartPlayback(macro)
     end
     
     -- Track playback timing
-    local playbackElapsed = 0 -- elapsed playback time
-    local nextPointTime = 0 -- when to move to next point (in playback time)
+    local playbackElapsed = 0
+    local lastJumpState = false
     
     playbackConnection = RunService.Heartbeat:Connect(function(dt)
         if not self.Playing or self.Paused then return end
-        if playbackIndex > #points then
+        
+        -- Advance playback time (scaled by speed)
+        playbackElapsed = playbackElapsed + dt * speed
+        
+        -- Find surrounding points for interpolation
+        -- points are sorted by time, find where playbackElapsed falls
+        local idxA = playbackIndex
+        local idxB = playbackIndex + 1
+        
+        -- Advance index if we've passed current segment
+        while idxB <= #points do
+            local timeB = points[idxB].time or 0
+            if playbackElapsed >= timeB then
+                idxA = idxB
+                idxB = idxA + 1
+                playbackIndex = idxA
+            else
+                break
+            end
+        end
+        
+        -- Check if we've finished all points
+        if idxA > #points or (idxB > #points and playbackElapsed > (points[#points].time or 0)) then
             if self.Loop then
                 playbackIndex = 1
-                playbackStartTime = tick()
                 playbackElapsed = 0
-                nextPointTime = 0
+                lastJumpState = false
+                releaseAllInputs()
+                return
             else
                 self:StopPlayback()
                 return
             end
         end
         
-        local point = points[playbackIndex]
-        if not point then return end
-        
         local hrp = getHRP()
         if not hrp then return end
         
-        -- Advance playback time (scaled by speed)
-        playbackElapsed = playbackElapsed + dt * speed
+        local pointA = points[idxA]
+        local pointB = points[idxB]
         
-        -- Wait until it's time for this point
-        if playbackElapsed < nextPointTime then
-            return
-        end
+        if not pointA then return end
         
         -- Anti-fall check
         if checkAndRecoverFromFall(hrp) then
-            -- After recovery, skip to next point
-            playbackIndex = playbackIndex + 1
-            if points[playbackIndex] then
-                nextPointTime = points[playbackIndex].time or (nextPointTime + 0.1)
-            end
             return
         end
         
-        -- Target position
-        local targetPos = Vector3.new(point.pos[1], point.pos[2], point.pos[3])
-        local dist = (hrp.Position - targetPos).Magnitude
-        
-        -- Use Humanoid:MoveTo for smooth walking (natural movement)
-        -- Only teleport if distance is too large (anti-fall recovery or huge gap)
-        local hum = getHumanoid()
-        if hum and dist < 20 then
-            -- Natural walk to target
-            pcall(function()
-                hum:MoveTo(targetPos)
-            end)
-        else
-            -- Teleport for large gaps (safety fallback)
-            if smooth and point.cf and #point.cf == 12 then
-                local cf = CFrame.new(unpack(point.cf))
-                hrp.CFrame = cf
-            else
-                hrp.CFrame = CFrame.new(targetPos)
-            end
+        -- Calculate interpolation factor (alpha) between pointA and pointB
+        local timeA = pointA.time or 0
+        local timeB = pointB and (pointB.time or timeA + 0.05) or timeA + 0.05
+        local segmentDuration = timeB - timeA
+        local alpha = 0
+        if segmentDuration > 0 then
+            alpha = math.clamp((playbackElapsed - timeA) / segmentDuration, 0, 1)
         end
         
-        -- Update safe position if we're not falling
+        -- Get positions
+        local posA = Vector3.new(pointA.pos[1], pointA.pos[2], pointA.pos[3])
+        local posB = pointB and Vector3.new(pointB.pos[1], pointB.pos[2], pointB.pos[3]) or posA
+        
+        -- Interpolate position smoothly
+        local targetPos = posA:Lerp(posB, alpha)
+        
+        -- Get or build CFrame
+        local targetCF
+        if pointA.cf and #pointA.cf == 12 and pointB and pointB.cf and #pointB.cf == 12 then
+            local cfA = CFrame.new(unpack(pointA.cf))
+            local cfB = CFrame.new(unpack(pointB.cf))
+            targetCF = cfA:Lerp(cfB, alpha)
+        elseif pointA.cf and #pointA.cf == 12 then
+            targetCF = CFrame.new(unpack(pointA.cf))
+        else
+            targetCF = CFrame.new(targetPos)
+        end
+        
+        -- Apply smooth interpolated CFrame (frame-perfect playback)
+        hrp.CFrame = targetCF
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.AssemblyAngularVelocity = Vector3.zero
+        
+        -- Handle jumping: detect if character jumped between points
+        if useInputs and pointA.inputs and pointA.inputs.Space and not lastJumpState then
+            -- Jump was pressed at this point - apply jump force
+            local hum = getHumanoid()
+            if hum then
+                pcall(function()
+                    hum:ChangeState(Enum.HumanoidStateType.Jumping)
+                end)
+            end
+            lastJumpState = true
+        elseif not (useInputs and pointA.inputs and pointA.inputs.Space) then
+            lastJumpState = false
+        end
+        
+        -- Update safe position
         local currentY = hrp.Position.Y
         if currentY >= lastSafeY - 2 then
             lastSafePosition = hrp.Position
             lastSafeY = currentY
         end
         
-        -- Simulate inputs (keyboard/mouse)
-        if useInputs and point.inputs then
-            simulateInputs(point.inputs)
-        else
-            -- Release inputs if no inputs recorded for this point
-            if useInputs then
-                releaseAllInputs()
+        -- Simulate mouse clicks if recorded
+        if useInputs and pointA.inputs then
+            if pointA.inputs.MB1 then
+                pcall(function() VirtualInputManager:SetMouseButtonDown(0) end)
+            else
+                pcall(function() VirtualInputManager:SetMouseButtonUp(0) end)
             end
-        end
-        
-        -- Calculate when to move to next point (based on recorded timing)
-        playbackIndex = playbackIndex + 1
-        if points[playbackIndex] then
-            nextPointTime = points[playbackIndex].time or (point.time + 0.05)
+            if pointA.inputs.MB2 then
+                pcall(function() VirtualInputManager:SetMouseButtonDown(1) end)
+            else
+                pcall(function() VirtualInputManager:SetMouseButtonUp(1) end)
+            end
         end
     end)
     
