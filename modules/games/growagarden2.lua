@@ -367,12 +367,16 @@ end
 
 -- ── Auto Steal (steal fruits from other gardens) ────────────────────────────
 -- Uses CollectFruit remote with correct PlantId + FruitId from Fruits folder
+local stolenPlants = {} -- track visited plants to avoid getting stuck
+
 local function startAutoSteal()
     disconnect("steal")
     detectGardenBounds()
+    stolenPlants = {} -- reset visited list
 
     local actionTimer = 0
-    local ACTION_INTERVAL = 1.5
+    local ACTION_INTERVAL = 0.8 -- faster cycling
+    local MAX_PLANTS_PER_TICK = 3 -- process multiple plants per tick
 
     connections.steal = RunService.Heartbeat:Connect(function(dt)
         if not GAG.Enabled or not GAG.AutoSteal then return end
@@ -388,88 +392,118 @@ local function startAutoSteal()
             local gardens = workspace:FindFirstChild("Gardens")
             if not gardens then return end
 
-            local stolen = false
+            -- Refresh bounds periodically
+            if not gardenBounds then detectGardenBounds() end
+
+            local processed = 0
+            local myUserId = lp.UserId
 
             for _, plot in ipairs(gardens:GetChildren()) do
-                if stolen or not GAG.AutoSteal then break end
+                if processed >= MAX_PLANTS_PER_TICK or not GAG.AutoSteal then break end
 
-                local plantsFolder = plot:FindFirstChild("Plants")
-                if plantsFolder then
-                    for _, plant in ipairs(plantsFolder:GetChildren()) do
-                        if stolen or not GAG.AutoSteal then break end
-                        if plant:IsA("Model") then
-                            local plantId = plant:GetAttribute("PlantId")
-                            if plantId then
-                                -- Get plant position
-                                local pos
-                                local harvestPart = plant:FindFirstChild("HarvestPart")
-                                if harvestPart and harvestPart:IsA("BasePart") then
-                                    pos = harvestPart.Position
-                                else
-                                    pos = plant:GetPivot().Position
-                                end
+                -- Skip owner's own garden by checking plot name or UserId attribute
+                local isOwnPlot = false
+                if plot.Name:find(lp.Name) or plot.Name:find(tostring(myUserId)) then
+                    isOwnPlot = true
+                end
+                -- Also check UserId attribute on the plot
+                if not isOwnPlot then
+                    local plotUserId = plot:GetAttribute("UserId")
+                    if plotUserId and plotUserId == myUserId then
+                        isOwnPlot = true
+                    end
+                end
+                -- Also check the cached owner plot
+                if not isOwnPlot and cachedOwnerPlot and plot == cachedOwnerPlot then
+                    isOwnPlot = true
+                end
 
-                                -- Only steal from OTHER gardens (not own)
-                                if pos and not isInGarden(pos) then
-                                    -- Check Fruits folder for actual fruits
-                                    local fruitsFolder = plant:FindFirstChild("Fruits")
-                                    if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
-                                        -- Teleport to the fruit
-                                        pcall(function()
-                                            hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
-                                        end)
-                                        task.wait(0.3)
+                if not isOwnPlot then
+                    local plantsFolder = plot:FindFirstChild("Plants")
+                    if plantsFolder then
+                        for _, plant in ipairs(plantsFolder:GetChildren()) do
+                            if processed >= MAX_PLANTS_PER_TICK or not GAG.AutoSteal then break end
+                            if plant:IsA("Model") then
+                                local plantId = plant:GetAttribute("PlantId")
+                                if plantId and not stolenPlants[plantId] then
+                                    -- Get plant position
+                                    local pos
+                                    local harvestPart = plant:FindFirstChild("HarvestPart")
+                                    if harvestPart and harvestPart:IsA("BasePart") then
+                                        pos = harvestPart.Position
+                                    else
+                                        pcall(function() pos = plant:GetPivot().Position end)
+                                    end
 
-                                        -- Fire CollectFruit for each fruit
-                                        for _, fruit in ipairs(fruitsFolder:GetChildren()) do
-                                            if fruit:IsA("Model") or fruit:IsA("BasePart") then
-                                                local fruitId = fruit:GetAttribute("FruitId") or ""
-                                                if fruitId ~= "" then
-                                                    fireCollectFruit(plantId, fruitId)
-                                                    task.wait(0.05)
+                                    -- Only steal from OTHER gardens (not own bounds)
+                                    if pos and not isInGarden(pos) then
+                                        -- Check Fruits folder for actual fruits
+                                        local fruitsFolder = plant:FindFirstChild("Fruits")
+                                        if fruitsFolder and #fruitsFolder:GetChildren() > 0 then
+                                            -- Mark as visited
+                                            stolenPlants[plantId] = true
+                                            processed = processed + 1
+
+                                            -- Teleport to the fruit
+                                            pcall(function()
+                                                hrp.CFrame = CFrame.new(pos.X, pos.Y + 1, pos.Z)
+                                            end)
+                                            task.wait(0.2)
+
+                                            -- Fire CollectFruit for each fruit
+                                            for _, fruit in ipairs(fruitsFolder:GetChildren()) do
+                                                if fruit:IsA("Model") or fruit:IsA("BasePart") then
+                                                    local fruitId = fruit:GetAttribute("FruitId") or ""
+                                                    if fruitId ~= "" then
+                                                        fireCollectFruit(plantId, fruitId)
+                                                        task.wait(0.03)
+                                                    end
                                                 end
                                             end
-                                        end
 
-                                        -- Also trigger ProximityPrompt if present
-                                        local prompt
-                                        for _, desc in ipairs(plant:GetDescendants()) do
-                                            if desc:IsA("ProximityPrompt") then
-                                                prompt = desc; break
+                                            -- Also trigger ProximityPrompt if present
+                                            local prompt
+                                            for _, desc in ipairs(plant:GetDescendants()) do
+                                                if desc:IsA("ProximityPrompt") then
+                                                    prompt = desc; break
+                                                end
+                                            end
+                                            if prompt and prompt.Enabled then
+                                                pcall(function() prompt:InputHoldBegin() end)
+                                                task.wait(0.3)
+                                                pcall(function()
+                                                    if prompt and prompt.Parent then
+                                                        prompt:InputHoldEnd()
+                                                    end
+                                                end)
+                                            end
+
+                                            -- Also try Steal remotes
+                                            if net and net.Steal then
+                                                pcall(function()
+                                                    if net.Steal.BeginSteal then
+                                                        net.Steal.BeginSteal:Fire(plant)
+                                                    end
+                                                end)
+                                                task.wait(0.1)
+                                                pcall(function()
+                                                    if net.Steal.CompleteSteal then
+                                                        net.Steal.CompleteSteal:Fire(plant)
+                                                    end
+                                                end)
                                             end
                                         end
-                                        if prompt and prompt.Enabled then
-                                            pcall(function() prompt:InputHoldBegin() end)
-                                            task.wait(0.4)
-                                            pcall(function()
-                                                if prompt and prompt.Parent then
-                                                    prompt:InputHoldEnd()
-                                                end
-                                            end)
-                                        end
-
-                                        -- Also try Steal remotes
-                                        if net and net.Steal then
-                                            pcall(function()
-                                                if net.Steal.BeginSteal then
-                                                    net.Steal.BeginSteal:Fire(plant)
-                                                end
-                                            end)
-                                            task.wait(0.15)
-                                            pcall(function()
-                                                if net.Steal.CompleteSteal then
-                                                    net.Steal.CompleteSteal:Fire(plant)
-                                                end
-                                            end)
-                                        end
-
-                                        stolen = true -- one plant per tick
                                     end
                                 end
                             end
                         end
                     end
                 end
+            end
+
+            -- If we processed nothing (all visited or no fruits), reset the visited list
+            if processed == 0 then
+                stolenPlants = {}
             end
         end)
     end)
@@ -1064,6 +1098,7 @@ function GAG:WireUI(tab, extras)
         Default  = {},
         Values   = seedNames,
         Multi    = true,
+        SearchBarEnabled = true,
         Callback = function(v)
             GAG.SelectedSeed = type(v) == "table" and v or {v}
         end
@@ -1105,6 +1140,7 @@ function GAG:WireUI(tab, extras)
         Default  = {},
         Values   = gearNames,
         Multi    = true,
+        SearchBarEnabled = true,
         Callback = function(v)
             GAG.SelectedGear = type(v) == "table" and v or {v}
         end

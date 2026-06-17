@@ -43,34 +43,54 @@ local function destroyPlatform()
 end
 
 local function getWaterLevel(pos)
-    -- Try to detect water terrain at the player's XZ
-    local ok, material, occupancy = pcall(function()
-        return Terrain:ReadVoxels(
-            Region3.new(
-                Vector3.new(pos.X - 2, pos.Y - 20, pos.Z - 2),
-                Vector3.new(pos.X + 2, pos.Y + 20, pos.Z + 2)
-            ),
-            4
-        )
+    -- Try to detect water terrain at the player's XZ using GetMaterial (more reliable)
+    local waterY = nil
+
+    -- Method 1: Use GetMaterial at various Y levels to find water surface
+    pcall(function()
+        for y = pos.Y + 10, pos.Y - 30, -2 do
+            local checkPos = Vector3.new(pos.X, y, pos.Z)
+            local material = Terrain:GetMaterial(checkPos)
+            if material == Enum.Material.Water then
+                waterY = y
+                break
+            end
+        end
     end)
 
-    if ok and material then
-        -- Scan voxels from top to bottom for water
-        local sizeX, sizeY, sizeZ = #material[1][1], #material, #material[1]
-        for y = sizeY, 1, -1 do
-            for x = 1, sizeX do
-                for z = 1, sizeZ do
-                    if material[x][y][z] == Enum.Material.Water then
-                        -- Convert voxel index back to world Y
-                        local baseY = pos.Y - 20
-                        local waterY = baseY + (y * 4) + 2
-                        return waterY
+    -- Method 2: Fallback to ReadVoxels if GetMaterial didn't find water
+    if not waterY then
+        pcall(function()
+            local region = Region3.new(
+                Vector3.new(pos.X - 2, pos.Y - 20, pos.Z - 2),
+                Vector3.new(pos.X + 2, pos.Y + 10, pos.Z + 2)
+            )
+            local materials, occupancy = Terrain:ReadVoxels(region, 4)
+
+            if materials and #materials > 0 then
+                -- ReadVoxels returns materials[y][x][z]
+                local sizeY = #materials
+                local sizeX = #materials[1]
+                local sizeZ = #materials[1][1]
+
+                -- Scan from top to bottom for water
+                for y = sizeY, 1, -1 do
+                    for x = 1, sizeX do
+                        for z = 1, sizeZ do
+                            if materials[y][x][z] == Enum.Material.Water then
+                                -- Convert voxel index back to world Y
+                                local baseY = pos.Y - 20
+                                waterY = baseY + (y * 4)
+                                return
+                            end
+                        end
                     end
                 end
             end
-        end
+        end)
     end
-    return nil
+
+    return waterY
 end
 
 function WalkOnWater:Enable()
