@@ -339,10 +339,13 @@ if ActiveGameModule then
 else
     -- ══ UNIVERSAL MODE: all standard tabs ═══════════════════════════════════
     local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
-    local VisTab = Window:Tab({ Title = "Visual",   Icon = "eye" })
-    local PlyTab = Window:Tab({ Title = "Player",   Icon = "user" })
-    local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+    local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
+    local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
+    local TeleTab = Window:Tab({ Title = "Teleport", Icon = "map-pin" })
+    local VisTab = Window:Tab({ Title = "Visual", Icon = "eye" })
+    local AutoTab = Window:Tab({ Title = "Auto", Icon = "zap" })
     local MacroTab = Window:Tab({ Title = "Macro", Icon = "radio" })
+    local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 
 -- ── Macro Recorder UI ────────────────────────────────────────────────────────
 local macroStatusText = nil
@@ -364,7 +367,7 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT TAB
 -- ══════════════════════════════════════════════════════════════════════════════
-MovTab:Section({ Title = "Locomotion" })
+MovTab:Section({ Title = "Flight" })
 
 local flyToggle = MovTab:Toggle({
     Title    = "Fly",
@@ -393,11 +396,12 @@ MovTab:Keybind({
 })
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= flyKey then return end
-    -- Use Fly.Enabled (actual state) instead of toggle UI (may be out of sync)
     local s = not Fly.Enabled
     flyToggle:Set(s)
     if s then Fly:Enable() else Fly:Disable() end
 end)
+
+MovTab:Section({ Title = "Speed" })
 
 local speedToggle = MovTab:Toggle({
     Title    = "Speed Hack",
@@ -431,7 +435,7 @@ local jumpPowerSlider = MovTab:Slider({
 })
 ConfigMgr:Register("JumpPower", jumpPowerSlider)
 
-MovTab:Section({ Title = "Misc" })
+MovTab:Section({ Title = "Physics" })
 
 local infJumpToggle = MovTab:Toggle({
     Title    = "Infinite Jump",
@@ -469,6 +473,7 @@ local invisToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("Invisible", invisToggle)
+
 MovTab:Section({ Title = "Camera" })
 
 local fcKey    = Enum.KeyCode.V
@@ -498,13 +503,12 @@ MovTab:Keybind({
 })
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= fcKey then return end
-    -- Use FreeCam.Enabled (actual state) instead of toggle UI
     local s = not FreeCam.Enabled
     fcToggle:Set(s)
     if s then FreeCam:Enable() else FreeCam:Disable() end
 end)
 
-MovTab:Section({ Title = "Click Teleport" })
+MovTab:Section({ Title = "Special" })
 
 local clickTPToggle = MovTab:Toggle({
     Title    = "Click Teleport",
@@ -515,8 +519,6 @@ local clickTPToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("ClickTeleport", clickTPToggle)
-
-MovTab:Section({ Title = "Water" })
 
 local wowToggle = MovTab:Toggle({
     Title    = "Walk on Water",
@@ -860,68 +862,60 @@ local tracerThickSlider = VisTab:Slider({
 ConfigMgr:Register("TracerThickness", tracerThickSlider)
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- PLAYER TAB
+-- COMBAT TAB
 -- ══════════════════════════════════════════════════════════════════════════════
-PlyTab:Section({ Title = "Utility" })
+CombatTab:Section({ Title = "Kill Aura" })
 
-local antiAFKToggle = PlyTab:Toggle({
-    Title    = "Anti AFK",
+local killAuraToggle = CombatTab:Toggle({
+    Title    = "Kill Aura",
     Value    = false,
     Callback = function(v)
-        if v then AntiAFK:Enable() else AntiAFK:Disable() end
-        N("Anti AFK", v and "Enabled" or "Disabled")
+        if v then KillAura:Enable() else KillAura:Disable() end
+        N("Kill Aura", v and "Enabled" or "Disabled")
     end
 })
-ConfigMgr:Register("AntiAFK", antiAFKToggle)
-local infStaminaToggle = PlyTab:Toggle({
-    Title    = "Infinite Stamina",
-    Value    = false,
-    Callback = function(v)
-        if v then InfStamina:Enable() else InfStamina:Disable() end
-        N("Infinite Stamina", v and "Enabled" or "Disabled")
-    end
-})
-ConfigMgr:Register("InfStamina", infStaminaToggle)
-local godModeToggle = PlyTab:Toggle({
-    Title    = "God Mode",
-    Value    = false,
-    Callback = function(v)
-        if v then GodMode:Enable() else GodMode:Disable() end
-        N("God Mode", v and "Enabled" or "Disabled")
-    end
-})
-ConfigMgr:Register("GodMode", godModeToggle)
-PlyTab:Section({ Title = "Protection" })
+ConfigMgr:Register("KillAura", killAuraToggle)
 
-local noFallToggle = PlyTab:Toggle({
-    Title    = "No Fall Damage",
-    Value    = false,
-    Callback = function(v)
-        if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
-        N("No Fall Damage", v and "Enabled" or "Disabled")
-    end
-})
-ConfigMgr:Register("NoFallDamage", noFallToggle)
-local antiFlingToggle = PlyTab:Toggle({
-    Title    = "Anti Fling",
-    Value    = false,
-    Callback = function(v)
-        if v then AntiFling:Enable() else AntiFling:Disable() end
-        N("Anti Fling", v and "Enabled" or "Disabled")
-    end
-})
-ConfigMgr:Register("AntiFling", antiFlingToggle)
-local flingThreshSlider = PlyTab:Slider({
-    Title    = "Fling Threshold",
-    Value    = { Min = 100, Max = 1000, Default = 200 },
+local killAuraRadiusSlider = CombatTab:Slider({
+    Title    = "Radius",
+    Value    = { Min = 5, Max = 50, Default = 15 },
     Step     = 1,
-    Callback = function(v) AntiFling:SetThreshold(v) end
+    Callback = function(v) KillAura:SetRadius(v) end
 })
-ConfigMgr:Register("FlingThreshold", flingThreshSlider)
+ConfigMgr:Register("KillAuraRadius", killAuraRadiusSlider)
 
-PlyTab:Section({ Title = "Combat" })
+local killAuraIntervalSlider = CombatTab:Slider({
+    Title    = "Attack Interval (ms)",
+    Value    = { Min = 50, Max = 1000, Default = 100 },
+    Step     = 50,
+    Callback = function(v) KillAura:SetAttackInterval(v / 1000) end
+})
+ConfigMgr:Register("KillAuraInterval", killAuraIntervalSlider)
 
-local hitboxToggle = PlyTab:Toggle({
+local killAuraPlayersToggle = CombatTab:Toggle({
+    Title    = "Target Players",
+    Value    = true,
+    Callback = function(v) KillAura:SetTargetPlayers(v) end
+})
+ConfigMgr:Register("KillAuraPlayers", killAuraPlayersToggle)
+
+local killAuraNPCsToggle = CombatTab:Toggle({
+    Title    = "Target NPCs",
+    Value    = true,
+    Callback = function(v) KillAura:SetTargetNPCs(v) end
+})
+ConfigMgr:Register("KillAuraNPCs", killAuraNPCsToggle)
+
+local killAuraTeamToggle = CombatTab:Toggle({
+    Title    = "Team Check",
+    Value    = true,
+    Callback = function(v) KillAura:SetTeamCheck(v) end
+})
+ConfigMgr:Register("KillAuraTeamCheck", killAuraTeamToggle)
+
+CombatTab:Section({ Title = "Hitbox Expander" })
+
+local hitboxToggle = CombatTab:Toggle({
     Title    = "Hitbox Expander",
     Value    = false,
     Callback = function(v)
@@ -930,15 +924,15 @@ local hitboxToggle = PlyTab:Toggle({
     end
 })
 ConfigMgr:Register("HitboxExpander", hitboxToggle)
-local hitboxSizeSlider = PlyTab:Slider({
-    Title    = "Hitbox Size",
+local hitboxSizeSlider = CombatTab:Slider({
+    Title    = "Size",
     Value    = { Min = 5, Max = 30, Default = 10 },
     Step     = 1,
     Callback = function(v) HitboxExp:SetSize(v) end
 })
 ConfigMgr:Register("HitboxSize", hitboxSizeSlider)
-local hitboxAlphaSlider = PlyTab:Slider({
-    Title    = "Hitbox Transparency",
+local hitboxAlphaSlider = CombatTab:Slider({
+    Title    = "Transparency",
     Value    = { Min = 0, Max = 100, Default = 80 },
     Step     = 1,
     Callback = function(v) HitboxExp:SetTransparency(v) end
@@ -950,14 +944,14 @@ local HC = {
     Cyan   = Color3.fromRGB(60,220,255), Pink   = Color3.fromRGB(255,100,200),
     White  = Color3.fromRGB(255,255,255), Orange = Color3.fromRGB(255,150,30),
 }
-local hitboxColorDrop = PlyTab:Dropdown({
-    Title    = "Hitbox Color",
+local hitboxColorDrop = CombatTab:Dropdown({
+    Title    = "Color",
     Values   = {"Red","Green","Blue","Yellow","Cyan","Pink","White","Orange"},
     Value    = "Red",
     Callback = function(v) HitboxExp:SetColor(HC[v] or Color3.fromRGB(255,60,60)) end
 })
 ConfigMgr:Register("HitboxColor", hitboxColorDrop)
-local teamCheckToggle = PlyTab:Toggle({
+local teamCheckToggle = CombatTab:Toggle({
     Title    = "Team Check",
     Value    = true,
     Callback = function(v)
@@ -967,59 +961,9 @@ local teamCheckToggle = PlyTab:Toggle({
 })
 ConfigMgr:Register("TeamCheck", teamCheckToggle)
 
--- Kill Aura Section
-PlyTab:Section({ Title = "Kill Aura" })
+CombatTab:Section({ Title = "Instant Kill" })
 
-local killAuraToggle = PlyTab:Toggle({
-    Title    = "Kill Aura",
-    Value    = false,
-    Callback = function(v)
-        if v then KillAura:Enable() else KillAura:Disable() end
-        N("Kill Aura", v and "Enabled" or "Disabled")
-    end
-})
-ConfigMgr:Register("KillAura", killAuraToggle)
-
-local killAuraRadiusSlider = PlyTab:Slider({
-    Title    = "Kill Aura Radius",
-    Value    = { Min = 5, Max = 50, Default = 15 },
-    Step     = 1,
-    Callback = function(v) KillAura:SetRadius(v) end
-})
-ConfigMgr:Register("KillAuraRadius", killAuraRadiusSlider)
-
-local killAuraIntervalSlider = PlyTab:Slider({
-    Title    = "Attack Interval (ms)",
-    Value    = { Min = 50, Max = 1000, Default = 100 },
-    Step     = 50,
-    Callback = function(v) KillAura:SetAttackInterval(v / 1000) end
-})
-ConfigMgr:Register("KillAuraInterval", killAuraIntervalSlider)
-
-local killAuraPlayersToggle = PlyTab:Toggle({
-    Title    = "Target Players",
-    Value    = true,
-    Callback = function(v) KillAura:SetTargetPlayers(v) end
-})
-ConfigMgr:Register("KillAuraPlayers", killAuraPlayersToggle)
-
-local killAuraNPCsToggle = PlyTab:Toggle({
-    Title    = "Target NPCs",
-    Value    = true,
-    Callback = function(v) KillAura:SetTargetNPCs(v) end
-})
-ConfigMgr:Register("KillAuraNPCs", killAuraNPCsToggle)
-
-local killAuraTeamToggle = PlyTab:Toggle({
-    Title    = "Team Check",
-    Value    = true,
-    Callback = function(v) KillAura:SetTeamCheck(v) end
-})
-ConfigMgr:Register("KillAuraTeamCheck", killAuraTeamToggle)
-
-PlyTab:Section({ Title = "NPC" })
-
-local ikToggle = PlyTab:Toggle({
+local ikToggle = CombatTab:Toggle({
     Title    = "Instant Kill NPC",
     Value    = false,
     Callback = function(v)
@@ -1029,7 +973,7 @@ local ikToggle = PlyTab:Toggle({
 })
 ConfigMgr:Register("InstantKill", ikToggle)
 local ikModeDrop
-ikModeDrop = PlyTab:Dropdown({
+ikModeDrop = CombatTab:Dropdown({
     Title    = "Kill Mode",
     Values   = {"All","Specific"},
     Value    = "All",
@@ -1039,47 +983,121 @@ ikModeDrop = PlyTab:Dropdown({
     end
 })
 ConfigMgr:Register("KillMode", ikModeDrop)
-local ikTargetIn = PlyTab:Input({
+local ikTargetIn = CombatTab:Input({
     Title       = "Target NPC Name",
     Placeholder = "e.g. Zombie",
     Value       = "",
     Callback    = function(v) InstantKill:SetTarget(v) end
 })
 ConfigMgr:Register("KillTarget", ikTargetIn)
-PlyTab:Button({
-    Title    = "🐛 Enable Debug Mode",
-    Callback = function()
-        InstantKill:EnableDebug()
-        N("InstantKill", "Debug on — check F9 console")
-    end
-})
-PlyTab:Button({
-    Title    = "📊 Show Kill Count",
+CombatTab:Button({
+    Title    = "Show Kill Count",
     Callback = function()
         N("Kill Count", tostring(InstantKill:GetKillCount()).." NPCs")
     end
 })
 
-PlyTab:Section({ Title = "Teleport" })
+-- ══════════════════════════════════════════════════════════════════════════════
+-- PLAYER TAB (Utility & Protection)
+-- ══════════════════════════════════════════════════════════════════════════════
+PlayerTab:Section({ Title = "Utility" })
 
-PlyTab:Button({
-    Title    = "📍 Copy My Position",
+local antiAFKToggle = PlayerTab:Toggle({
+    Title    = "Anti AFK",
+    Value    = false,
+    Callback = function(v)
+        if v then AntiAFK:Enable() else AntiAFK:Disable() end
+        N("Anti AFK", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("AntiAFK", antiAFKToggle)
+
+local infStaminaToggle = PlayerTab:Toggle({
+    Title    = "Infinite Stamina",
+    Value    = false,
+    Callback = function(v)
+        if v then InfStamina:Enable() else InfStamina:Disable() end
+        N("Infinite Stamina", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("InfStamina", infStaminaToggle)
+
+local godModeToggle = PlayerTab:Toggle({
+    Title    = "God Mode",
+    Value    = false,
+    Callback = function(v)
+        if v then GodMode:Enable() else GodMode:Disable() end
+        N("God Mode", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("GodMode", godModeToggle)
+
+PlayerTab:Section({ Title = "Protection" })
+
+local noFallToggle = PlayerTab:Toggle({
+    Title    = "No Fall Damage",
+    Value    = false,
+    Callback = function(v)
+        if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
+        N("No Fall Damage", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("NoFallDamage", noFallToggle)
+
+local antiFlingToggle = PlayerTab:Toggle({
+    Title    = "Anti Fling",
+    Value    = false,
+    Callback = function(v)
+        if v then AntiFling:Enable() else AntiFling:Disable() end
+        N("Anti Fling", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("AntiFling", antiFlingToggle)
+
+local flingThreshSlider = PlayerTab:Slider({
+    Title    = "Fling Threshold",
+    Value    = { Min = 100, Max = 1000, Default = 200 },
+    Step     = 1,
+    Callback = function(v) AntiFling:SetThreshold(v) end
+})
+ConfigMgr:Register("FlingThreshold", flingThreshSlider)
+
+PlayerTab:Section({ Title = "Info" })
+PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
+PlayerTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
+PlayerTab:Button({
+    Title    = "Copy Player ID",
+    Callback = function()
+        pcall(function() setclipboard(tostring(lp.UserId)) end)
+        N("Player ID", tostring(lp.UserId))
+    end
+})
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- TELEPORT TAB
+-- ══════════════════════════════════════════════════════════════════════════════
+TeleTab:Section({ Title = "Position" })
+
+TeleTab:Button({
+    Title    = "Copy My Position",
     Callback = function()
         local p = Teleport:SavePosition()
         if p then N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
         else N("Teleport", "No character") end
     end
 })
-PlyTab:Button({
-    Title    = "🚀 Go to Saved Position",
+TeleTab:Button({
+    Title    = "Go to Saved Position",
     Callback = function()
         if Teleport:GotoSaved(Fly) then N("Teleport", "Teleported")
         else N("Teleport", "No position saved") end
     end
 })
 
+TeleTab:Section({ Title = "To Player" })
+
 local selectedPlayer = nil
-local tpDrop = PlyTab:Dropdown({
+local tpDrop = TeleTab:Dropdown({
     Title    = "Select Player",
     Values   = Teleport:GetPlayerList(),
     Value    = 1,
@@ -1087,8 +1105,8 @@ local tpDrop = PlyTab:Dropdown({
 })
 do local list = Teleport:GetPlayerList(); selectedPlayer = list[1] end
 
-PlyTab:Button({
-    Title    = "🔄 Refresh Players",
+TeleTab:Button({
+    Title    = "Refresh Players",
     Callback = function()
         local list = Teleport:GetPlayerList()
         tpDrop:Refresh(list)
@@ -1096,8 +1114,8 @@ PlyTab:Button({
         N("Players", "Refreshed")
     end
 })
-PlyTab:Button({
-    Title    = "⚡ Teleport to Player",
+TeleTab:Button({
+    Title    = "Teleport to Player",
     Callback = function()
         local name = selectedPlayer
         if not name or name == "(no players)" then return end
@@ -1106,9 +1124,9 @@ PlyTab:Button({
     end
 })
 
-PlyTab:Section({ Title = "Waypoints" })
+TeleTab:Section({ Title = "Waypoints" })
 
-local wpNameIn = PlyTab:Input({
+local wpNameIn = TeleTab:Input({
     Title       = "Waypoint Name",
     Placeholder = "e.g. spawn",
     Value       = "",
@@ -1118,8 +1136,8 @@ local wpNameIn = PlyTab:Input({
 local selectedWaypoint = nil
 local wpDrop
 
-PlyTab:Button({
-    Title    = "➕ Create Waypoint",
+TeleTab:Button({
+    Title    = "Create Waypoint",
     Callback = function()
         local name = wpNameIn.Value or ""
         if name == "" then N("Waypoint", "Enter a name"); return end
@@ -1136,7 +1154,7 @@ PlyTab:Button({
     end
 })
 
-wpDrop = PlyTab:Dropdown({
+wpDrop = TeleTab:Dropdown({
     Title    = "Select Waypoint",
     Values   = Waypoint:GetList(),
     Value    = 1,
@@ -1144,8 +1162,8 @@ wpDrop = PlyTab:Dropdown({
 })
 do local list = Waypoint:GetList(); selectedWaypoint = list[1] end
 
-PlyTab:Button({
-    Title    = "🔄 Refresh Waypoints",
+TeleTab:Button({
+    Title    = "Refresh Waypoints",
     Callback = function()
         local list = Waypoint:GetList()
         wpDrop:Refresh(list)
@@ -1153,8 +1171,8 @@ PlyTab:Button({
         N("Waypoints", "Refreshed")
     end
 })
-PlyTab:Button({
-    Title    = "📍 Teleport to Waypoint",
+TeleTab:Button({
+    Title    = "Teleport to Waypoint",
     Callback = function()
         local name = selectedWaypoint
         if not name or name == "(no waypoints)" then
@@ -1164,8 +1182,8 @@ PlyTab:Button({
         else N("Waypoint", "Failed") end
     end
 })
-PlyTab:Button({
-    Title    = "🗑 Delete Waypoint",
+TeleTab:Button({
+    Title    = "Delete Waypoint",
     Callback = function()
         local name = selectedWaypoint
         if not name or name == "(no waypoints)" then return end
@@ -1180,9 +1198,9 @@ PlyTab:Button({
     end
 })
 
-PlyTab:Section({ Title = "Server" })
+TeleTab:Section({ Title = "Server" })
 
-PlyTab:Button({
+TeleTab:Button({
     Title    = "Rejoin Server",
     Callback = function()
         N("Rejoin", "Rejoining...")
@@ -1190,7 +1208,7 @@ PlyTab:Button({
         Rejoin:Execute()
     end
 })
-PlyTab:Button({
+TeleTab:Button({
     Title    = "Server Hop",
     Callback = function()
         N("Server Hop", "Finding server...")
@@ -1198,22 +1216,13 @@ PlyTab:Button({
         ServerHop:Execute()
     end
 })
-PlyTab:Button({
-    Title    = "Copy Player ID",
-    Callback = function()
-        pcall(function() setclipboard(tostring(lp.UserId)) end)
-        N("Player ID", tostring(lp.UserId))
-    end
-})
 
-PlyTab:Section({ Title = "Stats" })
-PlyTab:Paragraph({ Title = "Username", Content = lp.Name })
-PlyTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
+-- ══════════════════════════════════════════════════════════════════════════════
+-- AUTO TAB (Automation Features)
+-- ══════════════════════════════════════════════════════════════════════════════
+AutoTab:Section({ Title = "Auto Redeem Codes" })
 
--- Redeem Codes Section
-PlyTab:Section({ Title = "Auto Redeem Codes" })
-
-local autoDetectToggle = PlyTab:Toggle({
+local autoDetectToggle = AutoTab:Toggle({
     Title    = "Auto-Detect Mode",
     Value    = true,
     Callback = function(v)
@@ -1223,7 +1232,7 @@ local autoDetectToggle = PlyTab:Toggle({
 })
 ConfigMgr:Register("AutoDetectCodes", autoDetectToggle)
 
-local codesInput = PlyTab:Input({
+local codesInput = AutoTab:Input({
     Title       = "Enter Codes (comma separated)",
     Placeholder = "e.g. CODE1, CODE2, FREE100",
     Value       = "",
@@ -1234,8 +1243,8 @@ local codesInput = PlyTab:Input({
     end
 })
 
-PlyTab:Button({
-    Title    = "🎁 Redeem All Codes",
+AutoTab:Button({
+    Title    = "Redeem All Codes",
     Callback = function()
         if #RedeemCodes.Codes == 0 then
             N("Codes", "Enter codes first!")
@@ -1244,34 +1253,16 @@ PlyTab:Button({
         N("Codes", "Redeeming " .. #RedeemCodes.Codes .. " code(s)...")
         task.spawn(function()
             RedeemCodes:Enable()
-            -- Wait for completion
-            while RedeemCodes.Enabled do
-                task.wait(0.1)
-            end
+            while RedeemCodes.Enabled do task.wait(0.1) end
             local summary = RedeemCodes:GetSummary()
-            local msg = string.format(
-                "Success: %d, Failed: %d, Already: %d",
-                summary.success, summary.failed, summary.already
-            )
-            N("Codes Done", msg)
+            N("Codes Done", string.format("Success: %d, Failed: %d, Already: %d",
+                summary.success, summary.failed, summary.already))
         end)
     end
 })
 
-PlyTab:Button({
-    Title    = "🔍 Scan Code Remotes",
-    Callback = function()
-        local remotes = RedeemCodes:ScanRemotes()
-        if #remotes > 0 then
-            N("Code Scan", "Found " .. #remotes .. " remote(s) — check F9")
-        else
-            N("Code Scan", "No code remotes found")
-        end
-    end
-})
-
-PlyTab:Button({
-    Title    = "🤖 Auto-Detect & Redeem",
+AutoTab:Button({
+    Title    = "Auto-Detect & Redeem",
     Callback = function()
         N("Auto Codes", "Scanning game for codes...")
         task.spawn(function()
@@ -1282,22 +1273,28 @@ PlyTab:Button({
             end
             N("Auto Codes", "Found " .. #codes .. " codes, redeeming...")
             RedeemCodes:Enable()
-            -- Wait for completion
-            while RedeemCodes.Enabled do
-                task.wait(0.1)
-            end
+            while RedeemCodes.Enabled do task.wait(0.1) end
             local summary = RedeemCodes:GetSummary()
-            local msg = string.format(
-                "Success: %d, Failed: %d, Already: %d",
-                summary.success, summary.failed, summary.already
-            )
-            N("Auto Codes Done", msg)
+            N("Auto Codes Done", string.format("Success: %d, Failed: %d, Already: %d",
+                summary.success, summary.failed, summary.already))
         end)
     end
 })
 
-PlyTab:Button({
-    Title    = "📊 Show Results",
+AutoTab:Button({
+    Title    = "Scan Code Remotes",
+    Callback = function()
+        local remotes = RedeemCodes:ScanRemotes()
+        if #remotes > 0 then
+            N("Code Scan", "Found " .. #remotes .. " remote(s) — check F9")
+        else
+            N("Code Scan", "No code remotes found")
+        end
+    end
+})
+
+AutoTab:Button({
+    Title    = "Show Results",
     Callback = function()
         local results = RedeemCodes:GetResults()
         local count = 0
