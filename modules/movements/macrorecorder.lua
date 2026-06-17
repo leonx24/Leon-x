@@ -386,6 +386,7 @@ function MacroRecorder:StartPlayback(macro)
     -- Track playback timing
     local playbackElapsed = 0
     local lastJumpState = false
+    local lastAppliedPos = nil -- track last position for velocity calculation
     
     playbackConnection = RunService.Heartbeat:Connect(function(dt)
         if not self.Playing or self.Paused then return end
@@ -416,6 +417,7 @@ function MacroRecorder:StartPlayback(macro)
                 playbackIndex = 1
                 playbackElapsed = 0
                 lastJumpState = false
+                lastAppliedPos = nil
                 releaseAllInputs()
                 return
             else
@@ -467,8 +469,31 @@ function MacroRecorder:StartPlayback(macro)
         
         -- Apply smooth interpolated CFrame (frame-perfect playback)
         hrp.CFrame = targetCF
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.AssemblyAngularVelocity = Vector3.zero
+        
+        -- Calculate movement velocity so Humanoid detects walking and plays animation
+        local moveVelocity = Vector3.zero
+        if lastAppliedPos and dt > 0 then
+            local delta = targetPos - lastAppliedPos
+            moveVelocity = Vector3.new(delta.X / dt, 0, delta.Z / dt)
+        end
+        lastAppliedPos = targetPos
+        
+        -- Set velocity so Humanoid plays walking animation
+        pcall(function()
+            hrp.AssemblyLinearVelocity = moveVelocity
+            hrp.AssemblyAngularVelocity = Vector3.zero
+        end)
+        
+        -- Force Humanoid to recognize movement state for animation
+        local hum = getHumanoid()
+        if hum then
+            local moveSpeed = Vector3.new(moveVelocity.X, 0, moveVelocity.Z).Magnitude
+            if moveSpeed > 1 then
+                pcall(function()
+                    hum.AutoRotate = true
+                end)
+            end
+        end
         
         -- Handle jumping: detect if character jumped between points
         if useInputs and pointA.inputs and pointA.inputs.Space and not lastJumpState then
