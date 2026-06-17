@@ -233,31 +233,34 @@ local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
 -- ── Load modules with splash progress ─────────────────────────────────────────
 local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
-local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.15)
-local Speed       = load("modules/movements/speed.lua");     setSplashProgress(0.20)
-local InfJump     = load("modules/movements/infinitejump.lua"); setSplashProgress(0.24)
-local Noclip      = load("modules/movements/noclip.lua");    setSplashProgress(0.28)
-local AntiRagdoll = load("modules/movements/antiragdoll.lua"); setSplashProgress(0.32)
-local Invisible   = load("modules/movements/invisible.lua"); setSplashProgress(0.36)
-local FreeCam     = load("modules/movements/freecam.lua");   setSplashProgress(0.40)
-local ClickTP     = load("modules/movements/clickteleport.lua"); setSplashProgress(0.44)
-local WalkOnWater = load("modules/movements/walkonwater.lua");  setSplashProgress(0.46)
-local ESP         = load("modules/visuals/esp.lua");         setSplashProgress(0.48)
-local Tracer      = load("modules/visuals/tracer.lua");      setSplashProgress(0.52)
-local FullBright  = load("modules/visuals/fullbright.lua");  setSplashProgress(0.56)
-local PerfStats   = load("modules/visuals/perfstats.lua");   setSplashProgress(0.60)
-local RemoveFog   = load("modules/visuals/removefog.lua");   setSplashProgress(0.64)
-local AntiAFK     = load("modules/player/antiafk.lua");      setSplashProgress(0.68)
-local InfStamina  = load("modules/player/infinitestamina.lua"); setSplashProgress(0.72)
-local AntiFling   = load("modules/player/antifling.lua");    setSplashProgress(0.74)
-local Rejoin      = load("modules/player/rejoin.lua");       setSplashProgress(0.76)
-local ServerHop   = load("modules/player/serverhop.lua");    setSplashProgress(0.77)
-local Teleport    = load("modules/player/teleport.lua");     setSplashProgress(0.78)
-local HitboxExp   = load("modules/player/hitboxexpander.lua"); setSplashProgress(0.80)
-local Waypoint    = load("modules/player/waypoint.lua");     setSplashProgress(0.84)
-local GodMode     = load("modules/player/godmode.lua");      setSplashProgress(0.86)
-local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0.88)
-local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.90)
+local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.14)
+local Speed       = load("modules/movements/speed.lua");     setSplashProgress(0.18)
+local InfJump     = load("modules/movements/infinitejump.lua"); setSplashProgress(0.22)
+local Noclip      = load("modules/movements/noclip.lua");    setSplashProgress(0.26)
+local AntiRagdoll = load("modules/movements/antiragdoll.lua"); setSplashProgress(0.30)
+local Invisible   = load("modules/movements/invisible.lua"); setSplashProgress(0.34)
+local FreeCam     = load("modules/movements/freecam.lua");   setSplashProgress(0.38)
+local ClickTP     = load("modules/movements/clickteleport.lua"); setSplashProgress(0.42)
+local WalkOnWater = load("modules/movements/walkonwater.lua");  setSplashProgress(0.44)
+local ESP         = load("modules/visuals/esp.lua");         setSplashProgress(0.46)
+local Tracer      = load("modules/visuals/tracer.lua");      setSplashProgress(0.50)
+local FullBright  = load("modules/visuals/fullbright.lua");  setSplashProgress(0.54)
+local PerfStats   = load("modules/visuals/perfstats.lua");   setSplashProgress(0.58)
+local RemoveFog   = load("modules/visuals/removefog.lua");   setSplashProgress(0.62)
+local AntiAFK     = load("modules/player/antiafk.lua");      setSplashProgress(0.66)
+local InfStamina  = load("modules/player/infinitestamina.lua"); setSplashProgress(0.70)
+local AntiFling   = load("modules/player/antifling.lua");    setSplashProgress(0.72)
+local Rejoin      = load("modules/player/rejoin.lua");       setSplashProgress(0.74)
+local ServerHop   = load("modules/player/serverhop.lua");    setSplashProgress(0.75)
+local Teleport    = load("modules/player/teleport.lua");     setSplashProgress(0.76)
+local HitboxExp   = load("modules/player/hitboxexpander.lua"); setSplashProgress(0.78)
+local Waypoint    = load("modules/player/waypoint.lua");     setSplashProgress(0.82)
+local GodMode     = load("modules/player/godmode.lua");      setSplashProgress(0.84)
+local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0.86)
+local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.88)
+local KillAura    = load("modules/combat/killaura.lua");     setSplashProgress(0.90)
+local RedeemCodes = load("modules/auto/redeemcodes.lua");    setSplashProgress(0.91)
+local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {
@@ -339,6 +342,24 @@ else
     local VisTab = Window:Tab({ Title = "Visual",   Icon = "eye" })
     local PlyTab = Window:Tab({ Title = "Player",   Icon = "user" })
     local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+    local MacroTab = Window:Tab({ Title = "Macro", Icon = "radio" })
+
+-- ── Macro Recorder UI ────────────────────────────────────────────────────────
+local macroStatusText = nil
+local macroDropdown = nil
+local selectedMacroName = nil
+
+-- Refresh dropdown helper
+local function refreshMacroList()
+    local list = MacroRec:ListMacros()
+    if #list == 0 then list = {"(no macros)"} end
+    selectedMacroName = list[1]
+    if macroDropdown then
+        macroDropdown:Refresh(list)
+        macroDropdown:Select(list[1])
+    end
+    return list
+end
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- MOVEMENT TAB
@@ -506,6 +527,213 @@ local wowToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("WalkOnWater", wowToggle)
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- MACRO RECORDER TAB
+-- ══════════════════════════════════════════════════════════════════════════════
+
+-- Macro name input
+local macroNameInput = MacroTab:Input({
+    Title = "Macro Name",
+    Placeholder = "e.g. route_to_peak",
+    Value = "",
+    Callback = function() end
+})
+
+MacroTab:Section({ Title = "Status" })
+macroStatusText = MacroTab:Paragraph({
+    Title = "Status",
+    Content = "Idle"
+})
+
+MacroTab:Section({ Title = "Recording" })
+
+MacroTab:Button({
+    Title = "⏺️ Start Recording",
+    Callback = function()
+        local name = macroNameInput.Value
+        if not name or name == "" then
+            name = "macro_" .. os.time()
+        end
+        if MacroRec:StartRecording(name) then
+            N("Macro", "Recording: " .. name)
+        end
+    end
+})
+
+MacroTab:Button({
+    Title = "⏹️ Stop Recording",
+    Callback = function()
+        local macro = MacroRec:StopRecording()
+        if macro then
+            N("Macro", "Stopped: " .. #macro.points .. " points captured")
+        end
+    end
+})
+
+MacroTab:Section({ Title = "Playback" })
+
+MacroTab:Button({
+    Title = "▶️ Play Current Macro",
+    Callback = function()
+        local macro = MacroRec:GetCurrentMacro()
+        if macro then
+            MacroRec:StartPlayback(macro)
+            N("Macro", "Playing: " .. (macro.name or "unnamed"))
+        else
+            N("Macro", "No macro loaded")
+        end
+    end
+})
+
+MacroTab:Button({
+    Title = "⏸️ Pause / Resume",
+    Callback = function()
+        MacroRec:PausePlayback()
+    end
+})
+
+MacroTab:Button({
+    Title = "⏹️ Stop Playback",
+    Callback = function()
+        MacroRec:StopPlayback()
+    end
+})
+
+local speedSlider = MacroTab:Slider({
+    Title = "Playback Speed",
+    Value = { Min = 1, Max = 10, Default = 1 },
+    Step = 1,
+    Callback = function(v) MacroRec:SetPlaybackSpeed(v) end
+})
+ConfigMgr:Register("MacroSpeed", speedSlider)
+
+local loopToggle = MacroTab:Toggle({
+    Title = "Loop Playback",
+    Value = false,
+    Callback = function(v) MacroRec:SetLoop(v) end
+})
+ConfigMgr:Register("MacroLoop", loopToggle)
+
+MacroTab:Section({ Title = "Save / Load" })
+
+MacroTab:Button({
+    Title = "💾 Save Current Macro",
+    Callback = function()
+        local macro = MacroRec:GetCurrentMacro()
+        if macro then
+            local ok, err = MacroRec:SaveMacro(macro.name, macro)
+            if ok then
+                refreshMacroList()
+                N("Macro", "Saved: " .. macro.name)
+            else
+                N("Macro", "Save failed: " .. tostring(err))
+            end
+        else
+            N("Macro", "No macro to save")
+        end
+    end
+})
+
+macroDropdown = MacroTab:Dropdown({
+    Title = "Select Macro",
+    Values = refreshMacroList(),
+    Value = 1,
+    Callback = function(v) selectedMacroName = v end
+})
+
+MacroTab:Button({
+    Title = "🔄 Refresh List",
+    Callback = function()
+        refreshMacroList()
+        N("Macro", "List refreshed")
+    end
+})
+
+MacroTab:Button({
+    Title = "📂 Load Selected",
+    Callback = function()
+        if selectedMacroName and selectedMacroName ~= "(no macros)" then
+            local macro = MacroRec:LoadMacro(selectedMacroName)
+            if macro then
+                N("Macro", "Loaded: " .. selectedMacroName .. " (" .. #macro.points .. " pts)")
+            else
+                N("Macro", "Failed to load")
+            end
+        end
+    end
+})
+
+MacroTab:Button({
+    Title = "🗑️ Delete Selected",
+    Callback = function()
+        if selectedMacroName and selectedMacroName ~= "(no macros)" then
+            MacroRec:DeleteMacro(selectedMacroName)
+            refreshMacroList()
+            N("Macro", "Deleted: " .. selectedMacroName)
+        end
+    end
+})
+
+MacroTab:Section({ Title = "Import / Export" })
+
+MacroTab:Button({
+    Title = "📤 Export to Clipboard",
+    Callback = function()
+        if selectedMacroName and selectedMacroName ~= "(no macros)" then
+            local json, err = MacroRec:ExportMacro(selectedMacroName)
+            if json then
+                N("Macro", "Exported to clipboard")
+            else
+                N("Macro", "Export failed: " .. tostring(err))
+            end
+        end
+    end
+})
+
+local importInput = MacroTab:Input({
+    Title = "Paste JSON to Import",
+    Placeholder = "Paste exported macro here...",
+    Value = "",
+    Callback = function() end
+})
+
+MacroTab:Button({
+    Title = "📥 Import from Clipboard",
+    Callback = function()
+        local clipboard = ""
+        if getclipboard then
+            pcall(function() clipboard = getclipboard() end)
+        end
+        if clipboard == "" then
+            clipboard = importInput.Value
+        end
+        if clipboard ~= "" then
+            local name, err = MacroRec:ImportMacro(clipboard)
+            if name then
+                refreshMacroList()
+                N("Macro", "Imported: " .. name)
+            else
+                N("Macro", "Import failed: " .. tostring(err))
+            end
+        else
+            N("Macro", "No data in clipboard or input")
+        end
+    end
+})
+
+-- Status updater
+task.spawn(function()
+    while true do
+        if macroStatusText then
+            pcall(function()
+                local status = MacroRec:GetStatus()
+                macroStatusText:Set(status)
+            end)
+        end
+        task.wait(0.5)
+    end
+end)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- VISUAL TAB
@@ -725,6 +953,56 @@ local teamCheckToggle = PlyTab:Toggle({
 })
 ConfigMgr:Register("TeamCheck", teamCheckToggle)
 
+-- Kill Aura Section
+PlyTab:Section({ Title = "Kill Aura" })
+
+local killAuraToggle = PlyTab:Toggle({
+    Title    = "Kill Aura",
+    Value    = false,
+    Callback = function(v)
+        if v then KillAura:Enable() else KillAura:Disable() end
+        N("Kill Aura", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("KillAura", killAuraToggle)
+
+local killAuraRadiusSlider = PlyTab:Slider({
+    Title    = "Kill Aura Radius",
+    Value    = { Min = 5, Max = 50, Default = 15 },
+    Step     = 1,
+    Callback = function(v) KillAura:SetRadius(v) end
+})
+ConfigMgr:Register("KillAuraRadius", killAuraRadiusSlider)
+
+local killAuraIntervalSlider = PlyTab:Slider({
+    Title    = "Attack Interval (ms)",
+    Value    = { Min = 50, Max = 1000, Default = 100 },
+    Step     = 50,
+    Callback = function(v) KillAura:SetAttackInterval(v / 1000) end
+})
+ConfigMgr:Register("KillAuraInterval", killAuraIntervalSlider)
+
+local killAuraPlayersToggle = PlyTab:Toggle({
+    Title    = "Target Players",
+    Value    = true,
+    Callback = function(v) KillAura:SetTargetPlayers(v) end
+})
+ConfigMgr:Register("KillAuraPlayers", killAuraPlayersToggle)
+
+local killAuraNPCsToggle = PlyTab:Toggle({
+    Title    = "Target NPCs",
+    Value    = true,
+    Callback = function(v) KillAura:SetTargetNPCs(v) end
+})
+ConfigMgr:Register("KillAuraNPCs", killAuraNPCsToggle)
+
+local killAuraTeamToggle = PlyTab:Toggle({
+    Title    = "Team Check",
+    Value    = true,
+    Callback = function(v) KillAura:SetTeamCheck(v) end
+})
+ConfigMgr:Register("KillAuraTeamCheck", killAuraTeamToggle)
+
 PlyTab:Section({ Title = "NPC" })
 
 local ikToggle = PlyTab:Toggle({
@@ -917,6 +1195,109 @@ PlyTab:Button({
 PlyTab:Section({ Title = "Stats" })
 PlyTab:Paragraph({ Title = "Username", Content = lp.Name })
 PlyTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
+
+-- Redeem Codes Section
+PlyTab:Section({ Title = "Auto Redeem Codes" })
+
+local autoDetectToggle = PlyTab:Toggle({
+    Title    = "Auto-Detect Mode",
+    Value    = true,
+    Callback = function(v)
+        RedeemCodes.AutoDetectEnabled = v
+        N("Auto Codes", v and "Will try common codes too" or "Only detected codes")
+    end
+})
+ConfigMgr:Register("AutoDetectCodes", autoDetectToggle)
+
+local codesInput = PlyTab:Input({
+    Title       = "Enter Codes (comma separated)",
+    Placeholder = "e.g. CODE1, CODE2, FREE100",
+    Value       = "",
+    Callback    = function(v)
+        RedeemCodes:SetCodes(v)
+        local count = #RedeemCodes.Codes
+        N("Codes", "Loaded " .. count .. " code(s)")
+    end
+})
+
+PlyTab:Button({
+    Title    = "🎁 Redeem All Codes",
+    Callback = function()
+        if #RedeemCodes.Codes == 0 then
+            N("Codes", "Enter codes first!")
+            return
+        end
+        N("Codes", "Redeeming " .. #RedeemCodes.Codes .. " code(s)...")
+        task.spawn(function()
+            RedeemCodes:Enable()
+            -- Wait for completion
+            while RedeemCodes.Enabled do
+                task.wait(0.1)
+            end
+            local summary = RedeemCodes:GetSummary()
+            local msg = string.format(
+                "Success: %d, Failed: %d, Already: %d",
+                summary.success, summary.failed, summary.already
+            )
+            N("Codes Done", msg)
+        end)
+    end
+})
+
+PlyTab:Button({
+    Title    = "🔍 Scan Code Remotes",
+    Callback = function()
+        local remotes = RedeemCodes:ScanRemotes()
+        if #remotes > 0 then
+            N("Code Scan", "Found " .. #remotes .. " remote(s) — check F9")
+        else
+            N("Code Scan", "No code remotes found")
+        end
+    end
+})
+
+PlyTab:Button({
+    Title    = "🤖 Auto-Detect & Redeem",
+    Callback = function()
+        N("Auto Codes", "Scanning game for codes...")
+        task.spawn(function()
+            local codes = RedeemCodes:AutoDetect()
+            if #codes == 0 then
+                N("Auto Codes", "No codes found in game")
+                return
+            end
+            N("Auto Codes", "Found " .. #codes .. " codes, redeeming...")
+            RedeemCodes:Enable()
+            -- Wait for completion
+            while RedeemCodes.Enabled do
+                task.wait(0.1)
+            end
+            local summary = RedeemCodes:GetSummary()
+            local msg = string.format(
+                "Success: %d, Failed: %d, Already: %d",
+                summary.success, summary.failed, summary.already
+            )
+            N("Auto Codes Done", msg)
+        end)
+    end
+})
+
+PlyTab:Button({
+    Title    = "📊 Show Results",
+    Callback = function()
+        local results = RedeemCodes:GetResults()
+        local count = 0
+        for _ in pairs(results) do count = count + 1 end
+        if count == 0 then
+            N("Results", "No results yet — redeem codes first")
+            return
+        end
+        N("Results", count .. " codes processed — check F9 for details")
+        for code, result in pairs(results) do
+            print("  " .. code .. " → " .. tostring(result))
+        end
+    end
+})
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS TAB
