@@ -1179,18 +1179,28 @@ local antiFlingToggle = PlayerTab:Toggle({
     Value    = false,
     Callback = function(v)
         if v then AntiFling:Enable() else AntiFling:Disable() end
-        N("Anti Fling", v and "Enabled" or "Disabled")
+        N("Anti Fling", v and "Enabled (Enhanced)" or "Disabled")
     end
 })
 ConfigMgr:Register("AntiFling", antiFlingToggle)
 
 local flingThreshSlider = PlayerTab:Slider({
     Title    = "Fling Threshold",
-    Value    = { Min = 100, Max = 1000, Default = 200 },
-    Step     = 1,
+    Value    = { Min = 50, Max = 500, Default = 150 },
+    Step     = 10,
     Callback = function(v) AntiFling:SetThreshold(v) end
 })
 ConfigMgr:Register("FlingThreshold", flingThreshSlider)
+
+local massManipToggle = PlayerTab:Toggle({
+    Title    = "Mass Manipulation",
+    Value    = true,
+    Callback = function(v) 
+        AntiFling:SetMassManipulation(v)
+        N("Anti Fling", v and "Heavy mode ON" or "Heavy mode OFF")
+    end
+})
+ConfigMgr:Register("MassManipulation", massManipToggle)
 
 local antiVoidToggle = PlayerTab:Toggle({
     Title    = "Anti Void",
