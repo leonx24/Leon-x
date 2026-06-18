@@ -10,7 +10,7 @@ end
 
 local function saveFile()
     pcall(function()
-        writefile("LeonX/fling_monitor_results.txt", table.concat(output, "\n"))
+        writefile("Leon X/fling_monitor_results.txt", table.concat(output, "\n"))
     end)
 end
 

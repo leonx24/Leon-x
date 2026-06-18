@@ -1,3 +1,22 @@
+# IDE/Editor configs
+.claude/
+.kiro/
+.vscode/
+.idea/
+*.sublime-*
+
+# Diagnostic outputs
+*.txt
+!version.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Debug/test files
+debug_*.lua
+test_*.lua
 CLAUDE.md
 .kiro
 .claude
