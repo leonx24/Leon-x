@@ -2,6 +2,7 @@
 -- Records player inputs (keyboard, mouse, jumps) and movement paths
 -- Replays using VirtualInputManager for realistic input simulation
 -- Includes anti-fall protection
+-- Per-map macro storage + Sequential queue playback
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
@@ -18,12 +19,22 @@ MacroRecorder.Paused = false
 
 -- Settings
 MacroRecorder.PlaybackSpeed = 1.0 -- multiplier
-MacroRecorder.Loop = false
+MacroRecorder.Loop = false -- loop single macro
 MacroRecorder.RecordInterval = 0.05 -- seconds between captures (faster for input accuracy)
 MacroRecorder.SmoothPlayback = true -- interpolate between points
 MacroRecorder.AntiFall = true -- auto-recover if falling
 MacroRecorder.FallThreshold = 5 -- studs below last safe Y = falling
 MacroRecorder.RecordInputs = true -- record keyboard/mouse inputs
+
+-- Per-map settings
+MacroRecorder.PerMapEnabled = true -- save/load macros per game
+MacroRecorder.CurrentPlaceId = tostring(game.PlaceId) -- current game ID
+
+-- Queue system for sequential macro playback
+MacroRecorder.QueueEnabled = false -- play macros in sequence
+MacroRecorder.QueueLoop = true -- loop entire queue when finished
+MacroRecorder.MacroQueue = {} -- { {name="macro1"}, {name="macro2"}, ... }
+MacroRecorder.CurrentQueueIndex = 1
 
 -- Data
 MacroRecorder.CurrentMacro = nil -- { name = "", points = { {pos, time, cf, inputs}, ... } }
@@ -66,17 +77,31 @@ end
 
 -- ── File I/O (executor environment) ─────────────────────────────────────────
 
-local MACRO_DIR = "LeonX/Macros"
+local MACRO_BASE_DIR = "LeonX/Macros"
+
+-- Get per-map macro directory
+local function getMacroDir()
+    if MacroRecorder.PerMapEnabled and MacroRecorder.CurrentPlaceId then
+        return MACRO_BASE_DIR .. "/" .. MacroRecorder.CurrentPlaceId
+    end
+    return MACRO_BASE_DIR
+end
 
 local function ensureDir()
-    if isfolder and not isfolder(MACRO_DIR) then
-        makefolder(MACRO_DIR)
+    -- Ensure base directory exists
+    if isfolder and not isfolder(MACRO_BASE_DIR) then
+        makefolder(MACRO_BASE_DIR)
+    end
+    -- Ensure per-map directory exists
+    local dir = getMacroDir()
+    if isfolder and not isfolder(dir) then
+        makefolder(dir)
     end
 end
 
 local function saveToFile(name, data)
     ensureDir()
-    local path = MACRO_DIR .. "/" .. name .. ".json"
+    local path = getMacroDir() .. "/" .. name .. ".json"
     local json = game:GetService("HttpService"):JSONEncode(data)
     if writefile then
         pcall(function() writefile(path, json) end)
@@ -86,7 +111,7 @@ local function saveToFile(name, data)
 end
 
 local function loadFromFile(name)
-    local path = MACRO_DIR .. "/" .. name .. ".json"
+    local path = getMacroDir() .. "/" .. name .. ".json"
     if readfile and isfile and isfile(path) then
         local ok, result = pcall(function() return readfile(path) end)
         if ok and result then
@@ -100,7 +125,7 @@ local function loadFromFile(name)
 end
 
 local function deleteFile(name)
-    local path = MACRO_DIR .. "/" .. name .. ".json"
+    local path = getMacroDir() .. "/" .. name .. ".json"
     if delfile and isfile and isfile(path) then
         pcall(function() delfile(path) end)
         return true
@@ -111,9 +136,10 @@ end
 local function listFiles()
     ensureDir()
     local files = {}
+    local dir = getMacroDir()
     if listfiles then
         pcall(function()
-            local raw = listfiles(MACRO_DIR)
+            local raw = listfiles(dir)
             for _, filepath in ipairs(raw or {}) do
                 local name = filepath:match("([^/\\]+)%.json$")
                 if name then
@@ -122,6 +148,44 @@ local function listFiles()
             end
         end)
     end
+    return files
+end
+
+-- Get list of all map folders (for browsing saved macros from other maps)
+function MacroRecorder:GetMapFolders()
+    local folders = {}
+    if listfiles and isfolder and isfolder(MACRO_BASE_DIR) then
+        pcall(function()
+            local raw = listfiles(MACRO_BASE_DIR)
+            for _, path in ipairs(raw or {}) do
+                if isfolder(path) then
+                    local name = path:match("([^/\\]+)$")
+                    if name then
+                        folders[#folders + 1] = name
+                    end
+                end
+            end
+        end)
+    end
+    return folders
+end
+
+-- List macros from a specific map/placeId
+function MacroRecorder:ListMacrosFromMap(placeId)
+    local dir = MACRO_BASE_DIR .. "/" .. placeId
+    local files = {}
+    if listfiles and isfolder and isfolder(dir) then
+        pcall(function()
+            local raw = listfiles(dir)
+            for _, filepath in ipairs(raw or {}) do
+                local name = filepath:match("([^/\\]+)%.json$")
+                if name then
+                    files[#files + 1] = name
+                end
+            end
+        end)
+    end
+    table.sort(files)
     return files
 end
 
@@ -413,7 +477,19 @@ function MacroRecorder:StartPlayback(macro)
         
         -- Check if we've finished all points
         if idxA > #points or (idxB > #points and playbackElapsed > (points[#points].time or 0)) then
-            if self.Loop then
+            -- Check if queue mode is active
+            if self.QueueEnabled then
+                -- Stop current macro playback first
+                self.Playing = false
+                if playbackConnection then
+                    playbackConnection:Disconnect()
+                    playbackConnection = nil
+                end
+                releaseAllInputs()
+                -- Advance to next macro in queue
+                self:AdvanceQueue()
+                return
+            elseif self.Loop then
                 playbackIndex = 1
                 playbackElapsed = 0
                 lastJumpState = false
@@ -739,17 +815,147 @@ function MacroRecorder:SetFallThreshold(threshold)
     self.FallThreshold = tonumber(threshold) or 5
 end
 
+-- ── Queue System ─────────────────────────────────────────────────────────────
+
+-- Add a macro to the playback queue
+function MacroRecorder:AddToQueue(macroName)
+    if not macroName or macroName == "" then return false end
+    for _, item in ipairs(self.MacroQueue) do
+        if item.name == macroName then
+            print("[Leon X] MacroRecorder: Already in queue - " .. macroName)
+            return false
+        end
+    end
+    self.MacroQueue[#self.MacroQueue + 1] = { name = macroName }
+    print("[Leon X] MacroRecorder: Added to queue - " .. macroName)
+    return true
+end
+
+-- Remove a macro from the queue
+function MacroRecorder:RemoveFromQueue(macroName)
+    for i, item in ipairs(self.MacroQueue) do
+        if item.name == macroName then
+            table.remove(self.MacroQueue, i)
+            print("[Leon X] MacroRecorder: Removed from queue - " .. macroName)
+            return true
+        end
+    end
+    return false
+end
+
+-- Clear the entire queue
+function MacroRecorder:ClearQueue()
+    self.MacroQueue = {}
+    self.CurrentQueueIndex = 1
+    self.QueueEnabled = false
+    print("[Leon X] MacroRecorder: Queue cleared")
+end
+
+-- Get queue list
+function MacroRecorder:GetQueue()
+    return self.MacroQueue
+end
+
+-- Set queue loop mode
+function MacroRecorder:SetQueueLoop(loop)
+    self.QueueLoop = loop
+end
+
+-- Start queue playback
+function MacroRecorder:StartQueuePlayback()
+    if #self.MacroQueue == 0 then
+        print("[Leon X] MacroRecorder: Queue is empty")
+        return false
+    end
+    
+    self.QueueEnabled = true
+    self.CurrentQueueIndex = 1
+    
+    -- Load and play first macro in queue
+    local firstMacro = self.MacroQueue[1]
+    if firstMacro then
+        local loaded = self:LoadMacro(firstMacro.name)
+        if loaded then
+            self:StartPlayback(loaded)
+            print("[Leon X] MacroRecorder: Queue playback started - " .. firstMacro.name)
+            return true
+        end
+    end
+    return false
+end
+
+-- Stop queue playback
+function MacroRecorder:StopQueuePlayback()
+    self.QueueEnabled = false
+    self.CurrentQueueIndex = 1
+    self:StopPlayback()
+    print("[Leon X] MacroRecorder: Queue playback stopped")
+end
+
+-- Advance to next macro in queue (called automatically when current finishes)
+function MacroRecorder:AdvanceQueue()
+    if not self.QueueEnabled then return false end
+    
+    self.CurrentQueueIndex = self.CurrentQueueIndex + 1
+    
+    -- Check if we've finished all macros in queue
+    if self.CurrentQueueIndex > #self.MacroQueue then
+        if self.QueueLoop then
+            -- Loop back to first macro
+            self.CurrentQueueIndex = 1
+            print("[Leon X] MacroRecorder: Queue loop - back to first macro")
+        else
+            -- Queue finished
+            self.QueueEnabled = false
+            self.CurrentQueueIndex = 1
+            print("[Leon X] MacroRecorder: Queue finished")
+            return false
+        end
+    end
+    
+    -- Load and play next macro
+    local nextMacro = self.MacroQueue[self.CurrentQueueIndex]
+    if nextMacro then
+        task.spawn(function()
+            task.wait(0.5) -- Brief pause between macros
+            local loaded = self:LoadMacro(nextMacro.name)
+            if loaded then
+                self:StartPlayback(loaded)
+                print("[Leon X] MacroRecorder: Queue playing - " .. nextMacro.name .. 
+                    " (" .. self.CurrentQueueIndex .. "/" .. #self.MacroQueue .. ")")
+            end
+        end)
+        return true
+    end
+    return false
+end
+
+-- Get queue status string
+function MacroRecorder:GetQueueStatus()
+    if not self.QueueEnabled then return "Queue: Inactive" end
+    return "Queue: " .. self.CurrentQueueIndex .. "/" .. #self.MacroQueue .. 
+        (self.QueueLoop and " (looping)" or "")
+end
+
 -- ── Status ───────────────────────────────────────────────────────────────────
 
 function MacroRecorder:GetStatus()
+    local status = ""
     if self.Recording then
-        return "Recording (" .. #self.RecordedPoints .. " points)"
+        status = "Recording (" .. #self.RecordedPoints .. " points)"
     elseif self.Playing then
-        return "Playing" .. (self.Paused and " (Paused)" or "") .. 
+        status = "Playing" .. (self.Paused and " (Paused)" or "") .. 
             " [" .. playbackIndex .. "/" .. #(self.CurrentMacro and self.CurrentMacro.points or {}) .. "]"
     else
-        return "Idle"
+        status = "Idle"
     end
+    
+    -- Add queue info if active
+    if self.QueueEnabled then
+        status = status .. " | Queue: " .. self.CurrentQueueIndex .. "/" .. #self.MacroQueue
+    end
+    
+    return status
 end
 
 function MacroRecorder:GetCurrentMacro()

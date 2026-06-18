@@ -738,6 +738,134 @@ MacroTab:Button({
     end
 })
 
+-- ══════════════════════════════════════════════════════════════════════════════
+-- MACRO QUEUE SECTION (Sequential Playback)
+-- ══════════════════════════════════════════════════════════════════════════════
+MacroTab:Section({ Title = "Macro Queue (Sequential)" })
+
+MacroTab:Paragraph({
+    Title = "Queue Info",
+    Content = "Chain macros: play one after another automatically"
+})
+
+-- Queue dropdown to show current queue
+local queueDisplayDropdown = nil
+local selectedQueueItem = nil
+
+local function refreshQueueDisplay()
+    local queue = MacroRec:GetQueue()
+    local names = {}
+    for i, item in ipairs(queue) do
+        names[#names + 1] = (i .. ". " .. item.name)
+    end
+    if #names == 0 then names = {"(empty queue)"} end
+    if queueDisplayDropdown then
+        queueDisplayDropdown:Refresh(names)
+        queueDisplayDropdown:Select(names[1])
+        selectedQueueItem = names[1]
+    end
+    return names
+end
+
+MacroTab:Button({
+    Title = "➕ Add Selected to Queue",
+    Callback = function()
+        if selectedMacroName and selectedMacroName ~= "(no macros)" then
+            if MacroRec:AddToQueue(selectedMacroName) then
+                refreshQueueDisplay()
+                N("Queue", "Added: " .. selectedMacroName)
+            else
+                N("Queue", "Already in queue or invalid")
+            end
+        else
+            N("Queue", "Select a macro first")
+        end
+    end
+})
+
+MacroTab:Button({
+    Title = "➖ Remove Selected from Queue",
+    Callback = function()
+        if selectedQueueItem and selectedQueueItem ~= "(empty queue)" then
+            -- Extract macro name from "1. macro_name" format
+            local macroName = selectedQueueItem:match("%d+%.%s+(.+)")
+            if macroName and MacroRec:RemoveFromQueue(macroName) then
+                refreshQueueDisplay()
+                N("Queue", "Removed: " .. macroName)
+            end
+        end
+    end
+})
+
+MacroTab:Button({
+    Title = "🗑 Clear Queue",
+    Callback = function()
+        MacroRec:ClearQueue()
+        refreshQueueDisplay()
+        N("Queue", "Queue cleared")
+    end
+})
+
+queueDisplayDropdown = MacroTab:Dropdown({
+    Title = "Current Queue",
+    Values = refreshQueueDisplay(),
+    Value = 1,
+    Callback = function(v) selectedQueueItem = v end
+})
+
+local queueLoopToggle = MacroTab:Toggle({
+    Title = "Loop Queue",
+    Value = true,
+    Callback = function(v) 
+        MacroRec:SetQueueLoop(v) 
+        N("Queue", v and "Loop enabled" or "Loop disabled")
+    end
+})
+ConfigMgr:Register("MacroQueueLoop", queueLoopToggle)
+
+MacroTab:Section({ Title = "Queue Playback" })
+
+MacroTab:Button({
+    Title = "▶️ Start Queue Playback",
+    Callback = function()
+        if #MacroRec:GetQueue() == 0 then
+            N("Queue", "Queue is empty! Add macros first")
+            return
+        end
+        if MacroRec:StartQueuePlayback() then
+            N("Queue", "Queue playback started")
+        else
+            N("Queue", "Failed to start queue playback")
+        end
+    end
+})
+
+MacroTab:Button({
+    Title = "⏹️ Stop Queue Playback",
+    Callback = function()
+        MacroRec:StopQueuePlayback()
+        N("Queue", "Queue stopped")
+    end
+})
+
+-- Per-map info
+MacroTab:Section({ Title = "Map Info" })
+MacroTab:Paragraph({
+    Title = "Current Map",
+    Content = "PlaceId: " .. tostring(game.PlaceId)
+})
+
+local perMapToggle = MacroTab:Toggle({
+    Title = "Per-Map Macros",
+    Value = true,
+    Callback = function(v)
+        MacroRec.PerMapEnabled = v
+        N("Macro", v and "Macros saved per game" or "Macros shared across games")
+        refreshMacroList()
+    end
+})
+ConfigMgr:Register("MacroPerMap", perMapToggle)
+
 -- Status updater
 task.spawn(function()
     while true do
