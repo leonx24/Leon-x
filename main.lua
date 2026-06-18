@@ -260,7 +260,9 @@ local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0
 local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.88)
 local KillAura    = load("modules/combat/killaura.lua");     setSplashProgress(0.90)
 local RedeemCodes = load("modules/auto/redeemcodes.lua");    setSplashProgress(0.91)
+local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0.92)
 local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
+local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {
@@ -1190,6 +1192,24 @@ local flingThreshSlider = PlayerTab:Slider({
 })
 ConfigMgr:Register("FlingThreshold", flingThreshSlider)
 
+local antiVoidToggle = PlayerTab:Toggle({
+    Title    = "Anti Void",
+    Value    = false,
+    Callback = function(v)
+        if v then AntiVoid:Enable() else AntiVoid:Disable() end
+        N("Anti Void", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("AntiVoid", antiVoidToggle)
+
+local voidThreshSlider = PlayerTab:Slider({
+    Title    = "Void Threshold (Y)",
+    Value    = { Min = -200, Max = 0, Default = -50 },
+    Step     = 10,
+    Callback = function(v) AntiVoid:SetVoidThreshold(v) end
+})
+ConfigMgr:Register("VoidThreshold", voidThreshSlider)
+
 PlayerTab:Section({ Title = "Info" })
 PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
 PlayerTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
@@ -1437,6 +1457,58 @@ AutoTab:Button({
         end
     end
 })
+
+-- Auto Clicker Section
+AutoTab:Section({ Title = "Auto Clicker" })
+
+local autoClickerToggle = AutoTab:Toggle({
+    Title    = "Auto Clicker",
+    Value    = false,
+    Callback = function(v)
+        if v then AutoClicker:Enable() else AutoClicker:Disable() end
+        N("Auto Clicker", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("AutoClicker", autoClickerToggle)
+
+local cpsSlider = AutoTab:Slider({
+    Title    = "Clicks Per Second (CPS)",
+    Value    = { Min = 1, Max = 100, Default = 10 },
+    Step     = 1,
+    Callback = function(v) AutoClicker:SetCPS(v) end
+})
+ConfigMgr:Register("AutoClickerCPS", cpsSlider)
+
+local clickTypeDrop = AutoTab:Dropdown({
+    Title    = "Click Type",
+    Values   = {"mouse", "tool"},
+    Value    = "mouse",
+    Callback = function(v) 
+        AutoClicker:SetClickType(v)
+        N("Auto Clicker", "Click type: " .. v)
+    end
+})
+ConfigMgr:Register("AutoClickerType", clickTypeDrop)
+
+local holdDownToggle = AutoTab:Toggle({
+    Title    = "Hold Mouse Down",
+    Value    = false,
+    Callback = function(v) 
+        AutoClicker:SetHoldDown(v)
+        N("Auto Clicker", v and "Hold mode" or "Click mode")
+    end
+})
+ConfigMgr:Register("AutoClickerHold", holdDownToggle)
+
+local randomDelayToggle = AutoTab:Toggle({
+    Title    = "Random Delay",
+    Value    = true,
+    Callback = function(v) 
+        AutoClicker:SetRandomDelay(v)
+        N("Auto Clicker", v and "Randomized timing" or "Fixed timing")
+    end
+})
+ConfigMgr:Register("AutoClickerRandom", randomDelayToggle)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS TAB
