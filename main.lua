@@ -259,8 +259,7 @@ local GodMode     = load("modules/player/godmode.lua");      setSplashProgress(0
 local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0.86)
 local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.88)
 local KillAura    = load("modules/combat/killaura.lua");     setSplashProgress(0.90)
-local RedeemCodes = load("modules/auto/redeemcodes.lua");    setSplashProgress(0.91)
-local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0.92)
+local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0.91)
 local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 
@@ -350,6 +349,12 @@ else
     local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 
 -- ── Macro Recorder UI ────────────────────────────────────────────────────────
+-- Keybind variables (used by InputBegan handlers below)
+-- Note: no keybind for InfJump, ESP, FullBright (use UI toggle only)
+local noclipKey      = Enum.KeyCode.N
+local tpWaypointKey  = Enum.KeyCode.G  -- G (not T, T opens Roblox chat)
+local autoClickerKey = Enum.KeyCode.C
+
 local macroStatusText = nil
 local macroDropdown = nil
 local selectedMacroName = nil
@@ -457,6 +462,14 @@ local noclipToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("Noclip", noclipToggle)
+MovTab:Keybind({
+    Title    = "Noclip Keybind",
+    Value    = "N",
+    Callback = function(k)
+        noclipKey = Enum.KeyCode[k] or Enum.KeyCode.N
+        N("Noclip Keybind", k)
+    end
+})
 local antiRagdollToggle = MovTab:Toggle({
     Title    = "Anti Ragdoll",
     Value    = false,
@@ -1356,6 +1369,115 @@ TeleTab:Button({
     end
 })
 
+TeleTab:Keybind({
+    Title    = "Teleport Keybind",
+    Value    = "G",
+    Callback = function(k)
+        tpWaypointKey = Enum.KeyCode[k] or Enum.KeyCode.G
+        N("TP Keybind", k)
+    end
+})
+
+TeleTab:Section({ Title = "Waypoint Queue (Sequential)" })
+
+TeleTab:Paragraph({
+    Title = "Queue Info",
+    Content = "Teleport through waypoints in order — stops at last"
+})
+
+local wpQueueDropdown = nil
+local selectedQueueItem = nil
+
+local function refreshWpQueue()
+    local queue = Waypoint:GetQueue()
+    local names = {}
+    for i, name in ipairs(queue) do
+        names[#names + 1] = (i .. ". " .. name)
+    end
+    if #names == 0 then names = {"(empty queue)"} end
+    if wpQueueDropdown then
+        wpQueueDropdown:Refresh(names)
+        wpQueueDropdown:Select(names[1])
+        selectedQueueItem = names[1]
+    end
+    return names
+end
+
+TeleTab:Button({
+    Title = "➕ Add Selected to Queue",
+    Callback = function()
+        local name = selectedWaypoint
+        if not name or name == "(no waypoints)" then
+            N("Queue", "Select a waypoint first"); return
+        end
+        if Waypoint:AddToQueue(name) then
+            refreshWpQueue()
+            N("Queue", "Added: " .. name)
+        else
+            N("Queue", "Already in queue or invalid")
+        end
+    end
+})
+
+TeleTab:Button({
+    Title = "➖ Remove Selected from Queue",
+    Callback = function()
+        if selectedQueueItem and selectedQueueItem ~= "(empty queue)" then
+            local wpName = selectedQueueItem:match("%d+%.%s+(.+)")
+            if wpName and Waypoint:RemoveFromQueue(wpName) then
+                refreshWpQueue()
+                N("Queue", "Removed: " .. wpName)
+            end
+        end
+    end
+})
+
+TeleTab:Button({
+    Title = "🗑 Clear Queue",
+    Callback = function()
+        Waypoint:ClearQueue()
+        refreshWpQueue()
+        N("Queue", "Queue cleared")
+    end
+})
+
+wpQueueDropdown = TeleTab:Dropdown({
+    Title = "Current Queue",
+    Values = refreshWpQueue(),
+    Value = 1,
+    Callback = function(v) selectedQueueItem = v end
+})
+
+local queueDelaySlider = TeleTab:Slider({
+    Title = "Delay Between TPs (sec)",
+    Value = { Min = 1, Max = 10, Default = 2 },
+    Step = 1,
+    Callback = function(v) Waypoint:SetQueueDelay(v) end
+})
+ConfigMgr:Register("WpQueueDelay", queueDelaySlider)
+
+TeleTab:Button({
+    Title = "▶️ Start Queue",
+    Callback = function()
+        if #Waypoint:GetQueue() == 0 then
+            N("Queue", "Queue is empty! Add waypoints first"); return
+        end
+        if Waypoint:StartQueue(Fly, N) then
+            N("Queue", "Queue started")
+        else
+            N("Queue", "Queue already running")
+        end
+    end
+})
+
+TeleTab:Button({
+    Title = "⏹️ Stop Queue",
+    Callback = function()
+        Waypoint:StopQueue()
+        N("Queue", "Queue stopped")
+    end
+})
+
 TeleTab:Section({ Title = "Server" })
 
 TeleTab:Button({
@@ -1378,97 +1500,6 @@ TeleTab:Button({
 -- ══════════════════════════════════════════════════════════════════════════════
 -- AUTO TAB (Automation Features)
 -- ══════════════════════════════════════════════════════════════════════════════
-AutoTab:Section({ Title = "Auto Redeem Codes" })
-
-local autoDetectToggle = AutoTab:Toggle({
-    Title    = "Auto-Detect Mode",
-    Value    = true,
-    Callback = function(v)
-        RedeemCodes.AutoDetectEnabled = v
-        N("Auto Codes", v and "Will try common codes too" or "Only detected codes")
-    end
-})
-ConfigMgr:Register("AutoDetectCodes", autoDetectToggle)
-
-local codesInput = AutoTab:Input({
-    Title       = "Enter Codes (comma separated)",
-    Placeholder = "e.g. CODE1, CODE2, FREE100",
-    Value       = "",
-    Callback    = function(v)
-        RedeemCodes:SetCodes(v)
-        local count = #RedeemCodes.Codes
-        N("Codes", "Loaded " .. count .. " code(s)")
-    end
-})
-
-AutoTab:Button({
-    Title    = "Redeem All Codes",
-    Callback = function()
-        if #RedeemCodes.Codes == 0 then
-            N("Codes", "Enter codes first!")
-            return
-        end
-        N("Codes", "Redeeming " .. #RedeemCodes.Codes .. " code(s)...")
-        task.spawn(function()
-            RedeemCodes:Enable()
-            while RedeemCodes.Enabled do task.wait(0.1) end
-            local summary = RedeemCodes:GetSummary()
-            N("Codes Done", string.format("Success: %d, Failed: %d, Already: %d",
-                summary.success, summary.failed, summary.already))
-        end)
-    end
-})
-
-AutoTab:Button({
-    Title    = "Auto-Detect & Redeem",
-    Callback = function()
-        N("Auto Codes", "Scanning game for codes...")
-        task.spawn(function()
-            local codes = RedeemCodes:AutoDetect()
-            if #codes == 0 then
-                N("Auto Codes", "No codes found in game")
-                return
-            end
-            N("Auto Codes", "Found " .. #codes .. " codes, redeeming...")
-            RedeemCodes:Enable()
-            while RedeemCodes.Enabled do task.wait(0.1) end
-            local summary = RedeemCodes:GetSummary()
-            N("Auto Codes Done", string.format("Success: %d, Failed: %d, Already: %d",
-                summary.success, summary.failed, summary.already))
-        end)
-    end
-})
-
-AutoTab:Button({
-    Title    = "Scan Code Remotes",
-    Callback = function()
-        local remotes = RedeemCodes:ScanRemotes()
-        if #remotes > 0 then
-            N("Code Scan", "Found " .. #remotes .. " remote(s) — check F9")
-        else
-            N("Code Scan", "No code remotes found")
-        end
-    end
-})
-
-AutoTab:Button({
-    Title    = "Show Results",
-    Callback = function()
-        local results = RedeemCodes:GetResults()
-        local count = 0
-        for _ in pairs(results) do count = count + 1 end
-        if count == 0 then
-            N("Results", "No results yet — redeem codes first")
-            return
-        end
-        N("Results", count .. " codes processed — check F9 for details")
-        for code, result in pairs(results) do
-            print("  " .. code .. " → " .. tostring(result))
-        end
-    end
-})
-
--- Auto Clicker Section
 AutoTab:Section({ Title = "Auto Clicker" })
 
 local autoClickerToggle = AutoTab:Toggle({
@@ -1519,6 +1550,15 @@ local randomDelayToggle = AutoTab:Toggle({
     end
 })
 ConfigMgr:Register("AutoClickerRandom", randomDelayToggle)
+
+AutoTab:Keybind({
+    Title    = "Auto Clicker Keybind",
+    Value    = "C",
+    Callback = function(k)
+        autoClickerKey = Enum.KeyCode[k] or Enum.KeyCode.C
+        N("AutoClicker Keybind", k)
+    end
+})
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SETTINGS TAB
@@ -1620,6 +1660,116 @@ SetTab:Section({ Title = "About" })
 SetTab:Paragraph({
     Title   = "Leon X",
     Content = "v"..CURRENT_VERSION.." • by leonx24"
+})
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- KEYBIND HANDLERS (Universal Mode)
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- Noclip keybind
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= noclipKey then return end
+    local s = not Noclip.Enabled
+    noclipToggle:Set(s)
+    if s then Noclip:Enable() else Noclip:Disable() end
+end)
+
+-- Teleport to selected waypoint keybind
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= tpWaypointKey then return end
+    local name = selectedWaypoint
+    if not name or name == "(no waypoints)" then
+        N("Waypoint", "No waypoint selected"); return
+    end
+    if Waypoint:Teleport(name, Fly) then
+        N("Waypoint", "→ " .. name)
+    else
+        N("Waypoint", "Teleport failed")
+    end
+end)
+
+-- Auto Clicker keybind
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= autoClickerKey then return end
+    local s = not AutoClicker.Enabled
+    autoClickerToggle:Set(s)
+    if s then AutoClicker:Enable() else AutoClicker:Disable() end
+end)
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- PANIC KEY (Delete) — Disable ALL active modules + hide window
+-- ════════════════════════════════════════════════════════════════════════════
+local panicKey = Enum.KeyCode.Delete
+
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= panicKey then return end
+
+    -- Disable all movement modules
+    pcall(function() if Fly.Enabled then flyToggle:Set(false); Fly:Disable() end end)
+    pcall(function() if Speed.Enabled then speedToggle:Set(false); Speed:Disable() end end)
+    pcall(function() if FreeCam.Enabled then fcToggle:Set(false); FreeCam:Disable() end end)
+    pcall(function() if InfJump.Enabled then infJumpToggle:Set(false); InfJump:Disable() end end)
+    pcall(function() if Noclip.Enabled then noclipToggle:Set(false); Noclip:Disable() end end)
+    pcall(function() if AntiRagdoll.Enabled then antiRagdollToggle:Set(false); AntiRagdoll:Disable() end end)
+    pcall(function() if Invisible.Enabled then invisToggle:Set(false); Invisible:Disable() end end)
+    pcall(function() if ClickTP.Enabled then clickTPToggle:Set(false); ClickTP:Disable() end end)
+    pcall(function() if WalkOnWater.Enabled then wowToggle:Set(false); WalkOnWater:Disable() end end)
+
+    -- Disable visual modules
+    pcall(function() if ESP.Enabled then espToggle:Set(false); ESP:Disable() end end)
+    pcall(function() if FullBright.Enabled then fullBrightToggle:Set(false); FullBright:Disable() end end)
+    pcall(function() if Tracer.Enabled then tracerToggle:Set(false); Tracer:Disable() end end)
+    pcall(function() if RemoveFog.Enabled then removeFogToggle:Set(false); RemoveFog:Disable() end end)
+
+    -- Disable combat modules
+    pcall(function() if KillAura.Enabled then killAuraToggle:Set(false); KillAura:Disable() end end)
+    pcall(function() if HitboxExp.Enabled then hitboxToggle:Set(false); HitboxExp:Disable() end end)
+    pcall(function() if InstantKill.Enabled then ikToggle:Set(false); InstantKill:Disable() end end)
+
+    -- Disable player modules
+    pcall(function() if InfStamina.Enabled then infStaminaToggle:Set(false); InfStamina:Disable() end end)
+    pcall(function() if GodMode.Enabled then godModeToggle:Set(false); GodMode:Disable() end end)
+    pcall(function() if NoFallDmg.Enabled then noFallToggle:Set(false); NoFallDmg:Disable() end end)
+    pcall(function() if AntiFling.Enabled then antiFlingToggle:Set(false); AntiFling:Disable() end end)
+    pcall(function() if AntiVoid.Enabled then antiVoidToggle:Set(false); AntiVoid:Disable() end end)
+
+    -- Disable auto modules
+    pcall(function() if AutoClicker.Enabled then autoClickerToggle:Set(false); AutoClicker:Disable() end end)
+
+    -- Stop waypoint queue
+    pcall(function() Waypoint:StopQueue() end)
+
+    -- Reset WalkSpeed/JumpPower to normal
+    pcall(function()
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                hum.WalkSpeed = 16
+                hum.JumpPower = 50
+                hum.JumpHeight = 7.2
+            end
+        end
+    end)
+
+    -- Hide the window
+    pcall(function() Window:Close() end)
+
+    N("PANIC", "All features disabled")
+end)
+
+SetTab:Section({ Title = "Panic Key" })
+SetTab:Keybind({
+    Title    = "Panic Key (Disable All)",
+    Value    = "Delete",
+    Callback = function(k)
+        panicKey = Enum.KeyCode[k] or Enum.KeyCode.Delete
+        N("Panic Key", k)
+    end
+})
+SetTab:Paragraph({
+    Title = "Panic Key Info",
+    Content = "Press to disable ALL features and hide the UI"
 })
 end -- end universal mode
 
@@ -1810,6 +1960,12 @@ task.delay(1.5, function()
 
             -- TeamCheck
             pcall(function() HitboxExp:SetTeamCheck(teamCheckToggle.Value) end)
+
+            -- AntiVoid threshold
+            pcall(function() AntiVoid:SetVoidThreshold(voidThreshSlider.Value or -50) end)
+
+            -- AntiFling mass manipulation
+            pcall(function() AntiFling:SetMassManipulation(massManipToggle.Value) end)
         end)
 
         -- 2. Speed Hack
@@ -1853,8 +2009,16 @@ task.delay(1.5, function()
         if godModeToggle.Value == true then GodMode:Enable() end
         if noFallToggle.Value == true then NoFallDmg:Enable() end
         if antiFlingToggle.Value == true then AntiFling:Enable() end
+        if antiVoidToggle.Value == true then AntiVoid:Enable() end
         if hitboxToggle.Value == true then HitboxExp:Enable() end
         if ikToggle.Value == true then InstantKill:Enable() end
+
+        -- 7b. Auto features
+        if autoClickerToggle.Value == true then AutoClicker:Enable() end
+        pcall(function() AutoClicker:SetCPS(cpsSlider.Value or 10) end)
+        pcall(function() AutoClicker:SetClickType(clickTypeDrop.Value or "mouse") end)
+        pcall(function() AutoClicker:SetHoldDown(holdDownToggle.Value) end)
+        pcall(function() AutoClicker:SetRandomDelay(randomDelayToggle.Value) end)
 
         -- 8. Theme (always sync)
         pcall(function()

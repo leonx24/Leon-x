@@ -160,4 +160,92 @@ function Waypoint:Clear()
     saveToDisk()
 end
 
+-- ── Waypoint Queue ─────────────────────────────────────
+
+Waypoint._queue     = {}   -- ordered list of waypoint names
+Waypoint._queueIdx  = 0
+Waypoint._queueRunning = false
+Waypoint._queueDelay   = 1.5  -- seconds between teleports
+
+function Waypoint:AddToQueue(name)
+    if not self.Waypoints[name] then return false end
+    -- Don't add duplicates
+    for _, qn in ipairs(self._queue) do
+        if qn == name then return false end
+    end
+    self._queue[#self._queue + 1] = name
+    return true
+end
+
+function Waypoint:RemoveFromQueue(name)
+    for i, qn in ipairs(self._queue) do
+        if qn == name then
+            table.remove(self._queue, i)
+            return true
+        end
+    end
+    return false
+end
+
+function Waypoint:ClearQueue()
+    self._queue = {}
+    self._queueIdx = 0
+    self._queueRunning = false
+end
+
+function Waypoint:GetQueue()
+    return self._queue
+end
+
+function Waypoint:SetQueueDelay(d)
+    self._queueDelay = math.max(0.5, d)
+end
+
+function Waypoint:IsQueueRunning()
+    return self._queueRunning
+end
+
+-- Start sequential teleport through queue (no loop, stops at last)
+function Waypoint:StartQueue(flyModule, notifyFn)
+    if #self._queue == 0 then return false end
+    if self._queueRunning then return false end
+
+    self._queueRunning = true
+    self._queueIdx = 0
+
+    task.spawn(function()
+        for i, name in ipairs(self._queue) do
+            if not self._queueRunning then break end
+            self._queueIdx = i
+
+            if notifyFn then
+                notifyFn("Waypoint Queue", string.format("[%d/%d] → %s", i, #self._queue, name))
+            end
+
+            local ok = self:Teleport(name, flyModule)
+            if not ok and notifyFn then
+                notifyFn("Waypoint Queue", "Failed to teleport to: " .. name)
+            end
+
+            -- Wait before next teleport (unless last)
+            if i < #self._queue and self._queueRunning then
+                task.wait(self._queueDelay)
+            end
+        end
+
+        self._queueRunning = false
+        self._queueIdx = 0
+        if notifyFn then
+            notifyFn("Waypoint Queue", "Complete — reached last waypoint")
+        end
+    end)
+
+    return true
+end
+
+function Waypoint:StopQueue()
+    self._queueRunning = false
+    self._queueIdx = 0
+end
+
 return Waypoint
