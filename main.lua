@@ -354,6 +354,7 @@ else
 local noclipKey      = Enum.KeyCode.N
 local tpWaypointKey  = Enum.KeyCode.G  -- G (not T, T opens Roblox chat)
 local autoClickerKey = Enum.KeyCode.C
+local wpQueueKey     = Enum.KeyCode.Q  -- Q = start/stop waypoint queue
 
 local macroStatusText = nil
 local macroDropdown = nil
@@ -1478,6 +1479,15 @@ TeleTab:Button({
     end
 })
 
+TeleTab:Keybind({
+    Title    = "Queue Keybind",
+    Value    = "Q",
+    Callback = function(k)
+        wpQueueKey = Enum.KeyCode[k] or Enum.KeyCode.Q
+        N("Queue Keybind", k)
+    end
+})
+
 TeleTab:Section({ Title = "Server" })
 
 TeleTab:Button({
@@ -1694,6 +1704,22 @@ UIS.InputBegan:Connect(function(i, gp)
     local s = not AutoClicker.Enabled
     autoClickerToggle:Set(s)
     if s then AutoClicker:Enable() else AutoClicker:Disable() end
+end)
+
+-- Waypoint Queue keybind (Q) — start if idle, stop if running
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= wpQueueKey then return end
+    if Waypoint:IsQueueRunning() then
+        Waypoint:StopQueue()
+        N("Queue", "Queue stopped")
+    else
+        if #Waypoint:GetQueue() == 0 then
+            N("Queue", "Queue is empty!"); return
+        end
+        if Waypoint:StartQueue(Fly, N) then
+            N("Queue", "Queue started")
+        end
+    end
 end)
 
 -- ════════════════════════════════════════════════════════════════════════════
