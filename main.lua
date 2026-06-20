@@ -232,6 +232,10 @@ local cacheBust = "?t="..os.time()
 local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
 -- ── Load modules with splash progress ─────────────────────────────────────────
+-- CRITICAL: AntiDetect loads FIRST and auto-enables before any game scripts can detect us
+local AntiDetect  = load("modules/player/antidetect.lua");   setSplashProgress(0.05)
+pcall(function() AntiDetect:Enable() end) -- auto-enable protection immediately
+
 local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
 local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.14)
 local Speed       = load("modules/movements/speed.lua");     setSplashProgress(0.18)
@@ -263,7 +267,6 @@ local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0
 local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
-local AntiDetect  = load("modules/player/antidetect.lua");   setSplashProgress(0.96)
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {
@@ -1260,7 +1263,7 @@ ConfigMgr:Register("GamepassSpoof", gpSpoofToggle)
 
 local antiDetectToggle = PlayerTab:Toggle({
     Title    = "Anti-Detection",
-    Value    = false,
+    Value    = true,
     Callback = function(v)
         if v then AntiDetect:Enable() else AntiDetect:Disable() end
         N("Anti-Detection", v and "Protection active" or "Disabled")
