@@ -1,6 +1,7 @@
--- Leon X | AntiDetect v2
+-- Leon X | AntiDetect v3
 -- Aggressive multi-layered anti-cheat neutralization
 -- Prevents "disallowed service detected" (error 267) kicks
+-- Blocks Adonis admin ::communication following disconnect:: kicks
 -- MUST be loaded FIRST — before any game anti-cheat scripts run
 
 local AntiDetect = {}
@@ -14,14 +15,19 @@ local lp               = Players.LocalPlayer
 -- Fast local flag (avoids table access in hot path)
 local adEnabled = false
 
+local TeleportService    = game:GetService("TeleportService")
+
 -- State tracking
 local oldNamecall       = nil
 local oldKick           = nil
+local oldTeleport       = nil
+local oldTeleportPlace  = nil
 local oldIsExec         = nil
 local destroyedScripts  = {}
 local scanConn          = nil
 local childConn         = nil
 local hookActive        = false
+local teleportBlocked   = false  -- transient flag during Adonis kick attempts
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- PATTERNS
@@ -37,6 +43,10 @@ local AC_SCRIPT_NAMES = {
     "senty", "topbarcorescript", "kick", "eac",
     "byfron", "hyperion", "guardian", "protector",
     "anticheese", "serverguard", "adonis_ac",
+    -- Adonis admin system
+    "adonis", "::adonis::", "adonisadmin", "adminserver",
+    "adonisclient", "adonis_core", "adonis_loader",
+    "server_admin", "adminmodule",
 }
 
 -- Anti-cheat remote name patterns (lowercase)
@@ -47,6 +57,9 @@ local AC_REMOTE_NAMES = {
     "heartbeat", "ping", "validate", "verify",
     "integrity", "sanity", "check", "exploit",
     "ban", "moderation", "modlog",
+    -- Adonis admin remotes
+    "::adonis::", "adonis", "adminremote", "adminkick",
+    "adminban", "adminteleport", "admincmd",
 }
 
 -- Suspicious single-character or short script names often used by obfuscated AC
@@ -96,11 +109,51 @@ local function enableNamecallHook()
         if hookActive then return end
 
         oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            -- Ultra-lightweight: only intercept Kick, pass through EVERYTHING else
-            if adEnabled and getnamecallmethod() == "Kick" then
-                -- Only block Kick on local player
-                if self == lp then
+            if adEnabled then
+                local method = getnamecallmethod()
+
+                -- Block Player:Kick()
+                if method == "Kick" and self == lp then
                     return
+                end
+
+                -- Block TeleportService teleport methods (Adonis kick vector)
+                -- Adonis uses Teleport to invalid places to force disconnect
+                if self == TeleportService then
+                    if method == "Teleport" or method == "TeleportToPlaceInstance"
+                       or method == "TeleportAsync" or method == "TeleportPartyAsync" then
+                        -- Check if destination placeId is suspicious (0 or very low = fake kick)
+                        local args = {...}
+                        local placeId = args[1]
+                        if placeId and type(placeId) == "number" and placeId < 100 then
+                            -- Almost certainly a fake/kick teleport
+                            return
+                        end
+                        -- Also block if Adonis flag is set (detected Adonis remote firing)
+                        if teleportBlocked then
+                            return
+                        end
+                    end
+                end
+
+                -- Block Adonis remote FireServer calls that trigger kicks
+                if method == "FireServer" or method == "InvokeServer" then
+                    local name = ""
+                    pcall(function() name = self.Name:lower() end)
+                    if name:find("adonis") or name:find("::adonis::") then
+                        -- Check args for kick/ban commands
+                        local args = {...}
+                        for _, arg in ipairs(args) do
+                            if type(arg) == "string" then
+                                local lower = arg:lower()
+                                if lower:find("kick") or lower:find("ban")
+                                   or lower:find("punish") or lower:find(":kick")
+                                   or lower:find(":ban") or lower:find("communication") then
+                                    return
+                                end
+                            end
+                        end
+                    end
                 end
             end
             return oldNamecall(self, ...)
@@ -124,6 +177,37 @@ local function enableDirectHooks()
                 lp.Kick,
                 newcclosure(function()
                     return  -- block kick
+                end)
+            )
+        end)
+
+        -- Hook TeleportService:Teleport() directly (Adonis backup kick vector)
+        pcall(function()
+            oldTeleport = hookfunction(
+                TeleportService.Teleport,
+                newcclosure(function(self, placeId, ...)
+                    if adEnabled then
+                        -- Block teleports to invalid/suspicious placeIds (Adonis kick)
+                        if type(placeId) == "number" and placeId < 100 then
+                            return
+                        end
+                    end
+                    return oldTeleport(self, placeId, ...)
+                end)
+            )
+        end)
+
+        -- Hook TeleportService:TeleportToPlaceInstance() directly
+        pcall(function()
+            oldTeleportPlace = hookfunction(
+                TeleportService.TeleportToPlaceInstance,
+                newcclosure(function(self, placeId, ...)
+                    if adEnabled then
+                        if type(placeId) == "number" and placeId < 100 then
+                            return
+                        end
+                    end
+                    return oldTeleportPlace(self, placeId, ...)
                 end)
             )
         end)
@@ -255,6 +339,57 @@ local function disableScriptScanner()
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
+-- LAYER 3B: Adonis Remote Interceptor
+-- ════════════════════════════════════════════════════════════════════════════
+
+local adonisRemoteConn = nil
+
+local function enableAdonisInterceptor()
+    -- Watch for Adonis remotes being added and intercept kick commands
+    pcall(function()
+        local rs = game:GetService("ReplicatedStorage")
+        if not rs then return end
+
+        -- Scan existing Adonis remotes
+        for _, obj in ipairs(rs:GetDescendants()) do
+            pcall(function()
+                local name = obj.Name:lower()
+                if name:find("adonis") or name:find("::adonis::") then
+                    if obj:IsA("RemoteEvent") then
+                        -- Hook OnClientEvent to intercept server-sent kick commands
+                        obj.OnClientEvent:Connect(function(...)
+                            if not adEnabled then return end
+                            -- Silently consume — don't let the kick command propagate
+                        end)
+                    end
+                end
+            end)
+        end
+
+        -- Watch for new Adonis remotes being added
+        adonisRemoteConn = rs.DescendantAdded:Connect(function(obj)
+            pcall(function()
+                local name = obj.Name:lower()
+                if name:find("adonis") or name:find("::adonis::") then
+                    if obj:IsA("RemoteEvent") then
+                        obj.OnClientEvent:Connect(function(...)
+                            if not adEnabled then return end
+                        end)
+                    end
+                end
+            end)
+        end)
+    end)
+end
+
+local function disableAdonisInterceptor()
+    if adonisRemoteConn then
+        adonisRemoteConn:Disconnect()
+        adonisRemoteConn = nil
+    end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- LAYER 4: Executor Environment Protection
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -335,6 +470,9 @@ function AntiDetect:Enable()
     -- Layer 3: Script scanner (destroy AC scripts)
     enableScriptScanner()
 
+    -- Layer 3B: Adonis remote interceptor
+    enableAdonisInterceptor()
+
     -- Layer 4: Executor environment protection (hide from getfenv/debug)
     enableExecutorProtection()
 end
@@ -345,6 +483,7 @@ function AntiDetect:Disable()
     adEnabled = false
 
     disableScriptScanner()
+    disableAdonisInterceptor()
 
     -- Note: hooks are NOT removed — they stay active and check self.Enabled
     -- This prevents anti-cheat from detecting hook removal
