@@ -262,6 +262,8 @@ local KillAura    = load("modules/combat/killaura.lua");     setSplashProgress(0
 local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0.91)
 local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
+local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
+local AntiDetect  = load("modules/player/antidetect.lua");   setSplashProgress(0.96)
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {
@@ -1244,6 +1246,33 @@ local voidThreshSlider = PlayerTab:Slider({
 })
 ConfigMgr:Register("VoidThreshold", voidThreshSlider)
 
+PlayerTab:Section({ Title = "Exploit" })
+
+local gpSpoofToggle = PlayerTab:Toggle({
+    Title    = "Gamepass Spoof",
+    Value    = false,
+    Callback = function(v)
+        if v then GamepassSpoof:Enable() else GamepassSpoof:Disable() end
+        N("Gamepass Spoof", v and "Spoofing ownership" or "Disabled")
+    end
+})
+ConfigMgr:Register("GamepassSpoof", gpSpoofToggle)
+
+local antiDetectToggle = PlayerTab:Toggle({
+    Title    = "Anti-Detection",
+    Value    = false,
+    Callback = function(v)
+        if v then AntiDetect:Enable() else AntiDetect:Disable() end
+        N("Anti-Detection", v and "Protection active" or "Disabled")
+    end
+})
+ConfigMgr:Register("AntiDetect", antiDetectToggle)
+
+PlayerTab:Paragraph({
+    Title = "Anti-Detection Info",
+    Content = "Blocks kicks, destroys anti-cheat scripts, hides executor"
+})
+
 PlayerTab:Section({ Title = "Info" })
 PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
 PlayerTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
@@ -1776,6 +1805,8 @@ UIS.InputBegan:Connect(function(i, gp)
     pcall(function() if NoFallDmg.Enabled then noFallToggle:Set(false); NoFallDmg:Disable() end end)
     pcall(function() if AntiFling.Enabled then antiFlingToggle:Set(false); AntiFling:Disable() end end)
     pcall(function() if AntiVoid.Enabled then antiVoidToggle:Set(false); AntiVoid:Disable() end end)
+    pcall(function() if GamepassSpoof.Enabled then gpSpoofToggle:Set(false); GamepassSpoof:Disable() end end)
+    pcall(function() if AntiDetect.Enabled then antiDetectToggle:Set(false); AntiDetect:Disable() end end)
 
     -- Disable auto modules
     pcall(function() if AutoClicker.Enabled then autoClickerToggle:Set(false); AutoClicker:Disable() end end)
@@ -2054,6 +2085,8 @@ task.delay(1.5, function()
         if noFallToggle.Value == true then NoFallDmg:Enable() end
         if antiFlingToggle.Value == true then AntiFling:Enable() end
         if antiVoidToggle.Value == true then AntiVoid:Enable() end
+        if gpSpoofToggle.Value == true then GamepassSpoof:Enable() end
+        if antiDetectToggle.Value == true then AntiDetect:Enable() end
         if hitboxToggle.Value == true then HitboxExp:Enable() end
         if ikToggle.Value == true then InstantKill:Enable() end
 
