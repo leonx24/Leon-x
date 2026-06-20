@@ -1,7 +1,9 @@
--- Leon X | AntiDetect v4
--- Aggressive multi-layered anti-cheat + anti-admin neutralization
--- Blocks Adonis admin kicks/bans (server-side Kick cannot be blocked —
---   so we destroy all Adonis client infrastructure instead)
+-- Leon X | AntiDetect v5
+-- Aggressive anti-Adonis + anti-cheat neutralization
+-- Key insight from console logs: Adonis kicks during INIT (before our scanner
+-- can destroy it) AND ClientCheck detects hooks → kicks via server
+-- Fix: (1) instant destroy on DescendantAdded (no task.defer),
+--      (2) startup burst scanning, (3) hide hooks from ClientCheck
 -- MUST be loaded FIRST — before any game anti-cheat scripts run
 
 local AntiDetect = {}
@@ -23,11 +25,15 @@ local oldKick           = nil
 local oldTeleport       = nil
 local oldTeleportPlace  = nil
 local oldIsExec         = nil
+local oldGetRMT         = nil
+local oldCheckCaller    = nil
 local destroyedScripts  = {}
 local destroyedAdonis   = {}  -- track destroyed Adonis objects
 local scanConn          = nil
 local childConn         = nil
 local gameChildConn     = nil  -- monitors entire game
+local rsChildConn       = nil  -- monitors ReplicatedStorage specifically
+local burstConn         = nil  -- startup burst scanner
 local hookActive        = false
 local adonisFound       = false -- true when any Adonis object is detected
 local userTeleporting   = false -- flag for user-initiated teleports
@@ -86,9 +92,10 @@ end
 local function isAdonisName(name)
     local lower = name:lower()
     return lower:find("adonis", 1, true)
-        or lower:find("::adonis::", 1, true)
         or lower:find("admin_handler", 1, true)
         or lower:find("adminremote", 1, true)
+        or lower:find("admin_server", 1, true)
+        or lower:find("admin_client", 1, true)
 end
 
 -- Check if an object or any of its ancestors is Adonis-related
@@ -272,17 +279,42 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- Destroy any Adonis-related object (script, remote, folder, anything)
+-- NO task.defer — must be IMMEDIATE to beat Adonis init timing
 local function destroyAdonisObj(obj)
     pcall(function()
         local name = obj.Name
-        -- Disable if it's a script
         pcall(function() obj.Disabled = true end)
-        -- Destroy parent connections
         pcall(function() obj.Parent = nil end)
         pcall(function() obj:Destroy() end)
         destroyedAdonis[#destroyedAdonis + 1] = name
         destroyedScripts[#destroyedScripts + 1] = name
         adonisFound = true
+    end)
+end
+
+-- Check if an object is any kind of Adonis target (script, remote, OR folder)
+local function isAdonisTarget(obj)
+    local isAdonis = false
+    pcall(function()
+        if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
+            if obj:IsA("LocalScript") or obj:IsA("ModuleScript")
+               or obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
+               or obj:IsA("Script") or obj:IsA("Folder") then
+                isAdonis = true
+            end
+        end
+    end)
+    return isAdonis
+end
+
+-- Full game Adonis sweep — called repeatedly during startup burst
+local function fullGameAdonisSweep()
+    pcall(function()
+        for _, obj in ipairs(game:GetDescendants()) do
+            if isAdonisTarget(obj) then
+                destroyAdonisObj(obj)
+            end
+        end
     end)
 end
 
@@ -313,32 +345,15 @@ local function scanContainer(container, aggressive)
 end
 
 local function enableScriptScanner()
-    -- ═══ PHASE 1: Nuke ALL Adonis objects across the entire game ═══
-    -- Adonis can live anywhere: ReplicatedStorage, Workspace, ServerScriptService
-    -- (client-visible parts), StarterGui, PlayerGui, PlayerScripts, etc.
-    pcall(function()
-        for _, obj in ipairs(game:GetDescendants()) do
-            pcall(function()
-                if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
-                    if obj:IsA("LocalScript") or obj:IsA("ModuleScript")
-                       or obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
-                       or obj:IsA("Script") then
-                        destroyAdonisObj(obj)
-                    end
-                end
-            end)
-        end
-    end)
+    -- ═══ PHASE 1: IMMEDIATE full-game Adonis nuke ═══
+    fullGameAdonisSweep()
 
     -- ═══ PHASE 2: Scan specific containers for generic AC scripts ═══
-    local total = 0
     local containers = {}
-
     pcall(function()
         local ps = lp:FindFirstChild("PlayerScripts")
         if ps then containers[#containers + 1] = ps end
     end)
-
     pcall(function()
         local sp = game:GetService("StarterPlayer")
         if sp then
@@ -346,158 +361,153 @@ local function enableScriptScanner()
             if sps then containers[#containers + 1] = sps end
         end
     end)
-
     pcall(function()
         local rs = game:GetService("ReplicatedStorage")
         if rs then containers[#containers + 1] = rs end
     end)
-
     pcall(function()
         local sgc = game:GetService("StarterGui")
         if sgc then containers[#containers + 1] = sgc end
     end)
-
     pcall(function()
         local lighting = game:GetService("Lighting")
         if lighting then containers[#containers + 1] = lighting end
     end)
-
     pcall(function()
         local ws = game:GetService("Workspace")
         if ws then containers[#containers + 1] = ws end
     end)
-
     for _, container in ipairs(containers) do
-        total = total + scanContainer(container)
+        scanContainer(container)
     end
 
-    -- ═══ PHASE 3: Continuous full-game monitoring ═══
-    -- Scan every heartbeat for new Adonis/AC scripts
+    -- ═══ PHASE 3: Startup burst — scan every 50ms for 3 seconds ═══
+    -- This catches Adonis objects created AFTER our initial scan
+    -- but BEFORE Heartbeat kicks in. Critical timing window.
+    if burstConn then burstConn:Disconnect() end
+    local burstCount = 0
+    burstConn = RunService.Heartbeat:Connect(function(dt)
+        burstCount = burstCount + 1
+        if burstCount > 180 then -- ~3 seconds at 60fps
+            burstConn:Disconnect()
+            burstConn = nil
+            return
+        end
+        -- Sweep every ~3 frames (50ms at 60fps)
+        if burstCount % 3 == 0 then
+            fullGameAdonisSweep()
+        end
+    end)
+
+    -- ═══ PHASE 4: Continuous full-game monitoring (post-burst) ═══
     if scanConn then scanConn:Disconnect() end
     scanConn = RunService.Heartbeat:Connect(function()
         if not AntiDetect.Enabled then return end
-
-        -- Check PlayerScripts
-        pcall(function()
-            local ps = lp:FindFirstChild("PlayerScripts")
-            if ps then
-                for _, obj in ipairs(ps:GetDescendants()) do
-                    if isSuspiciousScript(obj) then
-                        destroyScript(obj)
-                    end
-                end
-            end
-        end)
-
-        -- Also sweep ReplicatedStorage for Adonis remotes being re-added
-        pcall(function()
-            local rs = game:GetService("ReplicatedStorage")
-            if rs then
-                for _, obj in ipairs(rs:GetDescendants()) do
-                    if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
-                        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
-                           or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
-                            destroyAdonisObj(obj)
-                        end
-                    end
-                end
-            end
-        end)
+        fullGameAdonisSweep()
     end)
 
-    -- ═══ PHASE 4: game.DescendantAdded — instant kill for any Adonis object ═══
-    if childConn then childConn:Disconnect() end
+    -- ═══ PHASE 5: game.DescendantAdded — IMMEDIATE kill (NO task.defer) ═══
+    if gameChildConn then gameChildConn:Disconnect() end
+    gameChildConn = game.DescendantAdded:Connect(function(obj)
+        if not AntiDetect.Enabled then return end
+        -- IMMEDIATE — no defer, no spawn
+        -- Adonis init runs AFTER the object is parented,
+        -- so if we destroy right here, we beat the init code
+        if isAdonisTarget(obj) then
+            destroyAdonisObj(obj)
+        end
+    end)
+
+    -- ═══ PHASE 6: ReplicatedStorage ChildAdded — fastest remote interception ═══
+    if rsChildConn then rsChildConn:Disconnect() end
     pcall(function()
-        local ps = lp:FindFirstChild("PlayerScripts")
-        if ps then
-            childConn = ps.DescendantAdded:Connect(function(obj)
+        local rs = game:GetService("ReplicatedStorage")
+        if rs then
+            rsChildConn = rs.ChildAdded:Connect(function(child)
                 if not AntiDetect.Enabled then return end
-                task.defer(function()
-                    if isSuspiciousScript(obj) then
-                        destroyScript(obj)
+                if isAdonisTarget(child) then
+                    destroyAdonisObj(child)
+                end
+                -- Also check children of the added child (folders)
+                pcall(function()
+                    for _, desc in ipairs(child:GetDescendants()) do
+                        if isAdonisTarget(desc) then
+                            destroyAdonisObj(desc)
+                        end
                     end
                 end)
             end)
         end
     end)
 
-    if gameChildConn then gameChildConn:Disconnect() end
-    gameChildConn = game.DescendantAdded:Connect(function(obj)
-        if not AntiDetect.Enabled then return end
-        pcall(function()
-            if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
-                if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
-                   or obj:IsA("LocalScript") or obj:IsA("ModuleScript")
-                   or obj:IsA("Script") then
-                    task.defer(function()
-                        destroyAdonisObj(obj)
-                    end)
+    -- ═══ PHASE 7: PlayerScripts monitoring ═══
+    if childConn then childConn:Disconnect() end
+    pcall(function()
+        local ps = lp:FindFirstChild("PlayerScripts")
+        if ps then
+            childConn = ps.DescendantAdded:Connect(function(obj)
+                if not AntiDetect.Enabled then return end
+                -- IMMEDIATE — no defer
+                if isSuspiciousScript(obj) then
+                    destroyScript(obj)
                 end
-            end
-        end)
+            end)
+        end
     end)
 end
 
 local function disableScriptScanner()
-    if scanConn then
-        scanConn:Disconnect()
-        scanConn = nil
-    end
-    if childConn then
-        childConn:Disconnect()
-        childConn = nil
-    end
-    if gameChildConn then
-        gameChildConn:Disconnect()
-        gameChildConn = nil
-    end
+    if scanConn then scanConn:Disconnect(); scanConn = nil end
+    if childConn then childConn:Disconnect(); childConn = nil end
+    if gameChildConn then gameChildConn:Disconnect(); gameChildConn = nil end
+    if rsChildConn then rsChildConn:Disconnect(); rsChildConn = nil end
+    if burstConn then burstConn:Disconnect(); burstConn = nil end
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 3B: Adonis Remote Interceptor (backup — destroys remotes on contact)
+-- LAYER 3B: Anti-Hook Detection (hide our hooks from Adonis ClientCheck)
 -- ════════════════════════════════════════════════════════════════════════════
 
-local adonisRemoteConn = nil
-
-local function enableAdonisInterceptor()
+local function enableAntiHookDetection()
     pcall(function()
-        local rs = game:GetService("ReplicatedStorage")
-        if not rs then return end
+        if not hookfunction or not newcclosure then return end
 
-        -- Destroy ALL existing Adonis remotes and scripts
-        for _, obj in ipairs(rs:GetDescendants()) do
-            pcall(function()
-                if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
-                    destroyAdonisObj(obj)
-                end
-            end)
-        end
-    end)
+        -- Hook getrawmetatable — Adonis ClientCheck uses this to verify
+        -- that __namecall hasn't been modified. Return a "clean" metatable
+        -- that hides our hook.
+        pcall(function()
+            if not getrawmetatable then return end
+            local origGetRMT = getrawmetatable
+            local gameMT = origGetRMT(game)
+            local realNamecall = gameMT and gameMT.__namecall
 
-    -- Also sweep other common locations
-    pcall(function()
-        for _, service in ipairs({"StarterGui", "Workspace", "Lighting"}) do
-            pcall(function()
-                local svc = game:GetService(service)
-                if svc then
-                    for _, obj in ipairs(svc:GetDescendants()) do
-                        pcall(function()
-                            if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
-                                destroyAdonisObj(obj)
+            oldGetRMT = hookfunction(getrawmetatable, newcclosure(function(obj)
+                local mt = origGetRMT(obj)
+                if obj == game and mt and adEnabled then
+                    -- Return a proxy that shows the original __namecall
+                    local proxy = setmetatable({}, {
+                        __index = function(_, key)
+                            if key == "__namecall" then
+                                return oldNamecall or realNamecall
                             end
-                        end)
-                    end
+                            return mt[key]
+                        end
+                    })
+                    return proxy
                 end
-            end)
-        end
-    end)
-end
+                return mt
+            end))
+        end)
 
-local function disableAdonisInterceptor()
-    if adonisRemoteConn then
-        adonisRemoteConn:Disconnect()
-        adonisRemoteConn = nil
-    end
+        -- Hook checkcaller — Adonis ClientCheck uses this to detect
+        -- if our closures are executor-made. Always return false.
+        pcall(function()
+            if not checkcaller then return end
+            oldCheckCaller = hookfunction(checkcaller, newcclosure(function(...)
+                return false  -- "this is NOT an executor closure"
+            end))
+        end)
+    end)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -575,14 +585,14 @@ function AntiDetect:Enable()
     -- Layer 1: __namecall hook (MUST be first — catches everything)
     enableNamecallHook()
 
-    -- Layer 2: Direct function hooks (Kick, isexecutorclosure)
+    -- Layer 2: Direct function hooks (Kick, Teleport, isexecutorclosure)
     enableDirectHooks()
 
-    -- Layer 3: Script scanner (destroy AC scripts)
+    -- Layer 3: Script scanner + startup burst + event monitors
     enableScriptScanner()
 
-    -- Layer 3B: Adonis remote interceptor
-    enableAdonisInterceptor()
+    -- Layer 3B: Anti-hook detection (hide hooks from Adonis ClientCheck)
+    enableAntiHookDetection()
 
     -- Layer 4: Executor environment protection (hide from getfenv/debug)
     enableExecutorProtection()
@@ -594,7 +604,6 @@ function AntiDetect:Disable()
     adEnabled = false
 
     disableScriptScanner()
-    disableAdonisInterceptor()
 
     -- Note: hooks are NOT removed — they stay active and check self.Enabled
     -- This prevents anti-cheat from detecting hook removal
