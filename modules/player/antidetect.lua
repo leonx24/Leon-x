@@ -368,7 +368,7 @@ local function enableExecutorProtection()
             "checkcaller", "newcclosure", "newproxy", "clonefunction",
             "isexecutorclosure", "getinstances", "getnilinstances",
             "getscripts", "getrunningscripts", "getloadedmodules",
-            "decompile", "getscriptclosure", "gets scripthash",
+            "decompile", "getscriptclosure", "getscripthash",
             "getthreadidentity", "setthreadidentity", "setfpscap",
             "request", "http_request", "crypt", "base64_encode",
             "base64_decode", "readfile", "writefile", "appendfile",

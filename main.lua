@@ -233,8 +233,12 @@ local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
 -- ── Load modules with splash progress ─────────────────────────────────────────
 -- CRITICAL: AntiDetect loads FIRST and auto-enables before any game scripts can detect us
-local AntiDetect  = load("modules/player/antidetect.lua");   setSplashProgress(0.05)
-pcall(function() AntiDetect:Enable() end) -- auto-enable protection immediately
+local AntiDetect
+pcall(function()
+    AntiDetect = load("modules/player/antidetect.lua")
+    setSplashProgress(0.05)
+    AntiDetect:Enable()
+end)
 
 local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
 local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.14)
