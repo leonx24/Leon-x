@@ -313,7 +313,7 @@ local function enableExecutorProtection()
                 end
             end
             return info
-        end)
+        end))
     end)
 end
 
