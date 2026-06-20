@@ -1,8 +1,6 @@
 -- Leon X | main.lua
 -- Wind UI version with splash screen + floating open button
 
-print("[Leon X] main.lua starting...")
-
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
 local CURRENT_VERSION = "1.3"
@@ -228,38 +226,21 @@ end
 -- LOAD WIND UI
 -- ══════════════════════════════════════════════════════════════════════════════
 local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
-print("[Leon X] WindUI loaded")
 setSplashProgress(0.05)
 
 local cacheBust = "?t="..os.time()
-local function load(p)
-    local ok, mod = pcall(function()
-        return loadstring(game:HttpGet(BASE..p..cacheBust))()
-    end)
-    if not ok then
-        warn("[Leon X] LOAD FAILED: "..p.." — "..tostring(mod))
-        return nil
-    end
-    return mod
-end
+local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
 -- ── Load modules with splash progress ─────────────────────────────────────────
 -- CRITICAL: AntiDetect loads FIRST and auto-enables before any game scripts can detect us
 local AntiDetect
-local adOk, adErr = pcall(function()
+pcall(function()
     AntiDetect = load("modules/player/antidetect.lua")
-    print("[Leon X] AntiDetect module loaded")
     setSplashProgress(0.05)
     AntiDetect:Enable()
-    print("[Leon X] AntiDetect enabled")
 end)
-if not adOk then
-    warn("[Leon X] AntiDetect FAILED: "..tostring(adErr))
-end
 
-print("[Leon X] Loading core modules...")
-
-local ConfigMgr   = load("modules/core/configmanager.lua") or {Register=function()end, AutoLoad=function()end}; setSplashProgress(0.10)
+local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
 local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.14)
 local Speed       = load("modules/movements/speed.lua");     setSplashProgress(0.18)
 local InfJump     = load("modules/movements/infinitejump.lua"); setSplashProgress(0.22)
@@ -291,8 +272,6 @@ local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgre
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
 
-print("[Leon X] All core modules loaded")
-
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {
     load("modules/games/growagarden2.lua");
@@ -310,9 +289,7 @@ for _, gm in ipairs(GAME_MODULES) do
     if ActiveGameModule then break end
 end
 
-pcall(function() Waypoint:Init() end)
-
-print("[Leon X] Creating window...")
+Waypoint:Init()
 
 -- ── Window ────────────────────────────────────────────────────────────────────
 local Window = WindUI:CreateWindow({
@@ -2019,8 +1996,6 @@ task.delay(1.5, function()
     -- Anti-AFK is already auto-enabled above (universal)
 
     if not ActiveGameModule then
-    print("[Leon X] Starting post-load sync...")
-    
     -- ── Post-load sync: activate modules based on loaded toggle states ────────
     -- ConfigManager:Load() does NOT fire callbacks, so we manually sync here
     -- in a deterministic order to avoid race conditions.
@@ -2213,6 +2188,4 @@ end)
 task.delay(2, function()
     N("Leon X", "Welcome!")
 end)
-
-print("[Leon X] Boot complete!")
 

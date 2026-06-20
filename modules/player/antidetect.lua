@@ -92,10 +92,7 @@ end
 
 local function enableNamecallHook()
     pcall(function()
-        if not hookmetamethod or not newcclosure or not getnamecallmethod then
-            print("[AntiDetect] Layer 1: hookmetamethod/newcclosure/getnamecallmethod NOT available — skipping")
-            return
-        end
+        if not hookmetamethod or not newcclosure or not getnamecallmethod then return end
         if hookActive then return end
 
         oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
@@ -111,8 +108,6 @@ local function enableNamecallHook()
 
         hookActive = true
     end)
-
-    print("[Leon X] AntiDetect v2: __namecall hook enabled (kick blocker)")
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -121,10 +116,7 @@ end
 
 local function enableDirectHooks()
     pcall(function()
-        if not hookfunction or not newcclosure then
-            print("[AntiDetect] Layer 2: hookfunction/newcclosure NOT available — skipping")
-            return
-        end
+        if not hookfunction or not newcclosure then return end
 
         -- Hook Player:Kick() directly
         pcall(function()
@@ -148,8 +140,6 @@ local function enableDirectHooks()
             end
         end)
     end)
-
-    print("[Leon X] AntiDetect v2: Direct function hooks enabled")
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -219,10 +209,6 @@ local function enableScriptScanner()
         total = total + scanContainer(container)
     end
 
-    if total > 0 then
-        print("[Leon X] AntiDetect v2: Destroyed " .. total .. " anti-cheat script(s)")
-    end
-
     -- Continuous monitoring — scan every heartbeat for new scripts
     if scanConn then scanConn:Disconnect() end
     scanConn = RunService.Heartbeat:Connect(function()
@@ -274,10 +260,7 @@ end
 
 local function enableExecutorProtection()
     pcall(function()
-        if not hookfunction or not newcclosure then
-            print("[AntiDetect] Layer 4: hookfunction/newcclosure NOT available — skipping")
-            return
-        end
+        if not hookfunction or not newcclosure then return end
 
         -- Hook getfenv to strip executor functions from returned environments
         local origGetfenv = getfenv
@@ -330,10 +313,8 @@ local function enableExecutorProtection()
                 end
             end
             return info
-        end))
+        end)
     end)
-
-    print("[Leon X] AntiDetect v2: Executor environment protection enabled")
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -346,22 +327,16 @@ function AntiDetect:Enable()
     adEnabled = true
 
     -- Layer 1: __namecall hook (MUST be first — catches everything)
-    print("[AntiDetect] Enabling Layer 1: namecall hook...")
     enableNamecallHook()
 
     -- Layer 2: Direct function hooks (Kick, isexecutorclosure)
-    print("[AntiDetect] Enabling Layer 2: direct hooks...")
     enableDirectHooks()
 
     -- Layer 3: Script scanner (destroy AC scripts)
-    print("[AntiDetect] Enabling Layer 3: script scanner...")
     enableScriptScanner()
 
     -- Layer 4: Executor environment protection (hide from getfenv/debug)
-    print("[AntiDetect] Enabling Layer 4: executor protection...")
     enableExecutorProtection()
-
-    print("[Leon X] AntiDetect v2: Full protection enabled")
 end
 
 function AntiDetect:Disable()
@@ -373,8 +348,6 @@ function AntiDetect:Disable()
 
     -- Note: hooks are NOT removed — they stay active and check self.Enabled
     -- This prevents anti-cheat from detecting hook removal
-
-    print("[Leon X] AntiDetect v2: Disabled (hooks remain active)")
 end
 
 function AntiDetect:Toggle()
@@ -389,5 +362,4 @@ function AntiDetect:GetDestroyedNames()
     return destroyedScripts
 end
 
-print("[AntiDetect] Module loaded successfully")
 return AntiDetect
