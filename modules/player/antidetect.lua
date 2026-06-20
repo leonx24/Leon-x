@@ -188,7 +188,8 @@ local function enableNamecallHook()
                        or method == "TeleportAsync" or method == "TeleportPartyAsync"
                        or method == "TeleportToPrivateServer" then
                         -- Allow user-initiated teleports (e.g. ServerHop)
-                        if userTeleporting then
+                        -- Check both local flag and global bridge (early hook uses global)
+                        if userTeleporting or _G._LeonX_AllowTeleportActive then
                             return oldNamecall(self, ...)
                         end
                         -- Block ALL teleports when Adonis was detected in game
@@ -235,7 +236,7 @@ local function enableDirectHooks()
             oldTeleport = hookfunction(
                 TeleportService.Teleport,
                 newcclosure(function(self, placeId, ...)
-                    if adEnabled and not userTeleporting then
+                    if adEnabled and not userTeleporting and not _G._LeonX_AllowTeleportActive then
                         if adonisFound or (type(placeId) == "number" and placeId < 100) then
                             return
                         end
@@ -250,7 +251,7 @@ local function enableDirectHooks()
             oldTeleportPlace = hookfunction(
                 TeleportService.TeleportToPlaceInstance,
                 newcclosure(function(self, placeId, ...)
-                    if adEnabled and not userTeleporting then
+                    if adEnabled and not userTeleporting and not _G._LeonX_AllowTeleportActive then
                         if adonisFound or (type(placeId) == "number" and placeId < 100) then
                             return
                         end

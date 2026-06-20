@@ -1,6 +1,126 @@
 -- Leon X | main.lua
 -- Wind UI version with splash screen + floating open button
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- EARLY HOOKS (MUST be first — before ANY HTTP or game interaction)
+-- Blocks Adonis kick remotes + Player:Kick() from the very first line.
+-- The full AntiDetect module loads later for deeper protection.
+-- ═══════════════════════════════════════════════════════════════════════════
+local _earlyHookOk, _earlyHookErr = pcall(function()
+    if not hookmetamethod or not newcclosure or not getnamecallmethod then return end
+    local _earlyLP = game:GetService("Players").LocalPlayer
+    local _earlyTS = game:GetService("TeleportService")
+    local _origNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+
+        -- Block Player:Kick()
+        if method == "Kick" and self == _earlyLP then
+            return
+        end
+
+        -- Block ALL FireServer/InvokeServer on Adonis-related remotes
+        if method == "FireServer" or method == "InvokeServer" then
+            local isAdonis = false
+            pcall(function()
+                local n = self.Name:lower()
+                if n:find("adonis", 1, true) then isAdonis = true; return end
+                -- Walk parent chain
+                local p = self.Parent
+                while p do
+                    local pn = p.Name:lower()
+                    if pn:find("adonis", 1, true) then isAdonis = true; return end
+                    p = p.Parent
+                end
+            end)
+            if isAdonis then return end
+        end
+
+        -- Block suspicious teleports (Adonis force-disconnect)
+        if self == _earlyTS then
+            if method == "Teleport" or method == "TeleportToPlaceInstance"
+               or method == "TeleportAsync" or method == "TeleportPartyAsync"
+               or method == "TeleportToPrivateServer" then
+                -- Allow if user-flagged (ServerHop/Rejoin set this)
+                if _G._LeonX_AllowTeleportActive then
+                    return _origNC(self, ...)
+                end
+                local args = {...}
+                local placeId = args[1]
+                if placeId and type(placeId) == "number" and placeId < 100 then
+                    return
+                end
+            end
+        end
+
+        return _origNC(self, ...)
+    end))
+    print("[LeonX] Early namecall hook installed")
+end)
+if not _earlyHookOk then
+    warn("[LeonX] Early hook failed: " .. tostring(_earlyHookErr))
+end
+
+-- Early stealth hooks — hide executor from Adonis ClientCheck
+pcall(function()
+    if not hookfunction or not newcclosure then return end
+
+    -- checkcaller: always return false so our closures look legitimate
+    pcall(function()
+        if checkcaller then
+            hookfunction(checkcaller, newcclosure(function()
+                return false
+            end))
+        end
+    end)
+
+    -- getfenv: strip executor functions from environments
+    pcall(function()
+        if getfenv then
+            local _origGFE = getfenv
+            local _execFns = {
+                hookfunction=1, hookmetamethod=1, getgc=1, getrenv=1, getsenv=1,
+                getrawmetatable=1, setrawmetatable=1, getnamecallmethod=1,
+                checkcaller=1, newcclosure=1, newproxy=1, clonefunction=1,
+                isexecutorclosure=1, getinstances=1, getnilinstances=1,
+                getscripts=1, getrunningscripts=1, getloadedmodules=1,
+                decompile=1, getscriptclosure=1, getscripthash=1,
+                getthreadidentity=1, setthreadidentity=1, setfpscap=1,
+                request=1, http_request=1, crypt=1,
+                readfile=1, writefile=1, appendfile=1, isfile=1, isfolder=1,
+                makefolder=1, delfolder=1, delfile=1, listfiles=1,
+                getcustomasset=1, getassets=1,
+            }
+            hookfunction(getfenv, newcclosure(function(...)
+                local r = _origGFE(...)
+                if type(r) == "table" then
+                    local c = {}
+                    for k, v in pairs(r) do
+                        if not _execFns[k] then c[k] = v end
+                    end
+                    return c
+                end
+                return r
+            end))
+        end
+    end)
+
+    -- isexecutorclosure: always return false
+    pcall(function()
+        if isexecutorclosure then
+            hookfunction(isexecutorclosure, newcclosure(function()
+                return false
+            end))
+        end
+    end)
+
+    print("[LeonX] Early stealth hooks installed")
+end)
+
+-- Global flag for teleport bridge (used by ServerHop/Rejoin before AntiDetect loads)
+_G._LeonX_AllowTeleport = function(allow)
+    _G._LeonX_AllowTeleportActive = allow and true or false
+end
+
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
 local CURRENT_VERSION = "1.3"
