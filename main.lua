@@ -354,7 +354,8 @@ else
 local noclipKey      = Enum.KeyCode.N
 local tpWaypointKey  = Enum.KeyCode.G  -- G (not T, T opens Roblox chat)
 local autoClickerKey = Enum.KeyCode.C
-local wpQueueKey     = Enum.KeyCode.Q  -- Q = start/stop waypoint queue
+local wpQueueKey     = Enum.KeyCode.X  -- X = start/stop waypoint queue (Q conflicts with FPS weapon switch)
+local hitboxKey      = Enum.KeyCode.H  -- H = hitbox expander
 
 local macroStatusText = nil
 local macroDropdown = nil
@@ -1105,6 +1106,15 @@ local teamCheckToggle = CombatTab:Toggle({
 })
 ConfigMgr:Register("TeamCheck", teamCheckToggle)
 
+CombatTab:Keybind({
+    Title    = "Hitbox Keybind",
+    Value    = "H",
+    Callback = function(k)
+        hitboxKey = Enum.KeyCode[k] or Enum.KeyCode.H
+        N("Hitbox Keybind", k)
+    end
+})
+
 CombatTab:Section({ Title = "Instant Kill" })
 
 local ikToggle = CombatTab:Toggle({
@@ -1481,9 +1491,9 @@ TeleTab:Button({
 
 TeleTab:Keybind({
     Title    = "Queue Keybind",
-    Value    = "Q",
+    Value    = "X",
     Callback = function(k)
-        wpQueueKey = Enum.KeyCode[k] or Enum.KeyCode.Q
+        wpQueueKey = Enum.KeyCode[k] or Enum.KeyCode.X
         N("Queue Keybind", k)
     end
 })
@@ -1706,7 +1716,15 @@ UIS.InputBegan:Connect(function(i, gp)
     if s then AutoClicker:Enable() else AutoClicker:Disable() end
 end)
 
--- Waypoint Queue keybind (Q) — start if idle, stop if running
+-- Hitbox Expander keybind (H)
+UIS.InputBegan:Connect(function(i, gp)
+    if gp or i.KeyCode ~= hitboxKey then return end
+    local s = not HitboxExp.Enabled
+    hitboxToggle:Set(s)
+    if s then HitboxExp:Enable() else HitboxExp:Disable() end
+end)
+
+-- Waypoint Queue keybind (X) — start if idle, stop if running
 UIS.InputBegan:Connect(function(i, gp)
     if gp or i.KeyCode ~= wpQueueKey then return end
     if Waypoint:IsQueueRunning() then
