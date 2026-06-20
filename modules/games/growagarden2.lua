@@ -1635,7 +1635,10 @@ function GAG:WireUI(tab, extras)
                 pcall(function() Rejoin:Execute() end)
             else
                 pcall(function()
+                    local _allowTP = _G._LeonX_AllowTeleport or function() end
+                    _allowTP(true)
                     game:GetService("TeleportService"):Teleport(game.PlaceId, lp)
+                    _allowTP(false)
                 end)
             end
         end
@@ -1652,6 +1655,7 @@ function GAG:WireUI(tab, extras)
                 pcall(function()
                     local HttpService = game:GetService("HttpService")
                     local TeleportService = game:GetService("TeleportService")
+                    local _allowTP = _G._LeonX_AllowTeleport or function() end
                     local url = string.format(
                         "https://games.roblox.com/v1/games/%s/servers/Public?sortOrder=Asc&limit=100",
                         game.PlaceId
@@ -1669,11 +1673,15 @@ function GAG:WireUI(tab, extras)
                         end
                         if #servers > 0 then
                             local target = servers[math.random(1, #servers)]
+                            _allowTP(true)
                             TeleportService:TeleportToPlaceInstance(game.PlaceId, target, lp)
+                            _allowTP(false)
                             return
                         end
                     end
+                    _allowTP(true)
                     TeleportService:Teleport(game.PlaceId, lp)
+                    _allowTP(false)
                 end)
             end
         end

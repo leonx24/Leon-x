@@ -1,7 +1,7 @@
--- Leon X | AntiDetect v3
--- Aggressive multi-layered anti-cheat neutralization
--- Prevents "disallowed service detected" (error 267) kicks
--- Blocks Adonis admin ::communication following disconnect:: kicks
+-- Leon X | AntiDetect v4
+-- Aggressive multi-layered anti-cheat + anti-admin neutralization
+-- Blocks Adonis admin kicks/bans (server-side Kick cannot be blocked —
+--   so we destroy all Adonis client infrastructure instead)
 -- MUST be loaded FIRST — before any game anti-cheat scripts run
 
 local AntiDetect = {}
@@ -24,10 +24,13 @@ local oldTeleport       = nil
 local oldTeleportPlace  = nil
 local oldIsExec         = nil
 local destroyedScripts  = {}
+local destroyedAdonis   = {}  -- track destroyed Adonis objects
 local scanConn          = nil
 local childConn         = nil
+local gameChildConn     = nil  -- monitors entire game
 local hookActive        = false
-local teleportBlocked   = false  -- transient flag during Adonis kick attempts
+local adonisFound       = false -- true when any Adonis object is detected
+local userTeleporting   = false -- flag for user-initiated teleports
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- PATTERNS
@@ -79,6 +82,27 @@ local function isACName(name, patterns)
     return false
 end
 
+-- Check if a name is Adonis-related (separate from generic AC check)
+local function isAdonisName(name)
+    local lower = name:lower()
+    return lower:find("adonis", 1, true)
+        or lower:find("::adonis::", 1, true)
+        or lower:find("admin_handler", 1, true)
+        or lower:find("adminremote", 1, true)
+end
+
+-- Check if an object or any of its ancestors is Adonis-related
+local function hasAdonisAncestor(obj)
+    local current = obj
+    while current do
+        if isAdonisName(current.Name) then return true end
+        local ok, parent = pcall(function() return current.Parent end)
+        if not ok or not parent then break end
+        current = parent
+    end
+    return false
+end
+
 -- Check if a script looks suspicious (obfuscated AC)
 local function isSuspiciousScript(obj)
     if not obj:IsA("LocalScript") and not obj:IsA("ModuleScript") then
@@ -87,6 +111,11 @@ local function isSuspiciousScript(obj)
 
     -- Check AC name patterns
     if isACName(obj.Name, AC_SCRIPT_NAMES) then
+        return true
+    end
+
+    -- Check if any ancestor is Adonis
+    if hasAdonisAncestor(obj) then
         return true
     end
 
@@ -100,7 +129,7 @@ local function isSuspiciousScript(obj)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 1: __namecall Hook (Kick blocker ONLY — ultra lightweight)
+-- LAYER 1: __namecall Hook (Kick + Adonis comms + Teleport blocker)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local function enableNamecallHook()
@@ -117,41 +146,54 @@ local function enableNamecallHook()
                     return
                 end
 
-                -- Block TeleportService teleport methods (Adonis kick vector)
-                -- Adonis uses Teleport to invalid places to force disconnect
-                if self == TeleportService then
-                    if method == "Teleport" or method == "TeleportToPlaceInstance"
-                       or method == "TeleportAsync" or method == "TeleportPartyAsync" then
-                        -- Check if destination placeId is suspicious (0 or very low = fake kick)
-                        local args = {...}
-                        local placeId = args[1]
-                        if placeId and type(placeId) == "number" and placeId < 100 then
-                            -- Almost certainly a fake/kick teleport
-                            return
+                -- ═══ ADONIS TOTAL COMMS BLOCK ═══
+                -- Block ALL FireServer/InvokeServer on ANY Adonis-related remote
+                -- Don't filter by args — block ALL communication so server
+                -- never receives detection data and can never issue kicks
+                if method == "FireServer" or method == "InvokeServer" then
+                    local blocked = false
+
+                    -- Check the remote itself
+                    pcall(function()
+                        if isAdonisName(self.Name) then
+                            blocked = true
                         end
-                        -- Also block if Adonis flag is set (detected Adonis remote firing)
-                        if teleportBlocked then
-                            return
-                        end
+                    end)
+
+                    -- Check parent chain (Adonis remotes are often nested)
+                    if not blocked then
+                        pcall(function()
+                            if hasAdonisAncestor(self) then
+                                blocked = true
+                            end
+                        end)
+                    end
+
+                    if blocked then
+                        adonisFound = true
+                        return  -- silently eat the remote call
                     end
                 end
 
-                -- Block Adonis remote FireServer calls that trigger kicks
-                if method == "FireServer" or method == "InvokeServer" then
-                    local name = ""
-                    pcall(function() name = self.Name:lower() end)
-                    if name:find("adonis") or name:find("::adonis::") then
-                        -- Check args for kick/ban commands
+                -- ═══ TELEPORT BLOCK (Adonis force-disconnect vector) ═══
+                if self == TeleportService then
+                    if method == "Teleport" or method == "TeleportToPlaceInstance"
+                       or method == "TeleportAsync" or method == "TeleportPartyAsync"
+                       or method == "TeleportToPrivateServer" then
+                        -- Allow user-initiated teleports (e.g. ServerHop)
+                        if userTeleporting then
+                            return oldNamecall(self, ...)
+                        end
+                        -- Block ALL teleports when Adonis was detected in game
+                        -- Adonis uses teleport-to-dummy-place as kick bypass
+                        if adonisFound then
+                            return
+                        end
+                        -- Also block suspicious low placeIds regardless
                         local args = {...}
-                        for _, arg in ipairs(args) do
-                            if type(arg) == "string" then
-                                local lower = arg:lower()
-                                if lower:find("kick") or lower:find("ban")
-                                   or lower:find("punish") or lower:find(":kick")
-                                   or lower:find(":ban") or lower:find("communication") then
-                                    return
-                                end
-                            end
+                        local placeId = args[1]
+                        if placeId and type(placeId) == "number" and placeId < 100 then
+                            return
                         end
                     end
                 end
@@ -186,9 +228,8 @@ local function enableDirectHooks()
             oldTeleport = hookfunction(
                 TeleportService.Teleport,
                 newcclosure(function(self, placeId, ...)
-                    if adEnabled then
-                        -- Block teleports to invalid/suspicious placeIds (Adonis kick)
-                        if type(placeId) == "number" and placeId < 100 then
+                    if adEnabled and not userTeleporting then
+                        if adonisFound or (type(placeId) == "number" and placeId < 100) then
                             return
                         end
                     end
@@ -202,8 +243,8 @@ local function enableDirectHooks()
             oldTeleportPlace = hookfunction(
                 TeleportService.TeleportToPlaceInstance,
                 newcclosure(function(self, placeId, ...)
-                    if adEnabled then
-                        if type(placeId) == "number" and placeId < 100 then
+                    if adEnabled and not userTeleporting then
+                        if adonisFound or (type(placeId) == "number" and placeId < 100) then
                             return
                         end
                     end
@@ -229,6 +270,21 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- LAYER 3: Aggressive Script Scanner
 -- ════════════════════════════════════════════════════════════════════════════
+
+-- Destroy any Adonis-related object (script, remote, folder, anything)
+local function destroyAdonisObj(obj)
+    pcall(function()
+        local name = obj.Name
+        -- Disable if it's a script
+        pcall(function() obj.Disabled = true end)
+        -- Destroy parent connections
+        pcall(function() obj.Parent = nil end)
+        pcall(function() obj:Destroy() end)
+        destroyedAdonis[#destroyedAdonis + 1] = name
+        destroyedScripts[#destroyedScripts + 1] = name
+        adonisFound = true
+    end)
+end
 
 local function destroyScript(obj)
     pcall(function()
@@ -257,7 +313,24 @@ local function scanContainer(container, aggressive)
 end
 
 local function enableScriptScanner()
-    -- Scan all common anti-cheat locations
+    -- ═══ PHASE 1: Nuke ALL Adonis objects across the entire game ═══
+    -- Adonis can live anywhere: ReplicatedStorage, Workspace, ServerScriptService
+    -- (client-visible parts), StarterGui, PlayerGui, PlayerScripts, etc.
+    pcall(function()
+        for _, obj in ipairs(game:GetDescendants()) do
+            pcall(function()
+                if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
+                    if obj:IsA("LocalScript") or obj:IsA("ModuleScript")
+                       or obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
+                       or obj:IsA("Script") then
+                        destroyAdonisObj(obj)
+                    end
+                end
+            end)
+        end
+    end)
+
+    -- ═══ PHASE 2: Scan specific containers for generic AC scripts ═══
     local total = 0
     local containers = {}
 
@@ -289,15 +362,22 @@ local function enableScriptScanner()
         if lighting then containers[#containers + 1] = lighting end
     end)
 
+    pcall(function()
+        local ws = game:GetService("Workspace")
+        if ws then containers[#containers + 1] = ws end
+    end)
+
     for _, container in ipairs(containers) do
         total = total + scanContainer(container)
     end
 
-    -- Continuous monitoring — scan every heartbeat for new scripts
+    -- ═══ PHASE 3: Continuous full-game monitoring ═══
+    -- Scan every heartbeat for new Adonis/AC scripts
     if scanConn then scanConn:Disconnect() end
     scanConn = RunService.Heartbeat:Connect(function()
         if not AntiDetect.Enabled then return end
 
+        -- Check PlayerScripts
         pcall(function()
             local ps = lp:FindFirstChild("PlayerScripts")
             if ps then
@@ -308,9 +388,24 @@ local function enableScriptScanner()
                 end
             end
         end)
+
+        -- Also sweep ReplicatedStorage for Adonis remotes being re-added
+        pcall(function()
+            local rs = game:GetService("ReplicatedStorage")
+            if rs then
+                for _, obj in ipairs(rs:GetDescendants()) do
+                    if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
+                        if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
+                           or obj:IsA("LocalScript") or obj:IsA("ModuleScript") then
+                            destroyAdonisObj(obj)
+                        end
+                    end
+                end
+            end
+        end)
     end)
 
-    -- Watch for NEW scripts being added to PlayerScripts
+    -- ═══ PHASE 4: game.DescendantAdded — instant kill for any Adonis object ═══
     if childConn then childConn:Disconnect() end
     pcall(function()
         local ps = lp:FindFirstChild("PlayerScripts")
@@ -325,6 +420,22 @@ local function enableScriptScanner()
             end)
         end
     end)
+
+    if gameChildConn then gameChildConn:Disconnect() end
+    gameChildConn = game.DescendantAdded:Connect(function(obj)
+        if not AntiDetect.Enabled then return end
+        pcall(function()
+            if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
+                if obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")
+                   or obj:IsA("LocalScript") or obj:IsA("ModuleScript")
+                   or obj:IsA("Script") then
+                    task.defer(function()
+                        destroyAdonisObj(obj)
+                    end)
+                end
+            end
+        end)
+    end)
 end
 
 local function disableScriptScanner()
@@ -336,49 +447,49 @@ local function disableScriptScanner()
         childConn:Disconnect()
         childConn = nil
     end
+    if gameChildConn then
+        gameChildConn:Disconnect()
+        gameChildConn = nil
+    end
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 3B: Adonis Remote Interceptor
+-- LAYER 3B: Adonis Remote Interceptor (backup — destroys remotes on contact)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local adonisRemoteConn = nil
 
 local function enableAdonisInterceptor()
-    -- Watch for Adonis remotes being added and intercept kick commands
     pcall(function()
         local rs = game:GetService("ReplicatedStorage")
         if not rs then return end
 
-        -- Scan existing Adonis remotes
+        -- Destroy ALL existing Adonis remotes and scripts
         for _, obj in ipairs(rs:GetDescendants()) do
             pcall(function()
-                local name = obj.Name:lower()
-                if name:find("adonis") or name:find("::adonis::") then
-                    if obj:IsA("RemoteEvent") then
-                        -- Hook OnClientEvent to intercept server-sent kick commands
-                        obj.OnClientEvent:Connect(function(...)
-                            if not adEnabled then return end
-                            -- Silently consume — don't let the kick command propagate
+                if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
+                    destroyAdonisObj(obj)
+                end
+            end)
+        end
+    end)
+
+    -- Also sweep other common locations
+    pcall(function()
+        for _, service in ipairs({"StarterGui", "Workspace", "Lighting"}) do
+            pcall(function()
+                local svc = game:GetService(service)
+                if svc then
+                    for _, obj in ipairs(svc:GetDescendants()) do
+                        pcall(function()
+                            if isAdonisName(obj.Name) or hasAdonisAncestor(obj) then
+                                destroyAdonisObj(obj)
+                            end
                         end)
                     end
                 end
             end)
         end
-
-        -- Watch for new Adonis remotes being added
-        adonisRemoteConn = rs.DescendantAdded:Connect(function(obj)
-            pcall(function()
-                local name = obj.Name:lower()
-                if name:find("adonis") or name:find("::adonis::") then
-                    if obj:IsA("RemoteEvent") then
-                        obj.OnClientEvent:Connect(function(...)
-                            if not adEnabled then return end
-                        end)
-                    end
-                end
-            end)
-        end)
     end)
 end
 
@@ -493,12 +604,31 @@ function AntiDetect:Toggle()
     if self.Enabled then self:Disable() else self:Enable() end
 end
 
+-- Set flag so teleport hooks allow user-initiated teleports (e.g. ServerHop)
+-- Other modules call: _G._LeonX_AllowTeleport(true/false)
+function AntiDetect:AllowTeleport()
+    userTeleporting = true
+end
+
+function AntiDetect:BlockTeleport()
+    userTeleporting = false
+end
+
+-- Global bridge for other modules (ServerHop, Rejoin, GAG)
+_G._LeonX_AllowTeleport = function(allow)
+    userTeleporting = allow and true or false
+end
+
 function AntiDetect:GetDestroyedCount()
     return #destroyedScripts
 end
 
 function AntiDetect:GetDestroyedNames()
     return destroyedScripts
+end
+
+function AntiDetect:IsAdonisPresent()
+    return adonisFound
 end
 
 return AntiDetect
