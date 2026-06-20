@@ -9,14 +9,14 @@ AntiDetect.Enabled = false
 
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
-local TeleportService  = game:GetService("TeleportService")
 local lp               = Players.LocalPlayer
+
+-- Fast local flag (avoids table access in hot path)
+local adEnabled = false
 
 -- State tracking
 local oldNamecall       = nil
 local oldKick           = nil
-local oldTeleport       = nil
-local oldTeleportInst   = nil
 local oldIsExec         = nil
 local destroyedScripts  = {}
 local scanConn          = nil
@@ -87,85 +87,29 @@ local function isSuspiciousScript(obj)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 1: __namecall Hook (Kick + Teleport + AC Remotes)
+-- LAYER 1: __namecall Hook (Kick blocker ONLY — ultra lightweight)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local function enableNamecallHook()
     pcall(function()
-        if not hookmetamethod or not newcclosure then return end
+        if not hookmetamethod or not newcclosure or not getnamecallmethod then return end
         if hookActive then return end
 
-        local canGetMethod = getnamecallmethod ~= nil
-        local canCheckCaller = checkcaller ~= nil
-
         oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            if not AntiDetect.Enabled then
-                return oldNamecall(self, ...)
-            end
-
-            -- Skip if caller is from executor (our own code)
-            local isOurCode = false
-            if canCheckCaller then
-                local ok, result = pcall(checkcaller)
-                if ok and result then isOurCode = true end
-            end
-            if isOurCode then
-                return oldNamecall(self, ...)
-            end
-
-            if canGetMethod then
-                local method = getnamecallmethod()
-
-                -- Block ALL kick methods on local player
-                if method == "Kick" and self == lp then
+            -- Ultra-lightweight: only intercept Kick, pass through EVERYTHING else
+            if adEnabled and getnamecallmethod() == "Kick" then
+                -- Only block Kick on local player
+                if self == lp then
                     return
                 end
-
-                -- Block teleport-based disconnects (anti-cheat sometimes uses this)
-                if (method == "Teleport" or method == "TeleportToPlaceInstance" or
-                    method == "TeleportPartyAsync" or method == "TeleportInit") then
-                    -- Only block if targeting local player
-                    local args = {...}
-                    if args[1] == lp or self == TeleportService then
-                        -- Check if it looks like an anti-cheat teleport
-                        -- (very short args or specific patterns)
-                        -- Don't block ALL teleports, just suspicious ones
-                    end
-                end
-
-                -- Block anti-cheat remote calls
-                if (method == "FireServer" or method == "InvokeServer") then
-                    if self and typeof(self) == "Instance" then
-                        if self:IsA("RemoteEvent") or self:IsA("RemoteFunction") then
-                            if isACName(self.Name, AC_REMOTE_NAMES) then
-                                if method == "InvokeServer" then
-                                    return true  -- return success instead of blocking
-                                end
-                                return  -- silently drop FireServer
-                            end
-
-                            -- Also check parent names (some AC remotes are inside folders)
-                            local parent = self.Parent
-                            if parent and typeof(parent) == "Instance" then
-                                if isACName(parent.Name, AC_REMOTE_NAMES) then
-                                    if method == "InvokeServer" then
-                                        return true
-                                    end
-                                    return
-                                end
-                            end
-                        end
-                    end
-                end
             end
-
             return oldNamecall(self, ...)
         end))
 
         hookActive = true
     end)
 
-    print("[Leon X] AntiDetect v2: __namecall hook enabled")
+    print("[Leon X] AntiDetect v2: __namecall hook enabled (kick blocker)")
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -176,46 +120,12 @@ local function enableDirectHooks()
     pcall(function()
         if not hookfunction or not newcclosure then return end
 
-        -- Hook Player:Kick()
+        -- Hook Player:Kick() directly
         pcall(function()
-            local mt = getrawmetatable and getrawmetatable(lp)
-            if mt and mt.__index then
-                -- Some executors need to hook the metatable __index
-            end
             oldKick = hookfunction(
                 lp.Kick,
                 newcclosure(function()
                     return  -- block kick
-                end)
-            )
-        end)
-
-        -- Hook TeleportService:Teleport (anti-cheat sometimes force-teleports)
-        pcall(function()
-            oldTeleport = hookfunction(
-                TeleportService.Teleport,
-                newcclosure(function(self, placeId, player, ...)
-                    if player == lp then
-                        -- Check if this looks like a kick-via-teleport
-                        -- Block teleports to invalid place IDs (common AC trick)
-                        if type(placeId) ~= "number" or placeId <= 0 then
-                            return
-                        end
-                    end
-                    return oldTeleport(self, placeId, player, ...)
-                end)
-            )
-        end)
-
-        -- Hook TeleportService:TeleportToPlaceInstance
-        pcall(function()
-            oldTeleportInst = hookfunction(
-                TeleportService.TeleportToPlaceInstance,
-                newcclosure(function(self, placeId, gameId, player)
-                    if player == lp then
-                        return  -- block suspicious teleport
-                    end
-                    return oldTeleportInst(self, placeId, gameId, player)
                 end)
             )
         end)
@@ -424,11 +334,12 @@ end
 function AntiDetect:Enable()
     if self.Enabled then return end
     self.Enabled = true
+    adEnabled = true
 
     -- Layer 1: __namecall hook (MUST be first — catches everything)
     enableNamecallHook()
 
-    -- Layer 2: Direct function hooks (Kick, Teleport, isexecutorclosure)
+    -- Layer 2: Direct function hooks (Kick, isexecutorclosure)
     enableDirectHooks()
 
     -- Layer 3: Script scanner (destroy AC scripts)
@@ -443,6 +354,7 @@ end
 function AntiDetect:Disable()
     if not self.Enabled then return end
     self.Enabled = false
+    adEnabled = false
 
     disableScriptScanner()
 
