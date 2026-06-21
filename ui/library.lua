@@ -58,6 +58,18 @@ local function tw(obj, dur, props)
 	t:Play(); return t
 end
 
+local function getLabel(data, tab)
+	local label = data.Title or data.Name or data.Text or data.Label or ""
+	if label == "" or label == (tab and tab.Name or "") then
+		for k, v in pairs(data) do
+			if type(v) == "string" and k ~= "Flag" and k ~= "Placeholder" and k ~= "Content" and v ~= (tab and tab.Name or "") then
+				label = v; break
+			end
+		end
+	end
+	return label
+end
+
 local function reg(data, api)
 	if data and data.Flag then
 		Library.Registry[data.Flag] = {
@@ -402,7 +414,8 @@ end
 
 -- ── Section ────────────────────────────────────────────────────────────────
 function Section(tab, data)
-	print("[LeonX][Section] Title=" .. tostring(data.Title) .. " Tab=" .. tostring(tab.Name))
+	print("[LeonX][Section] Title=" .. tostring(data.Title) .. " Name=" .. tostring(data.Name) .. " Tab=" .. tostring(tab.Name))
+	local label = getLabel(data, tab)
 	local theme = th(tab)
 	local f = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 30); BackgroundTransparency = 1;
@@ -421,7 +434,7 @@ function Section(tab, data)
 	mk("TextLabel", {
 		Size = UDim2.new(1, -12, 0, 18); Position = UDim2.fromOffset(10, 8);
 		BackgroundTransparency = 1;
-		Text = (data.Title or ""):upper();
+		Text = label:upper();
 		Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
@@ -432,14 +445,15 @@ end
 -- ── Paragraph ──────────────────────────────────────────────────────────────
 function Paragraph(tab, data)
 	local theme = th(tab)
+	local label = getLabel(data, tab)
 	local f = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 40); BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
-	if data.Title then
+	if label ~= "" then
 		mk("TextLabel", {
 			Size = UDim2.new(1, 0, 0, 14); BackgroundTransparency = 1;
-			Text = data.Title; Font = Enum.Font.Gotham; TextSize = 12;
+			Text = label; Font = Enum.Font.Gotham; TextSize = 12;
 			TextColor3 = theme.TextSub;
 			TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 		})
@@ -461,9 +475,13 @@ end
 local _toggleDebugCount = 0
 function Toggle(tab, data)
 	_toggleDebugCount = _toggleDebugCount + 1
-	if _toggleDebugCount <= 5 then
+	if _toggleDebugCount <= 3 then
+		local keys = ""
+		for k, v in pairs(data) do keys = keys .. k .. "=" .. tostring(v) .. ", " end
+		print("[LeonX][Toggle#" .. _toggleDebugCount .. "] KEYS: {" .. keys .. "}")
 		print("[LeonX][Toggle#" .. _toggleDebugCount .. "] Title=" .. tostring(data.Title) .. " Name=" .. tostring(data.Name) .. " Tab=" .. tostring(tab.Name))
 	end
+	local label = getLabel(data, tab)
 	local theme = th(tab)
 	local val = data.Value ~= nil and data.Value or (data.Default ~= nil and data.Default or false)
 	local f = mk("Frame", {
@@ -473,7 +491,7 @@ function Toggle(tab, data)
 	mk("TextLabel", {
 		Size = UDim2.new(1, -60, 1, 0); Position = UDim2.fromOffset(12, 0);
 		BackgroundTransparency = 1;
-		Text = data.Title or data.Name or ""; Font = Enum.Font.Gotham; TextSize = 13;
+		Text = label; Font = Enum.Font.Gotham; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
 	local track = mk("Frame", {
@@ -519,7 +537,7 @@ function Slider(tab, data)
 	mk("TextLabel", {
 		Size = UDim2.new(1, -70, 0, 16); Position = UDim2.fromOffset(12, 8);
 		BackgroundTransparency = 1;
-		Text = data.Title or data.Name or ""; Font = Enum.Font.Gotham; TextSize = 13;
+		Text = getLabel(data, tab); Font = Enum.Font.Gotham; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
 	local valLbl = mk("TextLabel", {
@@ -595,7 +613,7 @@ function Dropdown(tab, data)
 	mk("TextLabel", {
 		Size = UDim2.new(1, -24, 0, 14); Position = UDim2.fromOffset(12, 6);
 		BackgroundTransparency = 1;
-		Text = data.Title or data.Name or ""; Font = Enum.Font.GothamBold; TextSize = 11;
+		Text = getLabel(data, tab); Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
 	local box = mk("TextButton", {
@@ -685,7 +703,7 @@ function Button(tab, data)
 	})
 	local btn = mk("TextButton", {
 		Size = UDim2.new(1, 0, 1, 0); BackgroundColor3 = theme.Surface;
-		BorderSizePixel = 0; Text = data.Title or data.Name or "Button";
+		BorderSizePixel = 0; Text = getLabel(data, tab);
 		Font = Enum.Font.Gotham; TextSize = 13; TextColor3 = theme.Text;
 		AutoButtonColor = false; Parent = f;
 	}, {
@@ -712,7 +730,7 @@ function Keybind(tab, data)
 	mk("TextLabel", {
 		Size = UDim2.new(1, -100, 1, 0); Position = UDim2.fromOffset(12, 0);
 		BackgroundTransparency = 1;
-		Text = data.Title or data.Name or ""; Font = Enum.Font.Gotham; TextSize = 13;
+		Text = getLabel(data, tab); Font = Enum.Font.Gotham; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
 	local kbtn = mk("TextButton", {
@@ -758,7 +776,7 @@ function Input(tab, data)
 	mk("TextLabel", {
 		Size = UDim2.new(1, -24, 0, 14); Position = UDim2.fromOffset(12, 6);
 		BackgroundTransparency = 1;
-		Text = data.Title or data.Name or ""; Font = Enum.Font.GothamBold; TextSize = 11;
+		Text = getLabel(data, tab); Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
 	local stroke = mk("UIStroke", { Color = theme.Border; Thickness = 1 })
