@@ -1,5 +1,6 @@
 -- Leon X | main.lua
 -- Noir UI version with splash screen + floating open button
+print("[LeonX] ████ MAIN.LUA VERSION: NOIR-2025-06-20 ████")
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- EARLY SETUP (line 1 — before ANY HTTP or game interaction)
