@@ -2129,13 +2129,26 @@ end)
 -- Debug: component count per tab
 print("[LeonX] ── Component Debug ──")
 print("[LeonX] Total components in _allComps: " .. tostring(#Window._allComps))
+print("[LeonX] Total tabs in Window._tabs: " .. tostring(#Window._tabs))
+for i, t in ipairs(Window._tabs) do
+    print("[LeonX]   Tab[" .. i .. "] = '" .. tostring(t.Name) .. "'")
+end
 local tabCounts = {}
-for _, entry in ipairs(Window._allComps) do
-    local tName = entry._tab and entry._tab.Name or "nil"
-    tabCounts[tName] = (tabCounts[tName] or 0) + 1
+local nilCount = 0
+for idx, entry in ipairs(Window._allComps) do
+    local tName = "nil#" .. tostring(idx)
+    if entry._tab and entry._tab.Name then
+        tName = entry._tab.Name
+        tabCounts[tName] = (tabCounts[tName] or 0) + 1
+    else
+        nilCount = nilCount + 1
+    end
 end
 for tName, count in pairs(tabCounts) do
     print("[LeonX]   " .. tName .. ": " .. count .. " components")
+end
+if nilCount > 0 then
+    print("[LeonX]   nil/unnamed: " .. nilCount .. " components")
 end
 print("[LeonX] ── End Component Debug ──")
 end
