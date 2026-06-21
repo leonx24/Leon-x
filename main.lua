@@ -261,6 +261,7 @@ local function load(p)
 end
 
 print("[LeonX] Loading library...")
+print("[LeonX] VERSION MARKER: NOIR-UI-2024-TITLE-FIELD")
 local Library = load("ui/library.lua")
 if not Library then warn("[LeonX] CRITICAL: UI library failed"); return end
 print("[LeonX] Library loaded OK")
@@ -485,14 +486,14 @@ end
 MovTab:Section({ Title = "Flight" })
 print("[LeonX] Creating components...")
 
-local flyToggle = MovTab:Toggle({
-    Title    = "Fly",
-    Value    = false,
-    Callback = function(v)
-        if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
-        N("Fly", v and "Enabled" or "Disabled")
-    end
-})
+print("[LeonX] MAIN.LUA DEBUG: about to create Fly toggle with Title=Fly")
+local _flyData = { Title = "Fly", Value = false, Callback = function(v)
+    if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
+    N("Fly", v and "Enabled" or "Disabled")
+end }
+print("[LeonX] MAIN.LUA DEBUG: _flyData.Title = " .. tostring(_flyData.Title))
+local flyToggle = MovTab:Toggle(_flyData)
+print("[LeonX] MAIN.LUA DEBUG: flyToggle created, .Name = " .. tostring(flyToggle and flyToggle.Name))
 ConfigMgr:Register("Fly", flyToggle)
 local flySpeedSlider = MovTab:Slider({
     Title    = "Fly Speed",
