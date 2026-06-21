@@ -242,20 +242,28 @@ task.delay(60, function()
 end)
 
 local cacheBust = "?t="..os.time()
+local loadErrors = {}
 local function load(p)
     local ok, result = pcall(function()
         local src = game:HttpGet(BASE..p..cacheBust)
-        return loadstring(src)()
+        if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
+        local fn, err = loadstring(src)
+        if not fn then error("loadstring failed: "..tostring(err)) end
+        return fn()
     end)
     if not ok then
-        warn("[LeonX] Failed to load: " .. tostring(p) .. " — " .. tostring(result))
+        warn("[LeonX] FAIL: " .. tostring(p) .. " — " .. tostring(result))
+        loadErrors[#loadErrors + 1] = p .. ": " .. tostring(result)
         return nil
     end
+    print("[LeonX] OK: " .. tostring(p))
     return result
 end
 
+print("[LeonX] Loading library...")
 local Library = load("ui/library.lua")
-if not Library then warn("[LeonX] CRITICAL: UI library failed to load"); return end
+if not Library then warn("[LeonX] CRITICAL: UI library failed"); return end
+print("[LeonX] Library loaded OK")
 setSplashProgress(0.05)
 
 -- AntiDetect loads FIRST — DISABLED for testing (v7.3 script destroyer may trigger Adonis absence detection)
@@ -297,24 +305,83 @@ local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgre
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
 
+print("[LeonX] Module loads done. Errors: " .. #loadErrors)
+for i, e in ipairs(loadErrors) do print("[LeonX] Error " .. i .. ": " .. e) end
+
+-- Dummy stub for any module that failed to load
+local DUMMY = {
+    Enabled = false,
+    Enable = function() end,
+    Disable = function() end,
+    Toggle = function() end,
+    SetSpeed = function() end,
+    SetPower = function() end,
+    SetColor = function() end,
+    Set = function() end,
+    Get = function() return false end,
+    Init = function() end,
+    Refresh = function() end,
+    Select = function() end,
+    PlaceIds = {},
+    WireUI = function() end,
+    Name = "Dummy",
+}
+local function safe(m) return m or setmetatable({}, {__index = function() return DUMMY end}) end
+
+ConfigMgr      = safe(ConfigMgr)
+Fly            = safe(Fly)
+Speed          = safe(Speed)
+InfJump        = safe(InfJump)
+Noclip         = safe(Noclip)
+AntiRagdoll    = safe(AntiRagdoll)
+Invisible      = safe(Invisible)
+FreeCam        = safe(FreeCam)
+ClickTP        = safe(ClickTP)
+WalkOnWater    = safe(WalkOnWater)
+ESP            = safe(ESP)
+Tracer         = safe(Tracer)
+FullBright     = safe(FullBright)
+PerfStats      = safe(PerfStats)
+RemoveFog      = safe(RemoveFog)
+AntiAFK        = safe(AntiAFK)
+InfStamina     = safe(InfStamina)
+AntiFling      = safe(AntiFling)
+Rejoin         = safe(Rejoin)
+ServerHop      = safe(ServerHop)
+Teleport       = safe(Teleport)
+HitboxExp      = safe(HitboxExp)
+Waypoint       = safe(Waypoint)
+GodMode        = safe(GodMode)
+NoFallDmg      = safe(NoFallDmg)
+InstantKill    = safe(InstantKill)
+KillAura       = safe(KillAura)
+AutoClicker    = safe(AutoClicker)
+MacroRec       = safe(MacroRec)
+AntiVoid       = safe(AntiVoid)
+GamepassSpoof  = safe(GamepassSpoof)
+print("[LeonX] All modules guarded")
+
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {
-    load("modules/games/growagarden2.lua");
+    safe(load("modules/games/growagarden2.lua"));
     -- add more game modules here
 }
 
 local ActiveGameModule = nil
 for _, gm in ipairs(GAME_MODULES) do
-    for _, pid in ipairs(gm.PlaceIds) do
-        if pid == game.PlaceId then
-            ActiveGameModule = gm
-            break
+    if gm then -- nil guard: skip failed game modules
+        for _, pid in ipairs(gm.PlaceIds) do
+            if pid == game.PlaceId then
+                ActiveGameModule = gm
+                break
+            end
         end
     end
     if ActiveGameModule then break end
 end
 
-Waypoint:Init()
+if Waypoint then Waypoint:Init() else warn("[LeonX] Waypoint nil, skipping Init") end
+print("[LeonX] Creating window...")
 
 -- ── Window ────────────────────────────────────────────────────────────────────
 local Window = Library:CreateWindow({
@@ -334,19 +401,26 @@ local function N(title, state, duration)
     })
 end
 
-ConfigMgr:Init(Window)
-ConfigMgr._notify = function(title, msg)
-    N(title, msg)
+print("[LeonX] Window created, initializing ConfigMgr...")
+if ConfigMgr then
+    ConfigMgr:Init(Window)
+    ConfigMgr._notify = function(title, msg)
+        N(title, msg)
+    end
+    print("[LeonX] ConfigMgr initialized")
+else
+    warn("[LeonX] ConfigMgr is nil, skipping")
 end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 setSplashProgress(0.92)
 
 -- Anti-AFK: always active on ALL maps
-AntiAFK:Enable()
+if AntiAFK then AntiAFK:Enable() else warn("[LeonX] AntiAFK nil") end
 
 -- PerfStats HUD: always active on ALL maps (draggable)
-PerfStats:Enable()
+if PerfStats then PerfStats:Enable() else warn("[LeonX] PerfStats nil") end
+print("[LeonX] Creating tabs...")
 
 if ActiveGameModule then
     -- ══ GAME MODE: game tab + player sidebar ══════════════════════════════
@@ -377,6 +451,7 @@ else
     local AutoTab = Window:Tab({ Title = "Auto", Icon = "zap" })
     local MacroTab = Window:Tab({ Title = "Macro", Icon = "radio" })
     local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+    print("[LeonX] 8 tabs created")
 
 -- ── Macro Recorder UI ────────────────────────────────────────────────────────
 -- Keybind variables (used by InputBegan handlers below)
@@ -393,6 +468,7 @@ local selectedMacroName = nil
 
 -- Refresh dropdown helper
 local function refreshMacroList()
+    if not MacroRec then return {"(no macros)"} end
     local list = MacroRec:ListMacros()
     if #list == 0 then list = {"(no macros)"} end
     selectedMacroName = list[1]
@@ -407,12 +483,13 @@ end
 -- MOVEMENT TAB
 -- ══════════════════════════════════════════════════════════════════════════════
 MovTab:Section({ Title = "Flight" })
+print("[LeonX] Creating components...")
 
 local flyToggle = MovTab:Toggle({
     Title    = "Fly",
     Value    = false,
     Callback = function(v)
-        if v then Fly:Enable() else Fly:Disable() end
+        if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
         N("Fly", v and "Enabled" or "Disabled")
     end
 })
@@ -2083,4 +2160,6 @@ end)
 task.delay(2, function()
     N("Leon X", "Welcome!")
 end)
+
+print("[LeonX] Script complete! UI should be fully loaded.")
 
