@@ -360,7 +360,6 @@ function Library:CreateWindow(cfg)
 			return function(d)
 				local r = fn(tab, d)
 				if r and r.Frame then
-					r.Frame._tab = tab
 					self._allComps[#self._allComps + 1] = { _tab = tab; Frame = r.Frame }
 				end
 				return r
