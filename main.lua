@@ -2125,6 +2125,19 @@ task.spawn(function()
         end
     end)
 end)
+
+-- Debug: component count per tab
+print("[LeonX] ── Component Debug ──")
+print("[LeonX] Total components in _allComps: " .. tostring(#Window._allComps))
+local tabCounts = {}
+for _, entry in ipairs(Window._allComps) do
+    local tName = entry._tab and entry._tab.Name or "nil"
+    tabCounts[tName] = (tabCounts[tName] or 0) + 1
+end
+for tName, count in pairs(tabCounts) do
+    print("[LeonX]   " .. tName .. ": " .. count .. " components")
+end
+print("[LeonX] ── End Component Debug ──")
 end
 
 -- Smooth splash exit
