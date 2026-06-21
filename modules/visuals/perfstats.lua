@@ -157,13 +157,19 @@ function PerfStats:_startLoop(label)
 
     local pingCache = 0
     local pingTick  = 0
+    local frameSkip = 0
 
     updateConn = RunService.RenderStepped:Connect(function(dt)
         if not self.Enabled then return end
         if not label or not label.Parent then return end
 
+        -- Only update FPS buffer every frame, but GUI text every 5 frames
         fpsBuf[fpsIdx] = dt > 0 and (1 / dt) or 0
         fpsIdx = (fpsIdx % FPS_SAMPLES) + 1
+
+        frameSkip = frameSkip + 1
+        if frameSkip < 5 then return end
+        frameSkip = 0
         local fps = math.floor(bufAvg() + 0.5)
         local ms  = math.floor(dt * 1000 + 0.5)
 
