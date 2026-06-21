@@ -2,26 +2,10 @@
 -- Wind UI version with splash screen + floating open button
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- EARLY STEALTH HOOKS (line 1 — before ANY HTTP or game interaction)
--- NO hookmetamethod — Adonis detects __namecall on game metatable!
--- Uses only hookfunction (invisible to Adonis namecall detector)
+-- EARLY SETUP (line 1 — before ANY HTTP or game interaction)
+-- NO hooks here — all hookfunction calls detected by Adonis integrity scan
+-- AntiDetect module handles script destruction only (no function hooking)
 -- ═══════════════════════════════════════════════════════════════════════════
-pcall(function()
-    if not hookfunction or not newcclosure then return end
-    -- Only hook checkcaller and isexecutorclosure (safe, no side effects)
-    -- NO getfenv hook — it copies environment tables, breaks UI library loading
-    pcall(function()
-        if checkcaller then
-            hookfunction(checkcaller, newcclosure(function() return false end))
-        end
-    end)
-    pcall(function()
-        if isexecutorclosure then
-            hookfunction(isexecutorclosure, newcclosure(function() return false end))
-        end
-    end)
-    print("[LeonX] Early stealth hooks OK")
-end)
 
 _G._LeonX_AllowTeleport = function(allow)
     _G._LeonX_AllowTeleportActive = allow and true or false

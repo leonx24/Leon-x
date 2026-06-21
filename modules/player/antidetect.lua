@@ -1,36 +1,25 @@
--- Leon X | AntiDetect v7.2 — Lightweight Anti-Adonis
--- v7.1 FROZE at splash because:
---   1. getfenv hook copied environment tables → broke WindUI library loading
---   2. hookfunction(remote.FireServer) → unstable on many executors
+-- Leon X | AntiDetect v7.3 — Zero-Hook Anti-Adonis
+-- v7.2 still kicked because hookfunction itself is detected by Adonis integrity scan.
+-- Every hookfunction call (checkcaller, isexecutorclosure, debug.getinfo, lp.Kick)
+-- modifies Roblox functions that Adonis verifies during initialization.
 --
--- v7.2 STRATEGY (based on Adonis source: most detections are OFF):
---   CheckClients = true (heartbeat only — MUST flow, don't touch remotes)
---   All other detections = false (no client-side checks to block)
---
--- WHAT WE DO:
---   1. Hook checkcaller/isexecutorclosure (hide executor from any future checks)
---   2. Hook debug.getinfo (hide executor stack frames)
---   3. Destroy Adonis detection scripts as they appear
---   4. Hook Player:Kick as last-resort backup
--- WHAT WE DON'T DO:
---   - NO hookmetamethod (detected by namecall scanner 0x273A)
---   - NO getfenv hook (freezes UI loading — copies env tables)
---   - NO remote FireServer hook (unstable, breaks heartbeats)
+-- v7.3 STRATEGY: ZERO hookfunction, ZERO hookmetamethod
+--   ONLY destroys Adonis detection scripts as they appear.
+--   Does NOT modify any Roblox function or metatable.
+--   Heartbeats flow naturally — no remote interception.
 
 local AntiDetect = {}
 AntiDetect.Name    = "AntiDetect"
 AntiDetect.Enabled = false
 
-local Players          = game:GetService("Players")
-local RunService       = game:GetService("RunService")
-local lp               = Players.LocalPlayer
+local RunService = game:GetService("RunService")
 
 -- Fast local flag
 local adEnabled = false
 
 -- State tracking
-local scanConn        = nil
-local gameChildConn   = nil
+local scanConn      = nil
+local gameChildConn = nil
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- PATTERNS
@@ -56,59 +45,7 @@ local function isDetectionScript(obj)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 1: Executor Invisibility (hide from Adonis detection checks)
--- ════════════════════════════════════════════════════════════════════════════
-
-local function enableStealthHooks()
-    pcall(function()
-        if not hookfunction or not newcclosure then return end
-
-        -- Hook checkcaller — Adonis checks if functions are executor-made
-        pcall(function()
-            if checkcaller then
-                hookfunction(checkcaller, newcclosure(function()
-                    return false
-                end))
-                print("[AntiDetect] checkcaller hooked")
-            end
-        end)
-
-        -- Hook isexecutorclosure — same purpose
-        pcall(function()
-            if isexecutorclosure then
-                hookfunction(isexecutorclosure, newcclosure(function()
-                    return false
-                end))
-                print("[AntiDetect] isexecutorclosure hooked")
-            end
-        end)
-
-        -- NO getfenv hook — it copies environment tables and freezes UI loading
-        -- checkcaller + isexecutorclosure are sufficient to hide the executor
-
-        -- Hook debug.getinfo — hide executor stack frames
-        pcall(function()
-            if debug and debug.getinfo then
-                local origGetinfo = debug.getinfo
-                hookfunction(debug.getinfo, newcclosure(function(fn, ...)
-                    local info = origGetinfo(fn, ...)
-                    if info and type(info) == "table" then
-                        if info.source and (info.source:find("executor") or info.source:find("synapse") or
-                           info.source:find("fluxus") or info.source:find("delta") or info.source:find("krnl")) then
-                            info.source = "[Roblox]"
-                            info.short_src = "[Roblox]"
-                        end
-                    end
-                    return info
-                end))
-                print("[AntiDetect] debug.getinfo hooked")
-            end
-        end)
-    end)
-end
-
--- ════════════════════════════════════════════════════════════════════════════
--- LAYER 2: Selective Detection Script Destroyer
+-- Detection Script Destroyer (ONLY layer — no hooks)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local function destroyDetectionScript(obj)
@@ -140,7 +77,7 @@ local function enableScriptFilter()
         end
     end)
 
-    -- Periodic sweep every 5 seconds (NOT every frame — too expensive)
+    -- Periodic sweep every 5 seconds
     if scanConn then scanConn:Disconnect() end
     local sweepTimer = 0
     scanConn = RunService.Heartbeat:Connect(function(dt)
@@ -157,26 +94,7 @@ local function enableScriptFilter()
         end)
     end)
 
-    print("[AntiDetect] Script filter active (detection scripts only)")
-end
-
--- ════════════════════════════════════════════════════════════════════════════
--- LAYER 3: Direct Kick Hook (hookfunction on Player:Kick)
--- ════════════════════════════════════════════════════════════════════════════
-
-local function enableDirectHooks()
-    pcall(function()
-        if not hookfunction or not newcclosure then return end
-        pcall(function()
-            hookfunction(
-                lp.Kick,
-                newcclosure(function()
-                    return
-                end)
-            )
-            print("[AntiDetect] Player:Kick hooked")
-        end)
-    end)
+    print("[AntiDetect] Script filter active (destruction only, zero hooks)")
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -188,18 +106,12 @@ function AntiDetect:Enable()
     self.Enabled = true
     adEnabled = true
 
-    print("[AntiDetect] Enabling v7.2 — lightweight anti-Adonis")
+    print("[AntiDetect] Enabling v7.3 — zero-hook bypass")
 
-    -- Layer 1: Executor invisibility (checkcaller, isexecutorclosure, debug.getinfo)
-    enableStealthHooks()
-
-    -- Layer 2: Destroy only detection scripts
+    -- Only layer: destroy detection scripts
     enableScriptFilter()
 
-    -- Layer 3: Direct Kick hook (backup)
-    enableDirectHooks()
-
-    print("[AntiDetect] All layers active (no hookmetamethod, no getfenv, no remote hook)")
+    print("[AntiDetect] Active (script destroyer only, no hooks)")
 end
 
 function AntiDetect:Disable()
@@ -209,8 +121,6 @@ function AntiDetect:Disable()
 
     if scanConn then scanConn:Disconnect(); scanConn = nil end
     if gameChildConn then gameChildConn:Disconnect(); gameChildConn = nil end
-
-    -- Note: hooks stay active — they check adEnabled flag
 end
 
 function AntiDetect:Toggle()
