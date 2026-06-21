@@ -242,11 +242,11 @@ setSplashProgress(0.05)
 local cacheBust = "?t="..os.time()
 local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
--- AntiDetect loads FIRST — must activate before any game scripts detect us
+-- AntiDetect loads FIRST — DISABLED for testing (v7.3 script destroyer may trigger Adonis absence detection)
 local AntiDetect
 pcall(function()
     AntiDetect = load("modules/player/antidetect.lua")
-    AntiDetect:Enable()
+    -- AntiDetect:Enable()  -- DISABLED: testing if Adonis kick comes from our code or executor itself
 end)
 
 local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
