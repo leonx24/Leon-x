@@ -12,13 +12,10 @@ local AntiDetect = {}
 AntiDetect.Name    = "AntiDetect"
 AntiDetect.Enabled = false
 
-local RunService = game:GetService("RunService")
-
 -- Fast local flag
 local adEnabled = false
 
 -- State tracking
-local scanConn      = nil
 local gameChildConn = nil
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -59,7 +56,7 @@ local function destroyDetectionScript(obj)
 end
 
 local function enableScriptFilter()
-    -- Initial scan
+    -- Initial ONE-TIME scan (runs once at enable, then never again)
     pcall(function()
         for _, obj in ipairs(game:GetDescendants()) do
             if isDetectionScript(obj) then
@@ -68,7 +65,7 @@ local function enableScriptFilter()
         end
     end)
 
-    -- Monitor for new detection scripts
+    -- Monitor for new detection scripts (zero FPS impact — event-driven)
     if gameChildConn then gameChildConn:Disconnect() end
     gameChildConn = game.DescendantAdded:Connect(function(obj)
         if not adEnabled then return end
@@ -77,24 +74,8 @@ local function enableScriptFilter()
         end
     end)
 
-    -- Periodic sweep every 5 seconds
-    if scanConn then scanConn:Disconnect() end
-    local sweepTimer = 0
-    scanConn = RunService.Heartbeat:Connect(function(dt)
-        if not adEnabled then return end
-        sweepTimer = sweepTimer + dt
-        if sweepTimer < 5 then return end
-        sweepTimer = 0
-        pcall(function()
-            for _, obj in ipairs(game:GetDescendants()) do
-                if isDetectionScript(obj) then
-                    destroyDetectionScript(obj)
-                end
-            end
-        end)
-    end)
-
-    print("[AntiDetect] Script filter active (destruction only, zero hooks)")
+    -- NO periodic sweep — DescendantAdded catches everything
+    print("[AntiDetect] Script filter active (event-driven, zero sweep)")
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -119,7 +100,6 @@ function AntiDetect:Disable()
     self.Enabled = false
     adEnabled = false
 
-    if scanConn then scanConn:Disconnect(); scanConn = nil end
     if gameChildConn then gameChildConn:Disconnect(); gameChildConn = nil end
 end
 

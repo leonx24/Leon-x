@@ -1208,7 +1208,7 @@ PlayerTab:Section({ Title = "Protection" })
 
 local antiDetectToggle = PlayerTab:Toggle({
     Title    = "Anti Detect (Adonis/AC)",
-    Value    = true,
+    Value    = false,
     Callback = function(v)
         if AntiDetect then
             if v then AntiDetect:Enable() else AntiDetect:Disable() end
