@@ -2,48 +2,10 @@
 -- Wind UI version with splash screen + floating open button
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- EARLY HOOKS (line 1 — before ANY HTTP or game interaction)
--- Blocks Adonis kick + hides executor from detection BEFORE anything loads
+-- EARLY STEALTH HOOKS (line 1 — before ANY HTTP or game interaction)
+-- NO hookmetamethod — Adonis detects __namecall on game metatable!
+-- Uses only hookfunction (invisible to Adonis namecall detector)
 -- ═══════════════════════════════════════════════════════════════════════════
-pcall(function()
-    if not hookmetamethod or not newcclosure or not getnamecallmethod then return end
-    local _eLP = game:GetService("Players").LocalPlayer
-    local _eTS = game:GetService("TeleportService")
-    local _origNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        -- Block Player:Kick()
-        if method == "Kick" and self == _eLP then return end
-        -- Block detection-reporting FireServer (let heartbeats through)
-        if method == "FireServer" or method == "InvokeServer" then
-            local args = {...}
-            for _, arg in ipairs(args) do
-                if type(arg) == "string" then
-                    local l = arg:lower()
-                    if l:find("detected",1,true) or l:find("exploit",1,true)
-                       or l:find("cheating",1,true) or l:find("hacking",1,true)
-                       or l:find("speedhack",1,true) or l:find("tamper",1,true)
-                       or l:find("injection",1,true) or l:find("executor",1,true)
-                       or l:find("integrity",1,true) or l:find("violation",1,true) then
-                        return
-                    end
-                end
-            end
-        end
-        -- Block suspicious teleports
-        if self == _eTS then
-            if method == "Teleport" or method == "TeleportToPlaceInstance"
-               or method == "TeleportAsync" or method == "TeleportToPrivateServer" then
-                if _G._LeonX_AllowTeleportActive then return _origNC(self, ...) end
-                local a = {...}
-                if a[1] and type(a[1]) == "number" and a[1] < 100 then return end
-            end
-        end
-        return _origNC(self, ...)
-    end))
-    print("[LeonX] Early namecall hook OK")
-end)
-
--- Early stealth hooks (checkcaller, getfenv, isexecutorclosure)
 pcall(function()
     if not hookfunction or not newcclosure then return end
     pcall(function()

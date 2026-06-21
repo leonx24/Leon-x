@@ -1,21 +1,16 @@
--- Leon X | AntiDetect v6 — Smart Adonis Bypass
--- Based on analysis of actual Adonis anti.lua source code:
---   RemovePlayer() calls service.UnWrap(p):Kick() on the SERVER
---   CheckAllClients() runs every 30s, kicks after 300s without heartbeat
---   Detected() routes all kick/kill/crash through server
+-- Leon X | AntiDetect v7 — No-namecall Adonis Bypass
+-- v6 got detected by "namecall instance detector" (0x273A)
+-- Adonis checks if game's __namecall metamethod was tampered via hookmetamethod.
 --
--- KEY INSIGHT: Our previous versions blocked ALL Adonis remotes, which
---   prevented heartbeats from reaching the server → CheckAllClients
---   kicked us for "Client Not Responding [>300 seconds]".
---   We were CAUSING the kick by blocking heartbeats!
+-- v7 STRATEGY: ZERO hookmetamethod usage
+--   1. hookfunction on individual Adonis remotes' FireServer (invisible to game metatable scan)
+--   2. Stealth hooks: checkcaller/getfenv/isexecutorclosure/debug.getinfo
+--   3. Destroy only Adonis DETECTION scripts (heartbeats must flow)
+--   4. Direct hookfunction on Player:Kick as backup
 --
--- NEW STRATEGY: Executor invisibility
---   1. DON'T destroy Adonis remotes (heartbeats must flow)
---   2. Hook checkcaller/getfenv/isexecutorclosure (hide executor)
---   3. Block Player:Kick() in namecall (prevent client-side kicks)
---   4. Only block FireServer with detection-reporting patterns
---   5. Destroy only Adonis DETECTION scripts (not core client/remotes)
--- MUST be loaded FIRST — before any game scripts run
+-- WHY THIS WORKS: hookfunction modifies a specific function pointer,
+--   NOT the game metatable. Adonis' namecall detector only checks
+--   getrawmetatable(game).__namecall — we never touch it.
 
 local AntiDetect = {}
 AntiDetect.Name    = "AntiDetect"
@@ -23,28 +18,23 @@ AntiDetect.Enabled = false
 
 local Players          = game:GetService("Players")
 local RunService       = game:GetService("RunService")
-local TeleportService  = game:GetService("TeleportService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local lp               = Players.LocalPlayer
 
 -- Fast local flag
 local adEnabled = false
 
 -- State tracking
-local oldNamecall       = nil
-local oldKick           = nil
-local oldIsExec         = nil
-local oldCheckCaller   = nil
-local oldGetfenv        = nil
-local hookActive        = false
-local scanConn          = nil
-local gameChildConn     = nil
+local hookedRemotes   = {}
+local scanConn        = nil
+local gameChildConn   = nil
+local remoteAddedConn = nil
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- PATTERNS
 -- ════════════════════════════════════════════════════════════════════════════
 
 -- Adonis DETECTION script names (NOT core client or remotes)
--- These are the scripts that CHECK for executors and report to server
 local ADONIS_DETECTION_SCRIPTS = {
     "clientcheck", "anticheat", "antiexploit", "antihack",
     "detection", "exploitdetect", "hackdetect", "cheatdetect",
@@ -52,15 +42,22 @@ local ADONIS_DETECTION_SCRIPTS = {
 }
 
 -- FireServer args that indicate a detection report (NOT a heartbeat)
--- Adonis Detected() uses: "Kick", "Kill", "Crash", "Log"
 local DETECTION_KEYWORDS = {
     "detected", "exploit", "cheating", "hacking", "speedhack",
     "anticheat", "antiexploit", "injection", "executor",
     "tamper", "modified", "integrity", "violation",
+    "namecall", "instance detector",
+}
+
+-- Known Adonis remote folder names
+local ADONIS_REMOTE_NAMES = {
+    "__adonis", "adonis", "__admin", "admin",
+    "__server", "sb_", "remote",
 }
 
 -- Check if FireServer args look like a detection report
-local function isDetectionReport(args)
+local function isDetectionReport(...)
+    local args = {...}
     for _, arg in ipairs(args) do
         if type(arg) == "string" then
             local lower = arg:lower()
@@ -74,7 +71,7 @@ local function isDetectionReport(args)
     return false
 end
 
--- Check if a script is an Adonis DETECTION script (not core client)
+-- Check if a script is an Adonis DETECTION script
 local function isDetectionScript(obj)
     if not obj:IsA("LocalScript") and not obj:IsA("ModuleScript") then
         return false
@@ -86,60 +83,92 @@ local function isDetectionScript(obj)
     return false
 end
 
--- ════════════════════════════════════════════════════════════════════════════
--- LAYER 1: __namecall Hook (Kick block + smart remote filter)
--- ════════════════════════════════════════════════════════════════════════════
-
-local function enableNamecallHook()
-    pcall(function()
-        if not hookmetamethod or not newcclosure or not getnamecallmethod then return end
-        if hookActive then return end
-
-        oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-            if adEnabled then
-                local method = getnamecallmethod()
-
-                -- Block Player:Kick() — catches any client-side kick attempt
-                if method == "Kick" and self == lp then
-                    return
-                end
-
-                -- Smart remote filter: block detection reports, ALLOW heartbeats
-                if method == "FireServer" or method == "InvokeServer" then
-                    local args = {...}
-                    -- Only block if args contain detection-reporting keywords
-                    if isDetectionReport(args) then
-                        return  -- silently eat the detection report
-                    end
-                    -- Everything else (heartbeats, normal game traffic) passes through
-                end
-
-                -- Block suspicious teleports (some admin commands use teleport-to-kick)
-                if self == TeleportService then
-                    if method == "Teleport" or method == "TeleportToPlaceInstance"
-                       or method == "TeleportAsync" or method == "TeleportToPrivateServer" then
-                        -- Allow user-initiated teleports
-                        if _G._LeonX_AllowTeleportActive then
-                            return oldNamecall(self, ...)
-                        end
-                        local args = {...}
-                        local placeId = args[1]
-                        if placeId and type(placeId) == "number" and placeId < 100 then
-                            return
-                        end
-                    end
-                end
-            end
-            return oldNamecall(self, ...)
-        end))
-
-        hookActive = true
-        print("[AntiDetect] namecall hook active")
-    end)
+-- Check if an object looks like an Adonis remote
+local function isAdonisRemote(obj)
+    if not obj:IsA("RemoteEvent") and not obj:IsA("RemoteFunction") then
+        return false
+    end
+    local lower = obj.Name:lower()
+    -- Check name patterns
+    for _, pattern in ipairs(ADONIS_REMOTE_NAMES) do
+        if lower:find(pattern, 1, true) then return true end
+    end
+    -- Check if parent chain contains Adonis-related folders
+    local parent = obj.Parent
+    while parent do
+        local pLower = parent.Name:lower()
+        if pLower:find("adonis", 1, true) or pLower:find("__admin", 1, true) then
+            return true
+        end
+        parent = parent.Parent
+    end
+    return false
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 2: Executor Invisibility (the REAL defense against detection)
+-- LAYER 1: Direct Remote Hook (hookfunction on individual remotes)
+-- NO hookmetamethod — Adonis namecall detector cannot see this
+-- ════════════════════════════════════════════════════════════════════════════
+
+local function hookAdonisRemote(remote)
+    if hookedRemotes[remote] then return end
+    if not hookfunction or not newcclosure then return end
+
+    local success = pcall(function()
+        if remote:IsA("RemoteEvent") then
+            local origFire = remote.FireServer
+            hookedRemotes[remote] = hookfunction(origFire, newcclosure(function(self, ...)
+                if adEnabled and isDetectionReport(...) then
+                    return -- silently eat detection report
+                end
+                return origFire(self, ...)
+            end))
+            print("[AntiDetect] Hooked RemoteEvent: " .. remote:GetFullName())
+        elseif remote:IsA("RemoteFunction") then
+            local origInvoke = remote.InvokeServer
+            hookedRemotes[remote] = hookfunction(origInvoke, newcclosure(function(self, ...)
+                if adEnabled and isDetectionReport(...) then
+                    return -- silently eat detection report
+                end
+                return origInvoke(self, ...)
+            end))
+            print("[AntiDetect] Hooked RemoteFunction: " .. remote:GetFullName())
+        end
+    end)
+
+    if not success then
+        print("[AntiDetect] Failed to hook: " .. remote:GetFullName())
+    end
+end
+
+local function scanAndHookRemotes()
+    pcall(function()
+        for _, obj in ipairs(game:GetDescendants()) do
+            if isAdonisRemote(obj) then
+                hookAdonisRemote(obj)
+            end
+        end
+    end)
+end
+
+local function enableRemoteHooks()
+    -- Initial scan
+    scanAndHookRemotes()
+
+    -- Monitor for new Adonis remotes appearing
+    if remoteAddedConn then remoteAddedConn:Disconnect() end
+    remoteAddedConn = game.DescendantAdded:Connect(function(obj)
+        if not adEnabled then return end
+        if (obj:IsA("RemoteEvent") or obj:IsA("RemoteFunction")) and isAdonisRemote(obj) then
+            hookAdonisRemote(obj)
+        end
+    end)
+
+    print("[AntiDetect] Remote hook layer active (no hookmetamethod)")
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LAYER 2: Executor Invisibility (hide from Adonis detection checks)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local function enableStealthHooks()
@@ -147,20 +176,19 @@ local function enableStealthHooks()
         if not hookfunction or not newcclosure then return end
 
         -- Hook checkcaller — Adonis checks if functions are executor-made
-        -- Always return false so our closures look like legitimate Roblox functions
         pcall(function()
             if checkcaller then
-                oldCheckCaller = hookfunction(checkcaller, newcclosure(function()
+                hookfunction(checkcaller, newcclosure(function()
                     return false
                 end))
                 print("[AntiDetect] checkcaller hooked")
             end
         end)
 
-        -- Hook isexecutorclosure — same purpose as checkcaller
+        -- Hook isexecutorclosure — same purpose
         pcall(function()
             if isexecutorclosure then
-                oldIsExec = hookfunction(isexecutorclosure, newcclosure(function()
+                hookfunction(isexecutorclosure, newcclosure(function()
                     return false
                 end))
                 print("[AntiDetect] isexecutorclosure hooked")
@@ -168,7 +196,6 @@ local function enableStealthHooks()
         end)
 
         -- Hook getfenv — strip executor functions from returned environments
-        -- When Adonis inspects script environments, executor functions are hidden
         pcall(function()
             if getfenv then
                 local origGetfenv = getfenv
@@ -186,7 +213,7 @@ local function enableStealthHooks()
                     makefolder=1, delfolder=1, delfile=1, listfiles=1,
                     getcustomasset=1, getassets=1,
                 }
-                oldGetfenv = hookfunction(getfenv, newcclosure(function(...)
+                hookfunction(getfenv, newcclosure(function(...)
                     local result = origGetfenv(...)
                     if type(result) == "table" then
                         local clean = {}
@@ -227,8 +254,6 @@ end
 -- ════════════════════════════════════════════════════════════════════════════
 -- LAYER 3: Selective Detection Script Destroyer
 -- ════════════════════════════════════════════════════════════════════════════
--- Only destroys Adonis DETECTION scripts, NOT core client or remotes.
--- This preserves heartbeat communication while removing detection logic.
 
 local function destroyDetectionScript(obj)
     pcall(function()
@@ -241,8 +266,7 @@ local function destroyDetectionScript(obj)
 end
 
 local function enableScriptFilter()
-    -- Scan for Adonis detection scripts across the game
-    -- IMPORTANT: Only destroy DETECTION scripts, NOT core Adonis client/remotes
+    -- Initial scan
     pcall(function()
         for _, obj in ipairs(game:GetDescendants()) do
             if isDetectionScript(obj) then
@@ -251,7 +275,7 @@ local function enableScriptFilter()
         end
     end)
 
-    -- Monitor for new detection scripts being added
+    -- Monitor for new detection scripts
     if gameChildConn then gameChildConn:Disconnect() end
     gameChildConn = game.DescendantAdded:Connect(function(obj)
         if not adEnabled then return end
@@ -260,7 +284,7 @@ local function enableScriptFilter()
         end
     end)
 
-    -- Periodic sweep (catches scripts that respawn)
+    -- Periodic sweep
     if scanConn then scanConn:Disconnect() end
     scanConn = RunService.Heartbeat:Connect(function()
         if not adEnabled then return end
@@ -277,16 +301,14 @@ local function enableScriptFilter()
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- LAYER 4: Direct Kick Hook (backup for namecall)
+-- LAYER 4: Direct Kick Hook (hookfunction on Player:Kick)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local function enableDirectHooks()
     pcall(function()
         if not hookfunction or not newcclosure then return end
-
-        -- Hook Player:Kick() directly as backup
         pcall(function()
-            oldKick = hookfunction(
+            hookfunction(
                 lp.Kick,
                 newcclosure(function()
                     return
@@ -306,21 +328,21 @@ function AntiDetect:Enable()
     self.Enabled = true
     adEnabled = true
 
-    print("[AntiDetect] Enabling v6 — smart Adonis bypass")
+    print("[AntiDetect] Enabling v7 — zero hookmetamethod bypass")
 
-    -- Layer 1: namecall hook (Kick block + smart remote filter)
-    enableNamecallHook()
+    -- Layer 1: Hook individual Adonis remotes (no game metatable touch)
+    enableRemoteHooks()
 
     -- Layer 2: Executor invisibility (checkcaller, getfenv, etc.)
     enableStealthHooks()
 
-    -- Layer 3: Destroy only detection scripts (keep core client alive)
+    -- Layer 3: Destroy only detection scripts
     enableScriptFilter()
 
     -- Layer 4: Direct Kick hook (backup)
     enableDirectHooks()
 
-    print("[AntiDetect] All layers active")
+    print("[AntiDetect] All layers active (no hookmetamethod used)")
 end
 
 function AntiDetect:Disable()
@@ -330,6 +352,7 @@ function AntiDetect:Disable()
 
     if scanConn then scanConn:Disconnect(); scanConn = nil end
     if gameChildConn then gameChildConn:Disconnect(); gameChildConn = nil end
+    if remoteAddedConn then remoteAddedConn:Disconnect(); remoteAddedConn = nil end
 
     -- Note: hooks stay active — they check adEnabled flag
 end
