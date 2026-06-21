@@ -1,6 +1,91 @@
 -- Leon X | main.lua
 -- Wind UI version with splash screen + floating open button
 
+-- ═══════════════════════════════════════════════════════════════════════════
+-- EARLY HOOKS (line 1 — before ANY HTTP or game interaction)
+-- Blocks Adonis kick + hides executor from detection BEFORE anything loads
+-- ═══════════════════════════════════════════════════════════════════════════
+pcall(function()
+    if not hookmetamethod or not newcclosure or not getnamecallmethod then return end
+    local _eLP = game:GetService("Players").LocalPlayer
+    local _eTS = game:GetService("TeleportService")
+    local _origNC = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        -- Block Player:Kick()
+        if method == "Kick" and self == _eLP then return end
+        -- Block detection-reporting FireServer (let heartbeats through)
+        if method == "FireServer" or method == "InvokeServer" then
+            local args = {...}
+            for _, arg in ipairs(args) do
+                if type(arg) == "string" then
+                    local l = arg:lower()
+                    if l:find("detected",1,true) or l:find("exploit",1,true)
+                       or l:find("cheating",1,true) or l:find("hacking",1,true)
+                       or l:find("speedhack",1,true) or l:find("tamper",1,true)
+                       or l:find("injection",1,true) or l:find("executor",1,true)
+                       or l:find("integrity",1,true) or l:find("violation",1,true) then
+                        return
+                    end
+                end
+            end
+        end
+        -- Block suspicious teleports
+        if self == _eTS then
+            if method == "Teleport" or method == "TeleportToPlaceInstance"
+               or method == "TeleportAsync" or method == "TeleportToPrivateServer" then
+                if _G._LeonX_AllowTeleportActive then return _origNC(self, ...) end
+                local a = {...}
+                if a[1] and type(a[1]) == "number" and a[1] < 100 then return end
+            end
+        end
+        return _origNC(self, ...)
+    end))
+    print("[LeonX] Early namecall hook OK")
+end)
+
+-- Early stealth hooks (checkcaller, getfenv, isexecutorclosure)
+pcall(function()
+    if not hookfunction or not newcclosure then return end
+    pcall(function()
+        if checkcaller then
+            hookfunction(checkcaller, newcclosure(function() return false end))
+        end
+    end)
+    pcall(function()
+        if isexecutorclosure then
+            hookfunction(isexecutorclosure, newcclosure(function() return false end))
+        end
+    end)
+    pcall(function()
+        if getfenv then
+            local _oGFE = getfenv
+            local _eFns = {hookfunction=1,hookmetamethod=1,getgc=1,getrenv=1,getsenv=1,
+                getrawmetatable=1,setrawmetatable=1,getnamecallmethod=1,checkcaller=1,
+                newcclosure=1,newproxy=1,clonefunction=1,isexecutorclosure=1,
+                getinstances=1,getnilinstances=1,getscripts=1,getrunningscripts=1,
+                getloadedmodules=1,decompile=1,getscriptclosure=1,getscripthash=1,
+                getthreadidentity=1,setthreadidentity=1,setfpscap=1,
+                request=1,http_request=1,crypt=1,base64_encode=1,base64_decode=1,
+                readfile=1,writefile=1,appendfile=1,isfile=1,isfolder=1,
+                makefolder=1,delfolder=1,delfile=1,listfiles=1,
+                getcustomasset=1,getassets=1}
+            hookfunction(getfenv, newcclosure(function(...)
+                local r = _oGFE(...)
+                if type(r) == "table" then
+                    local c = {}
+                    for k,v in pairs(r) do if not _eFns[k] then c[k]=v end end
+                    return c
+                end
+                return r
+            end))
+        end
+    end)
+    print("[LeonX] Early stealth hooks OK")
+end)
+
+_G._LeonX_AllowTeleport = function(allow)
+    _G._LeonX_AllowTeleportActive = allow and true or false
+end
 
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
@@ -233,6 +318,12 @@ setSplashProgress(0.05)
 local cacheBust = "?t="..os.time()
 local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
 
+-- AntiDetect loads FIRST — must activate before any game scripts detect us
+local AntiDetect
+pcall(function()
+    AntiDetect = load("modules/player/antidetect.lua")
+    AntiDetect:Enable()
+end)
 
 local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
 local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.14)
@@ -1191,6 +1282,18 @@ ConfigMgr:Register("GodMode", godModeToggle)
 
 PlayerTab:Section({ Title = "Protection" })
 
+local antiDetectToggle = PlayerTab:Toggle({
+    Title    = "Anti Detect (Adonis/AC)",
+    Value    = true,
+    Callback = function(v)
+        if AntiDetect then
+            if v then AntiDetect:Enable() else AntiDetect:Disable() end
+            N("Anti Detect", v and "Enabled" or "Disabled")
+        end
+    end
+})
+ConfigMgr:Register("AntiDetect", antiDetectToggle)
+
 local noFallToggle = PlayerTab:Toggle({
     Title    = "No Fall Damage",
     Value    = false,
@@ -2064,6 +2167,7 @@ task.delay(1.5, function()
         if tracerToggle.Value == true then Tracer:Enable() end
 
         -- 7. Player features
+        if AntiDetect and antiDetectToggle.Value == true then AntiDetect:Enable() end
         if antiAFKToggle.Value == true then AntiAFK:Enable() end
         if infStaminaToggle.Value == true then InfStamina:Enable() end
         if godModeToggle.Value == true then GodMode:Enable() end
