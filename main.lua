@@ -236,10 +236,26 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 -- LOAD CUSTOM UI LIBRARY (Noir)
 -- ══════════════════════════════════════════════════════════════════════════════
+-- Safety net: force-destroy splash after 60s no matter what
+task.delay(60, function()
+    pcall(function() if SplashGui and SplashGui.Parent then SplashGui:Destroy() end end)
+end)
+
 local cacheBust = "?t="..os.time()
-local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
+local function load(p)
+    local ok, result = pcall(function()
+        local src = game:HttpGet(BASE..p..cacheBust)
+        return loadstring(src)()
+    end)
+    if not ok then
+        warn("[LeonX] Failed to load: " .. tostring(p) .. " — " .. tostring(result))
+        return nil
+    end
+    return result
+end
 
 local Library = load("ui/library.lua")
+if not Library then warn("[LeonX] CRITICAL: UI library failed to load"); return end
 setSplashProgress(0.05)
 
 -- AntiDetect loads FIRST — DISABLED for testing (v7.3 script destroyer may trigger Adonis absence detection)
@@ -304,7 +320,7 @@ Waypoint:Init()
 local Window = Library:CreateWindow({
     Title      = "Leon X v"..CURRENT_VERSION,
     Author     = "by leonx24",
-    Size       = UDim2.new(0, 580, 0, 560),
+    Size       = UDim2.new(0, 640, 0, 560),
     ToggleKey  = Enum.KeyCode.U,
     Theme      = "Default",
 })
@@ -2035,30 +2051,33 @@ end)
 end
 
 -- Smooth splash exit
+local splashDestroyed = false
 task.spawn(function()
     task.wait(0.3)
-    -- Fill bar to 100%
-    tw(SplashBarFill, 0.2, {Size = UDim2.new(1, 0, 1, 0)})
+    pcall(function()
+        tw(SplashBarFill, 0.2, {Size = UDim2.new(1, 0, 1, 0)})
+    end)
     task.wait(0.35)
-
-    -- Fade out splash card
-    tw(SplashCard, 0.5, {BackgroundTransparency = 1})
-    for _, child in ipairs(SplashCard:GetDescendants()) do
-        pcall(function()
-            if child:IsA("TextLabel") then
-                TweenService:Create(child, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
-            elseif child:IsA("Frame") then
-                TweenService:Create(child, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
-            elseif child:IsA("UIStroke") then
-                TweenService:Create(child, TweenInfo.new(0.4), {Transparency = 1}):Play()
-            end
-        end)
-    end
-    -- Fade out overlay
-    tw(SplashBg, 0.5, {BackgroundTransparency = 1})
-
+    pcall(function()
+        tw(SplashCard, 0.5, {BackgroundTransparency = 1})
+        for _, child in ipairs(SplashCard:GetDescendants()) do
+            pcall(function()
+                if child:IsA("TextLabel") then
+                    TweenService:Create(child, TweenInfo.new(0.4), {TextTransparency = 1}):Play()
+                elseif child:IsA("Frame") then
+                    TweenService:Create(child, TweenInfo.new(0.4), {BackgroundTransparency = 1}):Play()
+                elseif child:IsA("UIStroke") then
+                    TweenService:Create(child, TweenInfo.new(0.4), {Transparency = 1}):Play()
+                end
+            end)
+        end
+        tw(SplashBg, 0.5, {BackgroundTransparency = 1})
+    end)
     task.wait(0.55)
-    pcall(function() SplashGui:Destroy() end)
+    pcall(function()
+        if SplashGui and SplashGui.Parent then SplashGui:Destroy() end
+    end)
+    splashDestroyed = true
 end)
 
 task.delay(2, function()
