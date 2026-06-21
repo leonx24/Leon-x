@@ -37,22 +37,22 @@ Library.Themes = {
 	Neon    = baseTh({100,220,180}, {60,160,130}),
 }
 
--- Icon name → Unicode symbol map (main.lua passes icon names, not symbols)
+-- Icon name → symbol map (only characters verified to render in Roblox Gotham)
 local ICONS = {
-	["user"]            = "\u{F4FA}",
-	["settings"]        = "\u{2699}",
-	["eye"]             = "\u{F133}",
-	["zap"]             = "\u{26A1}",
-	["radio"]           = "\u{F4E3}",
-	["map-pin"]         = "\u{F34E}",
-	["swords"]          = "\u{2694}",
-	["person-standing"] = "\u{F484}",
-	["gamepad-2"]       = "\u{F472}",
-	["shield"]          = "\u{F3ED}",
-	["heart"]           = "\u{2665}",
-	["star"]            = "\u{2605}",
-	["home"]            = "\u{F47B}",
-	["compass"]         = "\u{F3C5}",
+	["user"]            = "●",
+	["settings"]        = "⚙",
+	["eye"]             = "◎",
+	["zap"]             = "⚡",
+	["radio"]           = "▶",
+	["map-pin"]         = "◆",
+	["swords"]          = "⚔",
+	["person-standing"] = "♦",
+	["gamepad-2"]       = "■",
+	["shield"]          = "▲",
+	["heart"]           = "♥",
+	["star"]            = "★",
+	["home"]            = "⌂",
+	["compass"]         = "✦",
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -172,11 +172,11 @@ function Library:CreateWindow(cfg)
 	end
 
 	local minBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(24, 24); Position = UDim2.new(1, -56, 0.5, -12);
-		BackgroundTransparency = 1; Text = "—";
+		Size = UDim2.fromOffset(28, 28); Position = UDim2.new(1, -62, 0.5, -14);
+		BackgroundColor3 = theme.Surface; Text = "—";
 		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.TextSub;
 		AutoButtonColor = false; Parent = header;
-	})
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 4) }) })
 	local minContentVisible = true
 	minBtn.MouseButton1Click:Connect(function()
 		minContentVisible = not minContentVisible
@@ -184,11 +184,11 @@ function Library:CreateWindow(cfg)
 	end)
 
 	local closeBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(24, 24); Position = UDim2.new(1, -30, 0.5, -12);
-		BackgroundTransparency = 1; Text = "✕";
-		Font = Enum.Font.GothamBold; TextSize = 13; TextColor3 = theme.TextSub;
+		Size = UDim2.fromOffset(28, 28); Position = UDim2.new(1, -32, 0.5, -14);
+		BackgroundColor3 = theme.Surface; Text = "x";
+		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.TextSub;
 		AutoButtonColor = false; Parent = header;
-	})
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 4) }) })
 
 	local content = mk("ScrollingFrame", {
 		Size = UDim2.new(1, -44, 1, -40); Position = UDim2.fromOffset(44, 40);
@@ -220,7 +220,37 @@ function Library:CreateWindow(cfg)
 		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
 		mk("UIStroke", { Color = theme.Border; Thickness = 1.5 }),
 	})
-	floatBtn.MouseButton1Click:Connect(function() win:Open() end)
+	-- Drag + click for float button
+	do
+		local fDragging, fDragStart, fStartPos, fDidMove = false, nil, nil, false
+		local function isTap(i)
+			return i.UserInputType == Enum.UserInputType.MouseButton1
+				or i.UserInputType == Enum.UserInputType.Touch
+		end
+		floatBtn.InputBegan:Connect(function(i)
+			if isTap(i) then
+				fDragging = true; fDidMove = false
+				fDragStart = i.Position; fStartPos = floatBtn.Position
+			end
+		end)
+		UIS.InputChanged:Connect(function(i)
+			if fDragging and (i.UserInputType == Enum.UserInputType.MouseMovement
+					or i.UserInputType == Enum.UserInputType.Touch) then
+				local d = i.Position - fDragStart
+				if math.abs(d.X) > 6 or math.abs(d.Y) > 6 then fDidMove = true end
+				floatBtn.Position = UDim2.new(
+					fStartPos.X.Scale, fStartPos.X.Offset + d.X,
+					fStartPos.Y.Scale, fStartPos.Y.Offset + d.Y
+				)
+			end
+		end)
+		UIS.InputEnded:Connect(function(i)
+			if isTap(i) and fDragging then
+				fDragging = false
+				if not fDidMove then win:Open() end
+			end
+		end)
+	end
 
 	-- ── Close / Open ──
 	function win:Close()
@@ -319,12 +349,17 @@ function Library:CreateWindow(cfg)
 			isActive = active
 			indicator.Visible = active
 			btn.TextColor3 = active and self._theme.Text or self._theme.TextSub
+			-- Scan page children dynamically (components created AFTER setActive on first tab)
+			local frames = {}
+			for _, child in ipairs(page:GetChildren()) do
+				if child:IsA("Frame") then frames[#frames + 1] = child end
+			end
 			if active then
 				page.Visible = true; page.LayoutOrder = 0
-				for _, c in ipairs(tab._components) do c.Visible = true end
+				for _, c in ipairs(frames) do c.Visible = true end
 			else
 				page.Visible = false; page.LayoutOrder = 999
-				for _, c in ipairs(tab._components) do c.Visible = false end
+				for _, c in ipairs(frames) do c.Visible = false end
 			end
 		end
 
