@@ -8,6 +8,8 @@
 -- ═══════════════════════════════════════════════════════════════════════════
 pcall(function()
     if not hookfunction or not newcclosure then return end
+    -- Only hook checkcaller and isexecutorclosure (safe, no side effects)
+    -- NO getfenv hook — it copies environment tables, breaks UI library loading
     pcall(function()
         if checkcaller then
             hookfunction(checkcaller, newcclosure(function() return false end))
@@ -16,30 +18,6 @@ pcall(function()
     pcall(function()
         if isexecutorclosure then
             hookfunction(isexecutorclosure, newcclosure(function() return false end))
-        end
-    end)
-    pcall(function()
-        if getfenv then
-            local _oGFE = getfenv
-            local _eFns = {hookfunction=1,hookmetamethod=1,getgc=1,getrenv=1,getsenv=1,
-                getrawmetatable=1,setrawmetatable=1,getnamecallmethod=1,checkcaller=1,
-                newcclosure=1,newproxy=1,clonefunction=1,isexecutorclosure=1,
-                getinstances=1,getnilinstances=1,getscripts=1,getrunningscripts=1,
-                getloadedmodules=1,decompile=1,getscriptclosure=1,getscripthash=1,
-                getthreadidentity=1,setthreadidentity=1,setfpscap=1,
-                request=1,http_request=1,crypt=1,base64_encode=1,base64_decode=1,
-                readfile=1,writefile=1,appendfile=1,isfile=1,isfolder=1,
-                makefolder=1,delfolder=1,delfile=1,listfiles=1,
-                getcustomasset=1,getassets=1}
-            hookfunction(getfenv, newcclosure(function(...)
-                local r = _oGFE(...)
-                if type(r) == "table" then
-                    local c = {}
-                    for k,v in pairs(r) do if not _eFns[k] then c[k]=v end end
-                    return c
-                end
-                return r
-            end))
         end
     end)
     print("[LeonX] Early stealth hooks OK")
