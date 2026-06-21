@@ -402,6 +402,7 @@ end
 
 -- ── Section ────────────────────────────────────────────────────────────────
 function Section(tab, data)
+	print("[LeonX][Section] Title=" .. tostring(data.Title) .. " Tab=" .. tostring(tab.Name))
 	local theme = th(tab)
 	local f = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 30); BackgroundTransparency = 1;
@@ -457,7 +458,12 @@ function Paragraph(tab, data)
 end
 
 -- ── Toggle ─────────────────────────────────────────────────────────────────
+local _toggleDebugCount = 0
 function Toggle(tab, data)
+	_toggleDebugCount = _toggleDebugCount + 1
+	if _toggleDebugCount <= 5 then
+		print("[LeonX][Toggle#" .. _toggleDebugCount .. "] Title=" .. tostring(data.Title) .. " Name=" .. tostring(data.Name) .. " Tab=" .. tostring(tab.Name))
+	end
 	local theme = th(tab)
 	local val = data.Value ~= nil and data.Value or (data.Default ~= nil and data.Default or false)
 	local f = mk("Frame", {
