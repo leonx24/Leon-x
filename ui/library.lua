@@ -37,24 +37,6 @@ Library.Themes = {
 	Neon    = baseTh({100,220,180}, {60,160,130}),
 }
 
--- Icon name → symbol map (only characters verified to render in Roblox Gotham)
-local ICONS = {
-	["user"]            = "●",
-	["settings"]        = "⚙",
-	["eye"]             = "◎",
-	["zap"]             = "⚡",
-	["radio"]           = "▶",
-	["map-pin"]         = "◆",
-	["swords"]          = "⚔",
-	["person-standing"] = "♦",
-	["gamepad-2"]       = "■",
-	["shield"]          = "▲",
-	["heart"]           = "♥",
-	["star"]            = "★",
-	["home"]            = "⌂",
-	["compass"]         = "✦",
-}
-
 -- ════════════════════════════════════════════════════════════════════════════
 -- UTILITIES
 -- ════════════════════════════════════════════════════════════════════════════
@@ -131,9 +113,10 @@ function Library:CreateWindow(cfg)
 
 	local mainStroke = mk("UIStroke", { Color = theme.Border; Thickness = 1; Parent = main })
 
-	-- ── Sidebar ──
+	-- ── Sidebar (text labels, no icons) ──
+	local SIDEBAR_W = 90
 	local sidebar = mk("Frame", {
-		Size = UDim2.new(0, 44, 1, 0); Position = UDim2.fromOffset(0, 0);
+		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
 		BackgroundColor3 = theme.BG; BorderSizePixel = 0; Parent = main;
 	})
 	mk("Frame", {
@@ -149,7 +132,7 @@ function Library:CreateWindow(cfg)
 
 	-- ── Header ──
 	local header = mk("Frame", {
-		Size = UDim2.new(1, -44, 0, 40); Position = UDim2.fromOffset(44, 0);
+		Size = UDim2.new(1, -SIDEBAR_W, 0, 40); Position = UDim2.fromOffset(SIDEBAR_W, 0);
 		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; Parent = main;
 	})
 	mk("Frame", {
@@ -191,18 +174,23 @@ function Library:CreateWindow(cfg)
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 4) }) })
 
 	local content = mk("ScrollingFrame", {
-		Size = UDim2.new(1, -44, 1, -40); Position = UDim2.fromOffset(44, 40);
+		Size = UDim2.new(1, -SIDEBAR_W, 1, -40); Position = UDim2.fromOffset(SIDEBAR_W, 40);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 3; ScrollBarImageColor3 = theme.Border;
 		CanvasSize = UDim2.fromOffset(0, 0);
 		ClipsDescendants = true; Parent = main;
 	})
-	local contentLayout = mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 0); Parent = content })
-	-- Fallback canvas size (AutomaticCanvasSize may not exist on all executors)
+	local contentLayout = mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 4); Parent = content })
+	mk("UIPadding", {
+		PaddingTop = UDim.new(0, 8); PaddingBottom = UDim.new(0, 8);
+		PaddingLeft = UDim.new(0, 12); PaddingRight = UDim.new(0, 12);
+		Parent = content;
+	})
 	contentLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		content.CanvasSize = UDim2.fromOffset(0, contentLayout.AbsoluteContentSize.Y + 20)
 	end)
 	pcall(function() content.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
+	win._allComps = {}
 
 	-- ── Floating open button ──
 	local floatGui = mk("ScreenGui", {
@@ -309,57 +297,37 @@ function Library:CreateWindow(cfg)
 	function win:Tab(cfg)
 		cfg = cfg or {}
 		local tabName = cfg.Title or cfg.Name or "Tab"
-		local icon = ICONS[cfg.Icon] or cfg.Icon or "◆"
-		local tab = { Name = tabName; _layoutOrder = 0; _components = {} }
+		-- Text label: use first 3 chars if no Icon override
+		local label = tabName:sub(1, 3)
+		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = self }
 		local idx = #self._tabs + 1
 
 		local btn = mk("TextButton", {
-			Size = UDim2.new(1, 0, 0, 38);
-			Position = UDim2.fromOffset(0, (idx - 1) * 42);
-			BackgroundTransparency = 1; Text = icon;
-			Font = Enum.Font.Gotham; TextSize = 16;
+			Size = UDim2.new(1, 0, 0, 34);
+			Position = UDim2.fromOffset(0, (idx - 1) * 36);
+			BackgroundTransparency = 1; Text = label;
+			Font = Enum.Font.GothamBold; TextSize = 12;
 			TextColor3 = self._theme.TextSub; AutoButtonColor = false;
 			Parent = tabList;
 		})
 		local indicator = mk("Frame", {
-			Size = UDim2.new(0, 2, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
+			Size = UDim2.new(0, 2, 0, 18); Position = UDim2.new(0, 0, 0.5, -9);
 			BackgroundColor3 = self._theme.Accent; BorderSizePixel = 0;
 			Visible = false; Parent = btn;
 		}, { mk("UICorner", { CornerRadius = UDim.new(0, 1) }) })
-
-		-- Use a plain Frame (not ScrollingFrame) — parent content frame handles scroll
-		local page = mk("Frame", {
-			Size = UDim2.new(1, 0, 0, 0); BackgroundTransparency = 1;
-			Visible = false; Parent = content;
-		})
-		local layout = mk("UIListLayout", {
-			SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 6); Parent = page;
-		})
-		mk("UIPadding", {
-			PaddingTop = UDim.new(0, 10); PaddingBottom = UDim.new(0, 10);
-			PaddingLeft = UDim.new(0, 12); PaddingRight = UDim.new(0, 12);
-			Parent = page;
-		})
-		layout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-			page.Size = UDim2.new(1, 0, 0, layout.AbsoluteContentSize.Y + 20)
-		end)
 
 		local isActive = false
 		local function setActive(active)
 			isActive = active
 			indicator.Visible = active
 			btn.TextColor3 = active and self._theme.Text or self._theme.TextSub
-			-- Scan page children dynamically (components created AFTER setActive on first tab)
-			local frames = {}
-			for _, child in ipairs(page:GetChildren()) do
-				if child:IsA("Frame") then frames[#frames + 1] = child end
-			end
-			if active then
-				page.Visible = true; page.LayoutOrder = 0
-				for _, c in ipairs(frames) do c.Visible = true end
-			else
-				page.Visible = false; page.LayoutOrder = 999
-				for _, c in ipairs(frames) do c.Visible = false end
+			btn.BackgroundTransparency = active and 0.85 or 1
+			if active then btn.BackgroundColor3 = self._theme.Surface end
+			-- Show/hide component frames belonging to this tab
+			for _, entry in ipairs(self._allComps) do
+				if entry._tab == tab then
+					entry.Frame.Visible = active
+				end
 			end
 		end
 
@@ -374,24 +342,22 @@ function Library:CreateWindow(cfg)
 			if not isActive then btn.BackgroundTransparency = 1 end
 		end)
 
-		tab._setActive = setActive; tab._page = page; tab._win = win
+		tab._setActive = setActive
 		self._tabs[#self._tabs + 1] = tab
 		if idx == 1 then setActive(true) end
 
-		-- Attach component methods (auto-register frames for tab visibility)
+		-- Wrap component: parent to content, tag with tab, register for visibility
 		local function wrap(fn)
 			return function(d)
 				local r = fn(tab, d)
-				if r and r.Frame then tab._components[#tab._components + 1] = r.Frame end
+				if r and r.Frame then
+					r.Frame._tab = tab
+					self._allComps[#self._allComps + 1] = { _tab = tab; Frame = r.Frame }
+				end
 				return r
 			end
 		end
-		tab.Section   = function(d)
-			Section(tab, d)
-			-- Section doesn't return an api, so we grab the last child of page
-			local children = tab._page:GetChildren()
-			tab._components[#tab._components + 1] = children[#children]
-		end
+		tab.Section   = wrap(Section)
 		tab.Paragraph = wrap(Paragraph)
 		tab.Toggle    = wrap(Toggle)
 		tab.Slider    = wrap(Slider)
@@ -447,6 +413,7 @@ function Section(tab, data)
 		TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
+	return { Frame = f }
 end
 
 -- ── Paragraph ──────────────────────────────────────────────────────────────
