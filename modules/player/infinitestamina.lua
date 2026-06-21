@@ -1,7 +1,6 @@
--- Leon X | InfiniteStamina (Enhanced v2)
--- Prevents stamina/sprint energy drain by continuously refilling
--- Scans ALL possible locations: Humanoid attributes, character values,
--- Player attributes, PlayerGui, PlayerScripts, leaderstats
+-- Leon X | InfiniteStamina (v3 — FPS-optimized)
+-- Refills stamina from cached reference every frame (fast, no scanning)
+-- Full deep scan only every 10 seconds to catch new values
 
 local InfiniteStamina = {}
 InfiniteStamina.Name    = "InfiniteStamina"
@@ -11,38 +10,42 @@ local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local lp         = Players.LocalPlayer
 
-local heartConn = nil
-local charConn  = nil
-local scanConn  = nil
+local mainConn = nil
+local charConn = nil
 
--- Common stamina-related keywords to match against
+-- Stamina-related keywords
 local STAMINA_KEYWORDS = {
     "stamina", "energy", "sprint", "endurance", "stam", "energi",
     "fatigue", "exhaust", "breath", "oxygen", "oxy", "dash",
     "run", "jog", "tire",
 }
 
--- Check if a name matches stamina patterns
+-- Common attribute names to check
+local COMMON_ATTRS = {
+    "Stamina", "Energy", "Sprint", "SprintStamina",
+    "StaminaValue", "EnergyValue", "Endurance",
+    "stamina", "energy", "sprint", "sprintStamina",
+    "MaxStamina", "CurrentStamina", "PlayerStamina",
+    "SprintEnergy", "RunEnergy", "StaminaBar",
+    "DashEnergy", "DashStamina", "BreathStamina",
+}
+
 local function isStaminaName(name)
     local lower = name:lower()
     for _, keyword in ipairs(STAMINA_KEYWORDS) do
-        if lower:find(keyword) then
-            return true
-        end
+        if lower:find(keyword) then return true end
     end
     return false
 end
+
+-- Cached stamina ref: { obj=Instance, maxVal=number }
+local cachedRefs = {}
 
 -- Get max value from sibling or parent
 local function findMaxValue(obj)
     local parent = obj.Parent
     if not parent then return 100 end
-
-    -- Check for MaxXxx or xxxMax siblings
-    local maxNames = {
-        "Max" .. obj.Name, obj.Name .. "Max",
-        "Max", "Maximum", "MaxValue",
-    }
+    local maxNames = { "Max" .. obj.Name, obj.Name .. "Max", "Max", "Maximum", "MaxValue" }
     for _, mn in ipairs(maxNames) do
         local maxObj = parent:FindFirstChild(mn)
         if maxObj and (maxObj:IsA("NumberValue") or maxObj:IsA("IntValue")) then
@@ -52,42 +55,47 @@ local function findMaxValue(obj)
     return 100
 end
 
--- Refill stamina in ALL possible locations
-local function refill(char)
-    if not char then return end
+-- Deep scan: find ALL stamina values and cache them (runs every 10s, not every frame)
+local function deepScan()
+    cachedRefs = {}
 
-    -- 1. Humanoid attributes (iterate ALL, not just known names)
+    local function cache(obj)
+        if obj:IsA("NumberValue") or obj:IsA("IntValue") then
+            if isStaminaName(obj.Name) then
+                cachedRefs[#cachedRefs + 1] = {
+                    obj = obj,
+                    maxVal = findMaxValue(obj),
+                }
+            end
+        end
+    end
+
+    -- Character descendants
     pcall(function()
-        local hum = char:FindFirstChildOfClass("Humanoid")
+        local char = lp.Character
+        if char then
+            for _, obj in ipairs(char:GetDescendants()) do cache(obj) end
+        end
+    end)
+
+    -- Humanoid attributes
+    pcall(function()
+        local hum = lp.Character and lp.Character:FindFirstChildOfClass("Humanoid")
         if hum then
-            pcall(function()
-                local attrs = hum:GetAttributes()
-                if attrs then
-                    for attrName, val in pairs(attrs) do
-                        if type(val) == "number" and isStaminaName(attrName) then
-                            local maxVal = 100
-                            -- Try to find max attribute
-                            local maxAttr = hum:GetAttribute("Max" .. attrName)
-                                or hum:GetAttribute(attrName .. "Max")
-                            if type(maxAttr) == "number" and maxAttr > 0 then
-                                maxVal = maxAttr
-                            end
-                            if val < maxVal then
-                                hum:SetAttribute(attrName, maxVal)
-                            end
-                        end
+            local attrs = hum:GetAttributes()
+            if attrs then
+                for attrName, val in pairs(attrs) do
+                    if type(val) == "number" and isStaminaName(attrName) then
+                        local maxVal = hum:GetAttribute("Max" .. attrName)
+                            or hum:GetAttribute(attrName .. "Max")
+                            or 100
+                        if type(maxVal) ~= "number" then maxVal = 100 end
+                        cachedRefs[#cachedRefs + 1] = { attr = attrName, hum = hum, maxVal = maxVal }
                     end
                 end
-            end)
-            -- Also try common explicit names
-            for _, attr in ipairs({
-                "Stamina", "Energy", "Sprint", "SprintStamina",
-                "StaminaValue", "EnergyValue", "Endurance",
-                "stamina", "energy", "sprint", "sprintStamina",
-                "MaxStamina", "CurrentStamina", "PlayerStamina",
-                "SprintEnergy", "RunEnergy", "StaminaBar",
-                "DashEnergy", "DashStamina", "BreathStamina",
-            }) do
+            end
+            -- Common explicit attribute names
+            for _, attr in ipairs(COMMON_ATTRS) do
                 pcall(function()
                     local val = hum:GetAttribute(attr)
                     if type(val) == "number" then
@@ -95,30 +103,14 @@ local function refill(char)
                             or hum:GetAttribute(attr .. "Max")
                             or 100
                         if type(maxVal) ~= "number" then maxVal = 100 end
-                        hum:SetAttribute(attr, math.max(val, maxVal))
+                        cachedRefs[#cachedRefs + 1] = { attr = attr, hum = hum, maxVal = maxVal }
                     end
                 end)
             end
         end
     end)
 
-    -- 2. Scan ALL descendants of character for NumberValue/IntValue
-    pcall(function()
-        for _, obj in ipairs(char:GetDescendants()) do
-            if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-                if isStaminaName(obj.Name) then
-                    pcall(function()
-                        local maxVal = findMaxValue(obj)
-                        if obj.Value < maxVal then
-                            obj.Value = maxVal
-                        end
-                    end)
-                end
-            end
-        end
-    end)
-
-    -- 3. Player-level attributes (iterate ALL)
+    -- Player-level attributes
     pcall(function()
         local attrs = lp:GetAttributes()
         if attrs then
@@ -128,178 +120,108 @@ local function refill(char)
                         or lp:GetAttribute(attrName .. "Max")
                         or 100
                     if type(maxVal) ~= "number" then maxVal = 100 end
-                    if val < maxVal then
-                        lp:SetAttribute(attrName, maxVal)
-                    end
+                    cachedRefs[#cachedRefs + 1] = { attr = attrName, player = true, maxVal = maxVal }
                 end
             end
         end
     end)
 
-    -- 4. Scan PlayerGui for stamina-related values
+    -- PlayerGui
     pcall(function()
         local pg = lp:FindFirstChild("PlayerGui")
         if pg then
-            for _, obj in ipairs(pg:GetDescendants()) do
-                if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-                    if isStaminaName(obj.Name) then
-                        pcall(function()
-                            local maxVal = findMaxValue(obj)
-                            if obj.Value < maxVal then
-                                obj.Value = maxVal
-                            end
-                        end)
-                    end
-                end
-            end
+            for _, obj in ipairs(pg:GetDescendants()) do cache(obj) end
         end
     end)
 
-    -- 5. Scan leaderstats and other player stats
-    pcall(function()
-        local leaderstats = lp:FindFirstChild("leaderstats")
-        if leaderstats then
-            for _, obj in ipairs(leaderstats:GetDescendants()) do
-                if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-                    if isStaminaName(obj.Name) then
-                        pcall(function()
-                            local maxVal = findMaxValue(obj)
-                            if obj.Value < maxVal then
-                                obj.Value = maxVal
-                            end
-                        end)
-                    end
-                end
-            end
-        end
-    end)
-
-    -- 6. Scan PlayerScripts for stamina values (some games store here)
+    -- PlayerScripts
     pcall(function()
         local ps = lp:FindFirstChild("PlayerScripts")
         if ps then
-            for _, obj in ipairs(ps:GetDescendants()) do
-                if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-                    if isStaminaName(obj.Name) then
-                        pcall(function()
-                            local maxVal = findMaxValue(obj)
-                            if obj.Value < maxVal then
-                                obj.Value = maxVal
-                            end
-                        end)
-                    end
-                end
-            end
+            for _, obj in ipairs(ps:GetDescendants()) do cache(obj) end
         end
     end)
 
-    -- 7. Scan ReplicatedStorage for player-specific stamina modules
+    -- leaderstats
+    pcall(function()
+        local ls = lp:FindFirstChild("leaderstats")
+        if ls then
+            for _, obj in ipairs(ls:GetDescendants()) do cache(obj) end
+        end
+    end)
+
+    -- ReplicatedStorage player folder
     pcall(function()
         local rs = game:GetService("ReplicatedStorage")
-        if rs then
-            -- Look for player-named folders that might contain stamina
-            local playerFolder = rs:FindFirstChild(lp.Name) or rs:FindFirstChild(tostring(lp.UserId))
-            if playerFolder then
-                for _, obj in ipairs(playerFolder:GetDescendants()) do
-                    if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-                        if isStaminaName(obj.Name) then
-                            pcall(function()
-                                local maxVal = findMaxValue(obj)
-                                if obj.Value < maxVal then
-                                    obj.Value = maxVal
-                                end
-                            end)
-                        end
-                    end
-                end
-            end
+        local pf = rs and (rs:FindFirstChild(lp.Name) or rs:FindFirstChild(tostring(lp.UserId)))
+        if pf then
+            for _, obj in ipairs(pf:GetDescendants()) do cache(obj) end
         end
     end)
-end
 
--- Initial deep scan: find ALL stamina-like values once and cache them
-local cachedStaminaPaths = {}
-
-local function deepScan()
-    cachedStaminaPaths = {}
-    local function scanContainer(container, path)
-        pcall(function()
-            for _, obj in ipairs(container:GetDescendants()) do
-                if obj:IsA("NumberValue") or obj:IsA("IntValue") then
-                    if isStaminaName(obj.Name) then
-                        cachedStaminaPaths[#cachedStaminaPaths + 1] = obj
-                    end
-                end
-            end
-        end)
-    end
-    if lp.Character then scanContainer(lp.Character, "char") end
-    scanContainer(lp, "player")
-    pcall(function()
-        local pg = lp:FindFirstChild("PlayerGui")
-        if pg then scanContainer(pg, "pg") end
-    end)
-    pcall(function()
-        local ps = lp:FindFirstChild("PlayerScripts")
-        if ps then scanContainer(ps, "ps") end
-    end)
-    print("[Leon X] InfiniteStamina: Deep scan found " .. #cachedStaminaPaths .. " stamina-like values")
+    print("[InfiniteStamina] Deep scan: " .. #cachedRefs .. " stamina values cached")
 end
 
 function InfiniteStamina:Enable()
     if self.Enabled then return end
     self.Enabled = true
 
-    -- Do initial deep scan
+    -- Initial deep scan
     deepScan()
 
+    -- Re-scan on character respawn
     charConn = lp.CharacterAdded:Connect(function()
         task.wait(1)
-        deepScan()
+        if self.Enabled then deepScan() end
     end)
 
-    if heartConn then heartConn:Disconnect(); heartConn = nil end
-    heartConn = RunService.Heartbeat:Connect(function()
+    -- SINGLE Heartbeat: refill cached refs every frame (no scanning)
+    -- Deep scan every 10 seconds
+    if mainConn then mainConn:Disconnect(); mainConn = nil end
+    local scanTimer = 0
+    local SCAN_INTERVAL = 10
+
+    mainConn = RunService.Heartbeat:Connect(function(dt)
         if not self.Enabled then return end
-        -- Refill cached paths first (fast)
-        for _, obj in ipairs(cachedStaminaPaths) do
+
+        -- Fast refill: only touches cached values (zero scanning)
+        for _, ref in ipairs(cachedRefs) do
             pcall(function()
-                if obj and obj.Parent then
-                    local maxVal = findMaxValue(obj)
-                    if obj.Value < maxVal then
-                        obj.Value = maxVal
+                if ref.attr then
+                    -- Attribute type
+                    local owner = ref.hum or (ref.player and lp)
+                    if owner then
+                        local val = owner:GetAttribute(ref.attr)
+                        if type(val) == "number" and val < ref.maxVal then
+                            owner:SetAttribute(ref.attr, ref.maxVal)
+                        end
+                    end
+                elseif ref.obj and ref.obj.Parent then
+                    -- Instance type (NumberValue/IntValue)
+                    if ref.obj.Value < ref.maxVal then
+                        ref.obj.Value = ref.maxVal
                     end
                 end
             end)
         end
-        -- Also do full refill (catches new values)
-        refill(lp.Character)
-    end)
 
-    -- Periodic deep scan (every 5s) to catch dynamically created values
-    if scanConn then scanConn:Disconnect(); scanConn = nil end
-    scanConn = RunService.Heartbeat:Connect(function()
-        -- Use a simple timer
-    end)
-    task.spawn(function()
-        while self.Enabled do
-            task.wait(5)
-            if self.Enabled then
-                deepScan()
-            end
+        -- Periodic deep scan (every 10s) to catch dynamically created values
+        scanTimer = scanTimer + dt
+        if scanTimer >= SCAN_INTERVAL then
+            scanTimer = 0
+            deepScan()
         end
     end)
 
-    print("[Leon X] InfiniteStamina: Enhanced v2 mode enabled")
+    print("[InfiniteStamina] v3 enabled (cached refill, 10s scan)")
 end
 
 function InfiniteStamina:Disable()
     if not self.Enabled then return end
     self.Enabled = false
-    if heartConn then heartConn:Disconnect(); heartConn = nil end
-    if charConn  then charConn:Disconnect();  charConn  = nil end
-    if scanConn  then scanConn:Disconnect();  scanConn  = nil end
-    cachedStaminaPaths = {}
+    if mainConn then mainConn:Disconnect(); mainConn = nil end
+    if charConn then charConn:Disconnect(); charConn = nil end
+    cachedRefs = {}
 end
 
 function InfiniteStamina:Toggle()

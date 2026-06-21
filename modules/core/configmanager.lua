@@ -8,7 +8,7 @@ local HttpService = game:GetService("HttpService")
 local DIR = "Leon X/configs"
 local DOT = DIR .. "/.default"
 
--- Registry: { [flag] = { element = WindUIElement, serialize = fn, deserialize = fn } }
+-- Registry: { [flag] = { element = UIElement, serialize = fn, deserialize = fn } }
 local Registry = {}
 
 -- Notification callback (set by main.lua for debug feedback)
@@ -39,9 +39,9 @@ local function ensureDir()
     if not isfolder(DIR) then makefolder(DIR) end
 end
 
--- Read a WindUI element's current value reliably
+-- Read a UI element's current value reliably
 local function getElementValue(el)
-    -- WindUI stores value in .Value field
+    -- UI library stores value in .Value field
     local ok, val = pcall(function() return el.Value end)
     if ok and val ~= nil then return val end
     -- fallback: try :Get() method
@@ -52,9 +52,9 @@ local function getElementValue(el)
     return nil
 end
 
--- Set a WindUI element's value reliably
+-- Set a UI element's value reliably
 local function setElementValue(el, val)
-    -- try :Set() method first (most WindUI elements have this)
+    -- try :Set() method first (most UI elements have this)
     if type(el.Set) == "function" then
         local ok = pcall(el.Set, el, val)
         if ok then return true end
@@ -66,14 +66,14 @@ end
 
 -- ── public API ────────────────────────────────────────────────────────────────
 
--- Call once after creating the Window (no-op in WindUI version, kept for compat)
+-- Call once after creating the Window (no-op, kept for compat)
 function ConfigManager:Init(_library)
-    -- no-op: WindUI version uses Register() instead
+    -- no-op: Noir library uses Register() instead
 end
 
 -- Register a UI element so it participates in Save/Load.
 --   flag      : unique string key (e.g. "Fly", "FlySpeed")
---   element   : WindUI element reference (Toggle, Slider, Dropdown, etc.)
+--   element   : UI element reference (Toggle, Slider, Dropdown, etc.)
 --   serialize : optional fn(val) -> saveable value  (default: identity)
 --   deserialize: optional fn(saved) -> element value (default: identity)
 function ConfigManager:Register(flag, element, serialize, deserialize)

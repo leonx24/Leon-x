@@ -14,7 +14,7 @@ Leon X is a Roblox game enhancement script written in Lua. It is loaded remotely
 
 All modules are fetched from `https://raw.githubusercontent.com/leonx24/Leon-x/main/` at runtime. The `load(path)` helper in `main.lua` is the standard way to fetch and execute a remote file.
 
-Splash screen progress is advanced by calling `Library:SetSplashProgress(0.0–1.0)` after each module load in `main.lua`. When adding a new module, redistribute splash values so they still span 0→1 by line ~51.
+Splash screen progress is advanced by calling `setSplashProgress(0.0–1.0)` (local function in main.lua) after each module load. When adding a new module, redistribute splash values so they still span 0→1.
 
 ## Module Pattern
 
@@ -40,18 +40,19 @@ All modules use `pcall()` defensively around every Roblox API call. Cleanup must
 
 - `Library.Registry[Flag]` maps Flag strings to component APIs `{ Get, Set, Callback }`. This is how ConfigManager saves/loads all settings.
 - `Library._allComponents` powers the global search.
-- Adding a component: call `reg(data, api)` inside the `Tab:Add*` method, then `finalize(api.Frame, data.Name)`.
-- Themes are defined in `ui/themes.lua` and in the `THEMES` table inside `library.lua` (~line 1356+). Each theme key: `BG, Surface, Elevated, Hover, Active, Border, BorderSub, Accent, AccentDim, Text, TextSub, SwitchOff, SwitchOn`.
-- Available built-in themes: Dark, Midnight, Rose, Emerald, Amber, Violet, Neon.
+- Adding a component: create a function (e.g. `function MyComp(tab, data)`), call `reg(data, api)` to register, attach via `tab.MyComp = function(d) return MyComp(tab, d) end` inside `win:Tab()`.
+- Themes are defined in the `Library.Themes` table inside `library.lua`. Each theme has keys: `BG, Surface, Elevated, Border, BorderSub, Accent, AccentDim, Text, TextSub`.
+- Available built-in themes: Default, Gold, Emerald, Rose, Violet, Amber, Neon.
+- All components accept `Title` as the label parameter (not `Name`).
 
 ## Wiring a Module into `main.lua`
 
 ```lua
 -- 1. Load the module (with splash progress increment)
-local NewMod = load("modules/<category>/<name>.lua"); Library:SetSplashProgress(0.XX)
+local NewMod = load("modules/<category>/<name>.lua"); setSplashProgress(0.XX)
 
 -- 2. Add a toggle on the relevant tab
-local newToggle = Tab:AddToggle({ Name="Feature", Flag="FeatureFlag", Default=false,
+local newToggle = Tab:Toggle({ Title="Feature", Flag="FeatureFlag", Value=false,
     Callback=function(v) if v then NewMod:Enable() else NewMod:Disable() end end })
 
 -- 3. For a keybind that must stay in sync with the toggle:
@@ -77,17 +78,18 @@ end)
 - **Mobile detection**: `local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled` — used in fly.lua and should be used in any new module with platform-specific behavior.
 - **Anti-detection in ESP**: instance names use `HttpService:GenerateGUID()` — maintain this pattern in visual modules.
 - **Version**: `version.txt` is the single source of truth. Both `main.lua` and `library.lua` fetch it on boot. Bump it when releasing.
-- **Panic key** (default: `End`): disables all active toggles and hides the window — must not interfere with module cleanup logic.
-- **Notification helper** in `main.lua`: `local function N(t,m,k,d) Library:Notify({Title=t,Text=m,Type=k or "info",Duration=d or 2}) end`
+- **Panic key** (default: `Delete`): disables all active toggles and hides the window — must not interfere with module cleanup logic.
+- **Notification helper** in `main.lua`: `local function N(t,m,d) Library:Notify({Title=t,Content=m,Duration=d or 2}) end`
 
 ## Adding a New Module (checklist)
 
 1. Create `modules/<category>/<name>.lua` following the module pattern above.
-2. In `main.lua`, add a `load(...)` call with a `Library:SetSplashProgress(...)` call immediately after; redistribute progress values from the last module to 1.0.
-3. Add the corresponding `Tab:AddToggle(...)` (and sliders/dropdowns as needed) in the appropriate tab section.
+2. In `main.lua`, add a `load(...)` call with a `setSplashProgress(...)` call immediately after; redistribute progress values from the last module to 1.0.
+3. Add the corresponding `Tab:Toggle(...)` (and sliders/dropdowns as needed) in the appropriate tab section.
 4. If a keybind is needed, add `UIS.InputBegan:Connect(...)` and call `toggle:Set(s)` inside it.
 
 ## Adding a New UI Component Type
 
-1. In `ui/library.lua`, create `mkNewComponent(parent, data)` following the pattern of `mkToggle`, `mkSlider`, etc.
-2. Add `Tab:AddNewComponent(d)` that calls `mkNewComponent`, registers with `reg(d, api)` if `d.Flag` exists, and calls `finalize(api.Frame, d.Name)`.
+1. In `ui/library.lua`, create `function NewComponent(tab, data)` following the pattern of `Toggle`, `Slider`, etc.
+2. Inside `win:Tab()`, attach `tab.NewComponent = function(d) return NewComponent(tab, d) end`.
+3. Call `reg(data, api)` inside the function if `d.Flag` exists.

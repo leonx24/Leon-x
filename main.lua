@@ -1,5 +1,5 @@
 -- Leon X | main.lua
--- Wind UI version with splash screen + floating open button
+-- Noir UI version with splash screen + floating open button
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- EARLY SETUP (line 1 — before ANY HTTP or game interaction)
@@ -28,7 +28,7 @@ local gui          = lp:WaitForChild("PlayerGui")
 local isMobile     = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- SPLASH SCREEN (shown before WindUI loads)
+-- SPLASH SCREEN (shown before UI loads)
 -- ══════════════════════════════════════════════════════════════════════════════
 local SplashGui = Instance.new("ScreenGui")
 SplashGui.Name             = "LeonXSplash"
@@ -234,13 +234,13 @@ local function setSplashProgress(pct)
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- LOAD WIND UI
+-- LOAD CUSTOM UI LIBRARY (Noir)
 -- ══════════════════════════════════════════════════════════════════════════════
-local WindUI = loadstring(game:HttpGet("https://raw.githubusercontent.com/Footagesus/WindUI/main/dist/main.lua"))()
-setSplashProgress(0.05)
-
 local cacheBust = "?t="..os.time()
 local function load(p) return loadstring(game:HttpGet(BASE..p..cacheBust))() end
+
+local Library = load("ui/library.lua")
+setSplashProgress(0.05)
 
 -- AntiDetect loads FIRST — DISABLED for testing (v7.3 script destroyer may trigger Adonis absence detection)
 local AntiDetect
@@ -301,21 +301,17 @@ end
 Waypoint:Init()
 
 -- ── Window ────────────────────────────────────────────────────────────────────
-local Window = WindUI:CreateWindow({
+local Window = Library:CreateWindow({
     Title      = "Leon X v"..CURRENT_VERSION,
-    Icon       = "zap",
     Author     = "by leonx24",
-    Folder     = "Leon X",
     Size       = UDim2.new(0, 580, 0, 560),
     ToggleKey  = Enum.KeyCode.U,
-    Transparent = true,
-    Theme      = "Dark",
-    NewElements = true,
+    Theme      = "Default",
 })
 
 -- Notification helper
 local function N(title, state, duration)
-    WindUI:Notify({
+    Library:Notify({
         Title    = title,
         Content  = state or "",
         Duration = duration or 2,
@@ -1637,8 +1633,8 @@ SetTab:Keybind({
 })
 local themeDrop = SetTab:Dropdown({
     Title    = "Theme",
-    Values   = {"Dark","Light","Rose","Plant","Red","Indigo","Sky","Violet","Amber"},
-    Value    = "Dark",
+    Values   = {"Default","Gold","Emerald","Rose","Violet","Amber","Neon"},
+    Value    = "Default",
     Callback = function(v)
         Window:SetTheme(v)
         N("Theme", v)
@@ -1860,132 +1856,7 @@ SetTab:Paragraph({
 })
 end -- end universal mode
 
--- ══════════════════════════════════════════════════════════════════════════════
--- FLOATING OPEN BUTTON (works on mobile + PC when window is closed)
--- WindUI's built-in OpenButton only works on pure touch devices.
--- This one works everywhere.
--- ══════════════════════════════════════════════════════════════════════════════
 setSplashProgress(0.96)
-
-local FloatGui = Instance.new("ScreenGui")
-FloatGui.Name             = "LeonXFloat"
-FloatGui.ResetOnSpawn     = false
-FloatGui.ZIndexBehavior   = Enum.ZIndexBehavior.Sibling
-FloatGui.DisplayOrder     = 998
-FloatGui.IgnoreGuiInset   = true
-FloatGui.Parent           = gui
-
-local FloatBtn = Instance.new("TextButton")
-FloatBtn.Size                = UDim2.new(0, 56, 0, 56)
-FloatBtn.Position            = UDim2.new(0, 16, 0.5, -28)
-FloatBtn.BackgroundColor3    = Color3.fromRGB(18, 18, 18)
-FloatBtn.BackgroundTransparency = 0.1
-FloatBtn.Text                = ""
-FloatBtn.AutoButtonColor     = false
-FloatBtn.BorderSizePixel     = 0
-FloatBtn.Visible             = false
-FloatBtn.ZIndex              = 10
-FloatBtn.Parent              = FloatGui
-
-local FloatCorner = Instance.new("UICorner")
-FloatCorner.CornerRadius = UDim.new(1, 0)
-FloatCorner.Parent       = FloatBtn
-
-local FloatStroke = Instance.new("UIStroke")
-FloatStroke.Color     = Color3.fromRGB(50, 50, 50)
-FloatStroke.Thickness = 1.5
-FloatStroke.Parent    = FloatBtn
-
--- Animated glow ring
-task.spawn(function()
-    while FloatBtn and FloatBtn.Parent do
-        TweenService:Create(FloatStroke, TweenInfo.new(2, Enum.EasingStyle.Sine),
-            {Color = Color3.fromRGB(80, 160, 255)}):Play()
-        task.wait(2)
-        TweenService:Create(FloatStroke, TweenInfo.new(2, Enum.EasingStyle.Sine),
-            {Color = Color3.fromRGB(50, 50, 50)}):Play()
-        task.wait(2)
-    end
-end)
-
--- "LX" text
-local FloatLabel = Instance.new("TextLabel")
-FloatLabel.Size                = UDim2.new(1, 0, 0, 22)
-FloatLabel.Position            = UDim2.new(0, 0, 0, 10)
-FloatLabel.BackgroundTransparency = 1
-FloatLabel.Text                = "LX"
-FloatLabel.TextColor3          = Color3.fromRGB(240, 240, 240)
-FloatLabel.TextSize            = 16
-FloatLabel.Font                = Enum.Font.GothamBold
-FloatLabel.TextXAlignment      = Enum.TextXAlignment.Center
-FloatLabel.ZIndex              = 11
-FloatLabel.Parent              = FloatBtn
-
--- Drag support (touch + mouse)
-do
-    local dragging, dragStart, startPos, didMove = false, nil, nil, false
-    local function isTap(i)
-        return i.UserInputType == Enum.UserInputType.MouseButton1
-            or i.UserInputType == Enum.UserInputType.Touch
-    end
-    FloatBtn.InputBegan:Connect(function(i)
-        if isTap(i) then
-            dragging = true; didMove = false
-            dragStart = i.Position; startPos = FloatBtn.Position
-        end
-    end)
-    UIS.InputChanged:Connect(function(i)
-        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement
-                or i.UserInputType == Enum.UserInputType.Touch) then
-            local d = i.Position - dragStart
-            if math.abs(d.X) > 6 or math.abs(d.Y) > 6 then didMove = true end
-            FloatBtn.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + d.X,
-                startPos.Y.Scale, startPos.Y.Offset + d.Y
-            )
-        end
-    end)
-    UIS.InputEnded:Connect(function(i)
-        if isTap(i) and dragging then
-            dragging = false
-            if not didMove then
-                pcall(function() Window:Open() end)
-                FloatBtn.Visible = false
-            end
-        end
-    end)
-end
-
--- Detect window visibility changes → show/hide float button
-task.spawn(function()
-    task.wait(1)
-    local windGui = nil
-    for _, g in ipairs(gui:GetChildren()) do
-        if g:IsA("ScreenGui") and g.Name ~= "LeonXSplash" and g.Name ~= "LeonXFloat" then
-            windGui = g
-            break
-        end
-    end
-    if not windGui then return end
-
-    local lastVisible = true
-    RunService.RenderStepped:Connect(function()
-        if not windGui or not windGui.Parent then return end
-        local mainFrame = windGui:FindFirstChild("Main") or windGui:FindFirstChild("Window")
-        if not mainFrame then
-            for _, child in ipairs(windGui:GetChildren()) do
-                if child:IsA("Frame") then mainFrame = child break end
-            end
-        end
-        if not mainFrame then return end
-
-        local isVisible = mainFrame.Visible
-        if isVisible ~= lastVisible then
-            lastVisible = isVisible
-            FloatBtn.Visible = not isVisible
-        end
-    end)
-end)
 
 -- ══════════════════════════════════════════════════════════════════════════════
 -- HIDE SPLASH → REVEAL MAIN UI
@@ -1994,7 +1865,7 @@ setSplashProgress(1.0)
 
 -- PerfStats already enabled above (universal)
 
--- AutoLoad with delay so WindUI elements are fully ready
+-- AutoLoad with delay so UI elements are fully ready
 task.delay(1.5, function()
     ConfigMgr:AutoLoad()
 
