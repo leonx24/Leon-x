@@ -364,17 +364,26 @@ GamepassSpoof  = safe(GamepassSpoof)
 print("[LeonX] All modules guarded")
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
-local GAME_MODULES = {
-    safe(load("modules/games/growagarden2.lua"));
-    -- add more game modules here
-}
+print("[LeonX] Current PlaceId: " .. tostring(game.PlaceId))
+
+local GAME_MODULES = {}
+local gagModule = load("modules/games/growagarden2.lua")
+if gagModule and gagModule.PlaceIds then
+    print("[LeonX] Grow a Garden 2 module loaded successfully")
+    print("[LeonX] Module PlaceIds: " .. table.concat(gagModule.PlaceIds, ", "))
+    GAME_MODULES[#GAME_MODULES + 1] = gagModule
+else
+    warn("[LeonX] Failed to load growagarden2.lua or invalid module")
+end
+-- add more game modules here
 
 local ActiveGameModule = nil
 for _, gm in ipairs(GAME_MODULES) do
-    if gm then -- nil guard: skip failed game modules
+    if gm and gm.PlaceIds then -- extra check for PlaceIds
         for _, pid in ipairs(gm.PlaceIds) do
             if pid == game.PlaceId then
                 ActiveGameModule = gm
+                print("[LeonX] ✓ Game detected: " .. tostring(gm.Name))
                 break
             end
         end
@@ -382,13 +391,27 @@ for _, gm in ipairs(GAME_MODULES) do
     if ActiveGameModule then break end
 end
 
+if not ActiveGameModule then
+    print("[LeonX] No game-specific module matched, using Universal mode")
+end
+
 if Waypoint then Waypoint:Init() else warn("[LeonX] Waypoint nil, skipping Init") end
 print("[LeonX] Creating window...")
 
+-- ── Determine window title based on game mode ─────────────────────────────────
+local windowTitle = "Leon X v"..CURRENT_VERSION
+local windowAuthor = "by leonx24"
+if ActiveGameModule then
+    windowTitle = "Leon X v"..CURRENT_VERSION.." | "..ActiveGameModule.Name
+    windowAuthor = "Game Mode: "..ActiveGameModule.Name
+else
+    windowAuthor = "Universal Mode"
+end
+
 -- ── Window ────────────────────────────────────────────────────────────────────
 local Window = Library:CreateWindow({
-    Title      = "Leon X v"..CURRENT_VERSION,
-    Author     = "by leonx24",
+    Title      = windowTitle,
+    Author     = windowAuthor,
     Size       = UDim2.new(0, 640, 0, 560),
     ToggleKey  = Enum.KeyCode.U,
     Theme      = "Default",
