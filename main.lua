@@ -378,10 +378,20 @@ end
 -- add more game modules here
 
 local ActiveGameModule = nil
+print("[LeonX] Starting game module matching...")
+print("[LeonX] game.PlaceId type: " .. type(game.PlaceId) .. ", value: [" .. tostring(game.PlaceId) .. "]")
+
 for _, gm in ipairs(GAME_MODULES) do
     if gm and gm.PlaceIds then
+        print("[LeonX] Checking module: " .. tostring(gm.Name))
         for _, pid in ipairs(gm.PlaceIds) do
-            if tostring(pid) == tostring(game.PlaceId) then
+            print("[LeonX]   Comparing pid: [" .. tostring(pid) .. "] (type: " .. type(pid) .. ")")
+            print("[LeonX]   vs game.PlaceId: [" .. tostring(game.PlaceId) .. "] (type: " .. type(game.PlaceId) .. ")")
+            local pidStr = tostring(pid)
+            local gamePlaceIdStr = tostring(game.PlaceId)
+            print("[LeonX]   String comparison: " .. tostring(pidStr == gamePlaceIdStr))
+
+            if pidStr == gamePlaceIdStr then
                 ActiveGameModule = gm
                 print("[LeonX] ✓ Game detected: " .. tostring(gm.Name))
                 break
