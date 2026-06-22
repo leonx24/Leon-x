@@ -1,5 +1,5 @@
 -- Leon X | Grow a Garden 2
--- PlaceId: 97598239454123
+-- PlaceId: 77085202503540
 -- Auto Collect, Auto Sell, Auto Buy Seed, Auto Steal, Auto Fling (using game remotes)
 
 local Players           = game:GetService("Players")
@@ -11,7 +11,7 @@ local lp = Players.LocalPlayer
 
 local GAG = {}
 GAG.Name = "Grow a Garden 2"
-GAG.PlaceIds = { 97598239454123 }
+GAG.PlaceIds = { 77085202503540 }
 GAG.Enabled = false
 
 -- Feature states
