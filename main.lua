@@ -1,404 +1,408 @@
--- Leon X | main.lua v2.0
--- UI: ui/library.lua Noir v4
--- API: Library:CreateWindow → win:Tab → tab:Toggle / tab:Slider etc.
+-- Leon X | main.lua
+-- Noir UI version with splash screen + floating open button
+-- Leon X Main Script
 
-local BASE    = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
-local Players = game:GetService("Players")
-local UIS     = game:GetService("UserInputService")
-local lp      = Players.LocalPlayer
+-- ═══════════════════════════════════════════════════════════════════════════
+-- EARLY SETUP (line 1 — before ANY HTTP or game interaction)
+-- NO hooks here — all hookfunction calls detected by Adonis integrity scan
+-- AntiDetect module handles script destruction only (no function hooking)
+-- ═══════════════════════════════════════════════════════════════════════════
 
-local function load(p)
-    return loadstring(game:HttpGet(BASE..p.."?t="..os.time()))()
+_G._LeonX_AllowTeleport = function(allow)
+    _G._LeonX_AllowTeleportActive = allow and true or false
 end
 
--- ── UI Library ────────────────────────────────────────────────────────────────
-local Library = load("ui/library.lua")
 
--- ── Module loader (silent fail → stub) ───────────────────────────────────────
-local DUMMY = setmetatable({Enabled=false,Name="Dummy"},{
-    __index = function() return function() end end
-})
-local function safeLoad(p)
-    local ok, r = pcall(function()
-        local src = game:HttpGet(BASE..p.."?t="..os.time())
-        if not src or #src < 5 then error("empty") end
-        local fn, e = loadstring(src)
-        if not fn then error(e) end
+local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
+
+local CURRENT_VERSION = "1.3"
+pcall(function()
+    CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
+end)
+
+local Players      = game:GetService("Players")
+local UIS          = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService   = game:GetService("RunService")
+local lp           = Players.LocalPlayer
+local gui          = lp:WaitForChild("PlayerGui")
+local isMobile     = UIS.TouchEnabled and not UIS.KeyboardEnabled
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- SPLASH SCREEN (shown before UI loads)
+-- ══════════════════════════════════════════════════════════════════════════════
+local SplashGui = Instance.new("ScreenGui")
+SplashGui.Name             = "LeonXSplash"
+SplashGui.ResetOnSpawn     = false
+SplashGui.ZIndexBehavior   = Enum.ZIndexBehavior.Sibling
+SplashGui.DisplayOrder     = 9999
+SplashGui.IgnoreGuiInset   = true
+SplashGui.Parent           = gui
+
+local SplashBg = Instance.new("Frame")
+SplashBg.Size                = UDim2.fromScale(1, 1)
+SplashBg.BackgroundColor3    = Color3.fromRGB(6, 6, 6)
+SplashBg.BackgroundTransparency = 0.15
+SplashBg.BorderSizePixel     = 0
+SplashBg.ZIndex              = 200
+SplashBg.Parent              = SplashGui
+
+local SplashCard = Instance.new("Frame")
+SplashCard.Size                = UDim2.new(0, 260, 0, 160)
+SplashCard.AnchorPoint         = Vector2.new(0.5, 0.5)
+SplashCard.Position            = UDim2.fromScale(0.5, 0.5)
+SplashCard.BackgroundColor3    = Color3.fromRGB(14, 14, 14)
+SplashCard.BorderSizePixel     = 0
+SplashCard.ZIndex              = 201
+SplashCard.Parent              = SplashGui
+
+local SplashCorner = Instance.new("UICorner")
+SplashCorner.CornerRadius = UDim.new(0, 16)
+SplashCorner.Parent       = SplashCard
+
+local SplashStroke = Instance.new("UIStroke")
+SplashStroke.Color     = Color3.fromRGB(36, 36, 36)
+SplashStroke.Thickness = 1
+SplashStroke.Parent    = SplashCard
+
+-- Animated accent glow on card border
+task.spawn(function()
+    while SplashCard and SplashCard.Parent do
+        TweenService:Create(SplashStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine),
+            {Color = Color3.fromRGB(80, 160, 255)}):Play()
+        task.wait(1.5)
+        TweenService:Create(SplashStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine),
+            {Color = Color3.fromRGB(36, 36, 36)}):Play()
+        task.wait(1.5)
+    end
+end)
+
+-- Logo dot
+local SplashDot = Instance.new("Frame")
+SplashDot.Size             = UDim2.new(0, 10, 0, 10)
+SplashDot.Position         = UDim2.new(0, 22, 0, 30)
+SplashDot.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+SplashDot.BorderSizePixel  = 0
+SplashDot.ZIndex           = 202
+SplashDot.Parent           = SplashCard
+
+local DotCorner = Instance.new("UICorner")
+DotCorner.CornerRadius = UDim.new(0, 5)
+DotCorner.Parent       = SplashDot
+
+-- Pulsing dot animation
+task.spawn(function()
+    while SplashDot and SplashDot.Parent do
+        TweenService:Create(SplashDot, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+            {Size = UDim2.new(0, 13, 0, 13)}):Play()
+        task.wait(0.6)
+        TweenService:Create(SplashDot, TweenInfo.new(0.6, Enum.EasingStyle.Quint),
+            {Size = UDim2.new(0, 10, 0, 10)}):Play()
+        task.wait(0.6)
+    end
+end)
+
+-- Title
+local SplashTitle = Instance.new("TextLabel")
+SplashTitle.Size                = UDim2.new(1, -50, 0, 26)
+SplashTitle.Position            = UDim2.new(0, 40, 0, 20)
+SplashTitle.BackgroundTransparency = 1
+SplashTitle.Text                = "Leon X"
+SplashTitle.TextColor3          = Color3.fromRGB(240, 240, 240)
+SplashTitle.TextSize            = 20
+SplashTitle.Font                = Enum.Font.GothamBold
+SplashTitle.TextXAlignment      = Enum.TextXAlignment.Left
+SplashTitle.ZIndex              = 202
+SplashTitle.Parent              = SplashCard
+
+-- Version
+local SplashVer = Instance.new("TextLabel")
+SplashVer.Size                = UDim2.new(0, 50, 0, 18)
+SplashVer.Position            = UDim2.new(0, 40, 0, 46)
+SplashVer.BackgroundTransparency = 1
+SplashVer.Text                = "v" .. CURRENT_VERSION
+SplashVer.TextColor3          = Color3.fromRGB(90, 90, 90)
+SplashVer.TextSize            = 11
+SplashVer.Font                = Enum.Font.Gotham
+SplashVer.TextXAlignment      = Enum.TextXAlignment.Left
+SplashVer.ZIndex              = 202
+SplashVer.Parent              = SplashCard
+
+-- Status text
+local SplashStatus = Instance.new("TextLabel")
+SplashStatus.Size                = UDim2.new(1, -28, 0, 18)
+SplashStatus.Position            = UDim2.new(0, 14, 0, 80)
+SplashStatus.BackgroundTransparency = 1
+SplashStatus.Text                = "Initializing..."
+SplashStatus.TextColor3          = Color3.fromRGB(110, 110, 110)
+SplashStatus.TextSize            = 11
+SplashStatus.Font                = Enum.Font.Gotham
+SplashStatus.TextXAlignment      = Enum.TextXAlignment.Left
+SplashStatus.ZIndex              = 202
+SplashStatus.Parent              = SplashCard
+
+-- Progress bar background
+local SplashBarBg = Instance.new("Frame")
+SplashBarBg.Size             = UDim2.new(1, -28, 0, 4)
+SplashBarBg.Position         = UDim2.new(0, 14, 1, -28)
+SplashBarBg.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+SplashBarBg.BorderSizePixel  = 0
+SplashBarBg.ZIndex           = 202
+SplashBarBg.Parent           = SplashCard
+
+local BarBgCorner = Instance.new("UICorner")
+BarBgCorner.CornerRadius = UDim.new(0, 2)
+BarBgCorner.Parent       = SplashBarBg
+
+-- Progress bar fill
+local SplashBarFill = Instance.new("Frame")
+SplashBarFill.Size             = UDim2.new(0, 0, 1, 0)
+SplashBarFill.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+SplashBarFill.BorderSizePixel  = 0
+SplashBarFill.ZIndex           = 203
+SplashBarFill.Parent           = SplashBarBg
+
+local BarFillCorner = Instance.new("UICorner")
+BarFillCorner.CornerRadius = UDim.new(0, 2)
+BarFillCorner.Parent       = SplashBarFill
+
+-- Animated dots
+local SplashDots = Instance.new("TextLabel")
+SplashDots.Size                = UDim2.new(1, 0, 0, 16)
+SplashDots.Position            = UDim2.new(0, 0, 0, 106)
+SplashDots.BackgroundTransparency = 1
+SplashDots.Text                = "●  ○  ○"
+SplashDots.TextColor3          = Color3.fromRGB(80, 160, 255)
+SplashDots.TextSize            = 10
+SplashDots.Font                = Enum.Font.GothamMedium
+SplashDots.TextXAlignment      = Enum.TextXAlignment.Center
+SplashDots.ZIndex              = 202
+SplashDots.Parent              = SplashCard
+
+-- Splash entrance animation
+SplashCard.BackgroundTransparency = 1
+SplashCard.Size = UDim2.new(0, 210, 0, 130)
+local function tw(o, t, p)
+    TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), p):Play()
+end
+tw(SplashCard, 0.4, {BackgroundTransparency = 0, Size = UDim2.new(0, 260, 0, 160)})
+tw(SplashBg, 0.3, {BackgroundTransparency = 0.15})
+
+for _, child in ipairs(SplashCard:GetDescendants()) do
+    if child:IsA("TextLabel") then
+        child.TextTransparency = 1
+        TweenService:Create(child, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+    elseif child:IsA("Frame") then
+        child.BackgroundTransparency = 1
+        TweenService:Create(child, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+    end
+end
+
+-- Animated dots cycle
+local dotFrames = {"●  ○  ○", "○  ●  ○", "○  ○  ●"}
+local statusSteps = {
+    "Initializing...",
+    "Loading UI engine...",
+    "Fetching modules...",
+    "Wiring features...",
+    "Almost ready...",
+}
+local dotIdx, stepIdx = 1, 1
+
+task.spawn(function()
+    local lastDot, lastStep = tick(), tick()
+    while SplashCard and SplashCard.Parent do
+        local now = tick()
+        if now - lastDot >= 0.3 then
+            lastDot = now
+            dotIdx = (dotIdx % #dotFrames) + 1
+            pcall(function() SplashDots.Text = dotFrames[dotIdx] end)
+        end
+        if now - lastStep >= 0.9 then
+            lastStep = now
+            stepIdx = (stepIdx % #statusSteps) + 1
+            pcall(function() SplashStatus.Text = statusSteps[stepIdx] end)
+        end
+        task.wait(0.05)
+    end
+end)
+
+-- Splash progress API (used below during module loading)
+local function setSplashProgress(pct)
+    pcall(function()
+        tw(SplashBarFill, 0.25, {Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0)})
+    end)
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- LOAD CUSTOM UI LIBRARY (Noir)
+-- ══════════════════════════════════════════════════════════════════════════════
+-- Safety net: force-destroy splash after 60s no matter what
+task.delay(60, function()
+    pcall(function() if SplashGui and SplashGui.Parent then SplashGui:Destroy() end end)
+end)
+
+local cacheBust = "?t="..os.time()
+local loadErrors = {}
+local function load(p)
+    local ok, result = pcall(function()
+        local src = game:HttpGet(BASE..p..cacheBust)
+        if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
+        local fn, err = loadstring(src)
+        if not fn then error("loadstring failed: "..tostring(err)) end
         return fn()
     end)
-    if not ok then warn("[LeonX] failed: "..p.." — "..tostring(r)); return DUMMY end
-    return r or DUMMY
+    if not ok then
+        warn("[LeonX] FAIL: " .. tostring(p) .. " — " .. tostring(result))
+        loadErrors[#loadErrors + 1] = p .. ": " .. tostring(result)
+        return nil
+    end
+    -- Load successful
+    return result
 end
 
--- ── Modules ───────────────────────────────────────────────────────────────────
-local Fly         = safeLoad("modules/movements/fly.lua")
-local Speed       = safeLoad("modules/movements/speed.lua")
-local InfJump     = safeLoad("modules/movements/infinitejump.lua")
-local Noclip      = safeLoad("modules/movements/noclip.lua")
-local AntiRagdoll = safeLoad("modules/movements/antiragdoll.lua")
-local Invisible   = safeLoad("modules/movements/invisible.lua")
-local FreeCam     = safeLoad("modules/movements/freecam.lua")
-local ClickTP     = safeLoad("modules/movements/clickteleport.lua")
-local ESP         = safeLoad("modules/visuals/esp.lua")
-local Tracer      = safeLoad("modules/visuals/tracer.lua")
-local FullBright  = safeLoad("modules/visuals/fullbright.lua")
-local PerfStats   = safeLoad("modules/visuals/perfstats.lua")
-local RemoveFog   = safeLoad("modules/visuals/removefog.lua")
-local AntiAFK     = safeLoad("modules/player/antiafk.lua")
-local InfStamina  = safeLoad("modules/player/infinitestamina.lua")
-local AntiFling   = safeLoad("modules/player/antifling.lua")
-local Rejoin      = safeLoad("modules/player/rejoin.lua")
-local Teleport    = safeLoad("modules/player/teleport.lua")
-local GodMode     = safeLoad("modules/player/godmode.lua")
-local NoFallDmg   = safeLoad("modules/player/nofalldamage.lua")
-local ConfigMgr   = safeLoad("modules/core/configmanager.lua")
+if not Library then warn("[LeonX] CRITICAL: UI library failed"); return end
+setSplashProgress(0.05)
+
+-- AntiDetect loads FIRST — DISABLED for testing (v7.3 script destroyer may trigger Adonis absence detection)
+local AntiDetect
+pcall(function()
+    AntiDetect = load("modules/player/antidetect.lua")
+    -- AntiDetect:Enable()  -- DISABLED: testing if Adonis kick comes from our code or executor itself
+end)
+
+local ConfigMgr   = load("modules/core/configmanager.lua"); setSplashProgress(0.10)
+local Fly         = load("modules/movements/fly.lua");       setSplashProgress(0.14)
+local Speed       = load("modules/movements/speed.lua");     setSplashProgress(0.18)
+local InfJump     = load("modules/movements/infinitejump.lua"); setSplashProgress(0.22)
+local Noclip      = load("modules/movements/noclip.lua");    setSplashProgress(0.26)
+local AntiRagdoll = load("modules/movements/antiragdoll.lua"); setSplashProgress(0.30)
+local Invisible   = load("modules/movements/invisible.lua"); setSplashProgress(0.34)
+local FreeCam     = load("modules/movements/freecam.lua");   setSplashProgress(0.38)
+local ClickTP     = load("modules/movements/clickteleport.lua"); setSplashProgress(0.42)
+local WalkOnWater = load("modules/movements/walkonwater.lua");  setSplashProgress(0.44)
+local ESP         = load("modules/visuals/esp.lua");         setSplashProgress(0.46)
+local Tracer      = load("modules/visuals/tracer.lua");      setSplashProgress(0.50)
+local FullBright  = load("modules/visuals/fullbright.lua");  setSplashProgress(0.54)
+local PerfStats   = load("modules/visuals/perfstats.lua");   setSplashProgress(0.58)
+local RemoveFog   = load("modules/visuals/removefog.lua");   setSplashProgress(0.62)
+local AntiAFK     = load("modules/player/antiafk.lua");      setSplashProgress(0.66)
+local InfStamina  = load("modules/player/infinitestamina.lua"); setSplashProgress(0.70)
+local AntiFling   = load("modules/player/antifling.lua");    setSplashProgress(0.72)
+local Rejoin      = load("modules/player/rejoin.lua");       setSplashProgress(0.74)
+local ServerHop   = load("modules/player/serverhop.lua");    setSplashProgress(0.75)
+local Teleport    = load("modules/player/teleport.lua");     setSplashProgress(0.76)
+local HitboxExp   = load("modules/player/hitboxexpander.lua"); setSplashProgress(0.78)
+local Waypoint    = load("modules/player/waypoint.lua");     setSplashProgress(0.82)
+local GodMode     = load("modules/player/godmode.lua");      setSplashProgress(0.84)
+local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0.86)
+local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.88)
+local KillAura    = load("modules/combat/killaura.lua");     setSplashProgress(0.90)
+local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0.91)
+local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
+local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
+local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
+
+
+-- Dummy stub for any module that failed to load
+local DUMMY = {
+    Enabled = false,
+    Enable = function() end,
+    Disable = function() end,
+    Toggle = function() end,
+    SetSpeed = function() end,
+    SetPower = function() end,
+    SetColor = function() end,
+    Set = function() end,
+    Get = function() return false end,
+    Init = function() end,
+    Refresh = function() end,
+    Select = function() end,
+    PlaceIds = {},
+    WireUI = function() end,
+    Name = "Dummy",
+}
+local function safe(m) return m or setmetatable({}, {__index = function() return DUMMY end}) end
+
+ConfigMgr      = safe(ConfigMgr)
+Fly            = safe(Fly)
+Speed          = safe(Speed)
+InfJump        = safe(InfJump)
+Noclip         = safe(Noclip)
+AntiRagdoll    = safe(AntiRagdoll)
+Invisible      = safe(Invisible)
+FreeCam        = safe(FreeCam)
+ClickTP        = safe(ClickTP)
+WalkOnWater    = safe(WalkOnWater)
+ESP            = safe(ESP)
+Tracer         = safe(Tracer)
+FullBright     = safe(FullBright)
+PerfStats      = safe(PerfStats)
+RemoveFog      = safe(RemoveFog)
+AntiAFK        = safe(AntiAFK)
+InfStamina     = safe(InfStamina)
+AntiFling      = safe(AntiFling)
+Rejoin         = safe(Rejoin)
+ServerHop      = safe(ServerHop)
+Teleport       = safe(Teleport)
+HitboxExp      = safe(HitboxExp)
+Waypoint       = safe(Waypoint)
+GodMode        = safe(GodMode)
+NoFallDmg      = safe(NoFallDmg)
+InstantKill    = safe(InstantKill)
+KillAura       = safe(KillAura)
+AutoClicker    = safe(AutoClicker)
+MacroRec       = safe(MacroRec)
+AntiVoid       = safe(AntiVoid)
+GamepassSpoof  = safe(GamepassSpoof)
+
+-- ── Game-specific modules ────────────────────────────────────────────────────
+local GAME_MODULES = {}
+local gagModule = load("modules/games/growagarden2.lua")
+if gagModule and gagModule.PlaceIds then
+    GAME_MODULES[#GAME_MODULES + 1] = gagModule
+end
+-- add more game modules here
+
+local ActiveGameModule = nil
+for _, gm in ipairs(GAME_MODULES) do
+    if gm and gm.PlaceIds then
+        for _, pid in ipairs(gm.PlaceIds) do
+            if tostring(pid) == tostring(game.PlaceId) then
+                ActiveGameModule = gm
+                break
+            end
+        end
+    end
+    if ActiveGameModule then break end
+end
+
+if not ActiveGameModule then
+    -- Universal mode
+end
+
+if Waypoint then Waypoint:Init() end
+
+-- ── Determine window title based on game mode ─────────────────────────────────
+local windowTitle = "Leon X v"..CURRENT_VERSION
+local windowAuthor = "by leonx24"
+if ActiveGameModule then
+    windowTitle = "Leon X v"..CURRENT_VERSION.." | "..ActiveGameModule.Name
+    windowAuthor = "Game Mode: "..ActiveGameModule.Name
+else
+    windowAuthor = "Universal Mode"
+end
 
 -- ── Window ────────────────────────────────────────────────────────────────────
-local win = Library:CreateWindow({
-    Title     = "Leon X",
-    Author    = "v2.0",
-    Size      = UDim2.new(0, 660, 0, 460),
-    ToggleKey = Enum.KeyCode.O,
-    Theme     = "Default",
-})
-
--- ── Notification helper ───────────────────────────────────────────────────────
-local function N(title, text, duration)
-    Library:Notify({ Title=title, Content=text or "", Duration=duration or 2 })
-end
-
--- ── Tabs ──────────────────────────────────────────────────────────────────────
-local Mov = win:Tab({ Title="Movement", Icon="🏃" })
-local Vis = win:Tab({ Title="Visual",   Icon="👁" })
-local Ply = win:Tab({ Title="Player",   Icon="👤" })
-local Set = win:Tab({ Title="Settings", Icon="⚙" })
-
--- ══════════════════════════════════════════════════════════════════════════════
--- MOVEMENT
--- ══════════════════════════════════════════════════════════════════════════════
-Mov:Section({ Title="Locomotion" })
-
-local flyToggle = Mov:Toggle({ Title="Fly", Value=false,
-    Callback=function(v)
-        if v then Fly:Enable() else Fly:Disable() end
-        N("Fly", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Slider({ Title="Fly Speed", Value={ Min=10, Max=300, Default=60 },
-    Callback=function(v) Fly:SetSpeed(v) end })
-
-local flyKey = Enum.KeyCode.F
-Mov:Keybind({ Title="Fly Keybind", Value="F",
-    Callback=function(k)
-        flyKey = Enum.KeyCode[k] or Enum.KeyCode.F
-        N("Fly Keybind", "Set to "..k)
-    end })
-UIS.InputBegan:Connect(function(i, gp)
-    if gp or i.KeyCode ~= flyKey then return end
-    local s = not Fly.Enabled; flyToggle:Set(s)
-    if s then Fly:Enable() else Fly:Disable() end
-end)
-
-Mov:Toggle({ Title="Speed Hack", Value=false,
-    Callback=function(v)
-        Speed:SetWalkSpeed(v and 60 or 16)
-        if v then Speed:Enable() else Speed:Disable() end
-        N("Speed Hack", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Slider({ Title="Walk Speed", Value={ Min=16, Max=250, Default=16 },
-    Callback=function(v) Speed:SetWalkSpeed(v); Speed:Enable() end })
-
-Mov:Slider({ Title="Jump Power", Value={ Min=50, Max=500, Default=50 },
-    Callback=function(v) Speed:SetJumpPower(v); Speed:Enable() end })
-
-Mov:Section({ Title="Misc" })
-
-Mov:Toggle({ Title="Infinite Jump", Value=false,
-    Callback=function(v)
-        if v then InfJump:Enable() else InfJump:Disable() end
-        N("Infinite Jump", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Toggle({ Title="Noclip", Value=false,
-    Callback=function(v)
-        if v then Noclip:Enable() else Noclip:Disable() end
-        N("Noclip", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Toggle({ Title="Anti Ragdoll", Value=false,
-    Callback=function(v)
-        if v then AntiRagdoll:Enable() else AntiRagdoll:Disable() end
-        N("Anti Ragdoll", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Toggle({ Title="Invisible (local)", Value=false,
-    Callback=function(v)
-        if v then Invisible:Enable() else Invisible:Disable() end
-        N("Invisible", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Section({ Title="Camera" })
-
-local fcKey = Enum.KeyCode.V
-local fcToggle = Mov:Toggle({ Title="Free Cam", Value=false,
-    Callback=function(v)
-        if v then FreeCam:Enable() else FreeCam:Disable() end
-        N("Free Cam", v and "Enabled" or "Disabled")
-    end })
-
-Mov:Slider({ Title="Free Cam Speed", Value={ Min=5, Max=300, Default=40 },
-    Callback=function(v) FreeCam:SetSpeed(v) end })
-
-Mov:Keybind({ Title="FreeCam Keybind", Value="V",
-    Callback=function(k)
-        fcKey = Enum.KeyCode[k] or Enum.KeyCode.V
-        N("FreeCam Keybind", "Set to "..k)
-    end })
-UIS.InputBegan:Connect(function(i, gp)
-    if gp or i.KeyCode ~= fcKey then return end
-    local s = not FreeCam.Enabled; fcToggle:Set(s)
-    if s then FreeCam:Enable() else FreeCam:Disable() end
-end)
-
-Mov:Section({ Title="Click Teleport" })
-
-Mov:Toggle({ Title="Click Teleport", Value=false,
-    Callback=function(v)
-        if v then ClickTP:Enable() else ClickTP:Disable() end
-        N("Click Teleport", v and (UIS.TouchEnabled and "Enabled — tap to tp" or "Enabled — click to tp") or "Disabled")
-    end })
-
--- ══════════════════════════════════════════════════════════════════════════════
--- VISUAL
--- ══════════════════════════════════════════════════════════════════════════════
-Vis:Section({ Title="Rendering" })
-
-Vis:Toggle({ Title="Perf Stats (HUD)", Value=true,
-    Callback=function(v)
-        if v then PerfStats:Enable() else PerfStats:Disable() end
-        N("Perf Stats", v and "Enabled" or "Disabled")
-    end })
-
-Vis:Toggle({ Title="ESP", Value=false,
-    Callback=function(v)
-        if v then ESP:Enable() else ESP:Disable() end
-        N("ESP", v and "Enabled" or "Disabled")
-    end })
-
-Vis:Toggle({ Title="FullBright", Value=false,
-    Callback=function(v)
-        if v then FullBright:Enable() else FullBright:Disable() end
-        N("FullBright", v and "Enabled" or "Disabled")
-    end })
-
-Vis:Toggle({ Title="Remove Fog", Value=false,
-    Callback=function(v)
-        if v then RemoveFog:Enable() else RemoveFog:Disable() end
-        N("Remove Fog", v and "Enabled" or "Disabled")
-    end })
-
-Vis:Section({ Title="ESP Options" })
-
-local EC = {
-    White=Color3.fromRGB(255,255,255), Red=Color3.fromRGB(255,60,60),
-    Green=Color3.fromRGB(60,220,80),   Blue=Color3.fromRGB(60,130,255),
-    Yellow=Color3.fromRGB(255,220,50), Cyan=Color3.fromRGB(60,220,255),
-    Pink=Color3.fromRGB(255,100,200),
-}
-Vis:Dropdown({ Title="ESP Color", Values={"White","Red","Green","Blue","Yellow","Cyan","Pink"}, Value=1,
-    Callback=function(v) ESP:SetColor(EC[v] or Color3.new(1,1,1)) end })
-
-Vis:Slider({ Title="ESP Fill Opacity", Value={ Min=0, Max=100, Default=15 },
-    Callback=function(v) ESP:SetOpacity(v) end })
-
-Vis:Dropdown({ Title="ESP Show Mode", Values={"Both","Body","Name"}, Value=1,
-    Callback=function(v) ESP:SetShowMode(v) end })
-
-Vis:Section({ Title="Tracer" })
-
-Vis:Toggle({ Title="Player Tracer", Value=false,
-    Callback=function(v)
-        if v then Tracer:Enable() else Tracer:Disable() end
-        N("Tracer", v and "Enabled" or "Disabled")
-    end })
-
-local TC = {
-    White=Color3.fromRGB(255,255,255), Red=Color3.fromRGB(255,60,60),
-    Green=Color3.fromRGB(60,220,80),   Blue=Color3.fromRGB(60,130,255),
-    Yellow=Color3.fromRGB(255,220,50), Cyan=Color3.fromRGB(60,220,255),
-}
-Vis:Dropdown({ Title="Tracer Color", Values={"White","Red","Green","Blue","Yellow","Cyan"}, Value=1,
-    Callback=function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end })
-
-Vis:Slider({ Title="Tracer Opacity", Value={ Min=0, Max=100, Default=100 },
-    Callback=function(v) Tracer:SetOpacity(v) end })
-
-Vis:Slider({ Title="Tracer Thickness", Value={ Min=1, Max=8, Default=2 },
-    Callback=function(v) Tracer:SetThickness(v) end })
-
--- ══════════════════════════════════════════════════════════════════════════════
--- PLAYER
--- ══════════════════════════════════════════════════════════════════════════════
-Ply:Section({ Title="Utility" })
-
-Ply:Toggle({ Title="Anti AFK", Value=false,
-    Callback=function(v)
-        if v then AntiAFK:Enable() else AntiAFK:Disable() end
-        N("Anti AFK", v and "Enabled" or "Disabled")
-    end })
-
-Ply:Toggle({ Title="Infinite Stamina", Value=false,
-    Callback=function(v)
-        if v then InfStamina:Enable() else InfStamina:Disable() end
-        N("Infinite Stamina", v and "Enabled" or "Disabled")
-    end })
-
-Ply:Toggle({ Title="God Mode", Value=false,
-    Callback=function(v)
-        if v then GodMode:Enable() else GodMode:Disable() end
-        N("God Mode", v and "Enabled" or "Disabled")
-    end })
-
-Ply:Section({ Title="Protection" })
-
-Ply:Toggle({ Title="No Fall Damage", Value=false,
-    Callback=function(v)
-        if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
-        N("No Fall Damage", v and "Enabled" or "Disabled")
-    end })
-
-Ply:Toggle({ Title="Anti Fling", Value=false,
-    Callback=function(v)
-        if v then AntiFling:Enable() else AntiFling:Disable() end
-        N("Anti Fling", v and "Enabled" or "Disabled")
-    end })
-
-Ply:Slider({ Title="Fling Threshold", Value={ Min=100, Max=1000, Default=200 },
-    Callback=function(v) AntiFling:SetThreshold(v) end })
-
-Ply:Section({ Title="Teleport" })
-
-Ply:Button({ Title="📍  Copy My Position",
-    Callback=function()
-        local p = Teleport:SavePosition()
-        if p then N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z), 3)
-        else N("Teleport", "No character", 3) end
-    end })
-
-Ply:Button({ Title="🚀  Go to Saved Position",
-    Callback=function()
-        if Teleport:GotoSaved(Fly) then N("Teleport", "Teleported")
-        else N("Teleport", "No position saved", 3) end
-    end })
-
-local tpDrop = Ply:Dropdown({ Title="Select Player",
-    Values=Teleport:GetPlayerList(), Value=1 })
-
-Ply:Button({ Title="🔄  Refresh Players",
-    Callback=function()
-        local list = Teleport:GetPlayerList()
-        tpDrop:Refresh(list)
-        N("Teleport", "Refreshed")
-    end })
-
-Ply:Button({ Title="⚡  Teleport to Player",
-    Callback=function()
-        local name = tpDrop.Value
-        if not name or name == "(no players)" then return end
-        if Teleport:ToPlayer(name, Fly) then N("Teleport", "→ "..name)
-        else N("Teleport", name.." not found", 3) end
-    end })
-
-Ply:Section({ Title="Server" })
-
-Ply:Button({ Title="Rejoin Server",
-    Callback=function()
-        N("Rejoin", "Rejoining...")
-        task.wait(1.5); Rejoin:Execute()
-    end })
-
-Ply:Button({ Title="Copy Player ID",
-    Callback=function()
-        pcall(function() setclipboard(tostring(lp.UserId)) end)
-        N("Copied", "ID: "..lp.UserId)
-    end })
-
-Ply:Section({ Title="Stats" })
-Ply:Paragraph({ Title="Username", Content=lp.Name })
-Ply:Paragraph({ Title="User ID",  Content=tostring(lp.UserId) })
-
--- ══════════════════════════════════════════════════════════════════════════════
--- SETTINGS
--- ══════════════════════════════════════════════════════════════════════════════
-Set:Section({ Title="Interface" })
-
-Set:Keybind({ Title="Toggle UI Key", Value="O",
-    Callback=function(k)
-        win:SetToggleKey(Enum.KeyCode[k] or Enum.KeyCode.O)
-        N("Toggle Key", "Set to "..k)
-    end })
-
-Set:Dropdown({ Title="Theme",
-    Values={"Default","Gold","Emerald","Rose","Violet","Amber","Neon"}, Value=1,
-    Callback=function(v)
-        win:SetTheme(v)
-        N("Theme", v.." applied")
-    end })
-
-Set:Section({ Title="Config" })
-
-local nameIn = Set:Input({ Title="Config Name", Placeholder="e.g. pvp", Value="default",
-    Callback=function() end })
-
-local function cfgName()
-    return (nameIn and nameIn.Value and nameIn.Value ~= "") and nameIn.Value or "default"
-end
-local function cfgList()
-    local ok, l = pcall(function() return ConfigMgr:List() end)
-    if ok and l and #l > 0 then return l end
-    return {"(none)"}
-end
-
-local cfgDrop = Set:Dropdown({ Title="Select Config", Values=cfgList(), Value=1 })
-
-Set:Button({ Title="💾  Save",
-    Callback=function()
-        local n = cfgName()
-        local ok = pcall(function() ConfigMgr:Save(n) end)
-        N("Config", ok and "Saved: "..n or "Save failed", 3)
-        local l = cfgList(); cfgDrop:Refresh(l)
-    end })
-
-Set:Button({ Title="📂  Load",
-    Callback=function()
-        local s = cfgDrop.Value
-        if not s or s == "(none)" then return end
-        local ok = pcall(function() ConfigMgr:Load(s) end)
-        N("Config", ok and "Loaded: "..s or "Load failed", 3)
-    end })
-
-Set:Button({ Title="🗑  Delete",
-    Callback=function()
-        local s = cfgDrop.Value
-        if not s or s == "(none)" then return end
-        pcall(function() ConfigMgr:Delete(s) end)
-        N("Config", "Deleted: "..s, 3)
-        local l = cfgList(); cfgDrop:Refresh(l)
-    end })
-
-Set:Section({ Title="About" })
-Set:Paragraph({ Title="Leon X", Content="v2.0  ·  by leonx24" })
-
--- ── Boot ──────────────────────────────────────────────────────────────────────
-pcall(function() ConfigMgr:Init(win) end)
-pcall(function() ConfigMgr:AutoLoad() end)
-PerfStats:Enable()
-task.delay(1, function() N("Leon X", "Welcome!") end)
+local Window = Library:CreateWindow({
+    Title      = windowTitle,
+    Author     = windowAuthor,
+    Size       = UDim2.new(0, 640, 0, 560),
     ToggleKey  = Enum.KeyCode.U,
     Theme      = "Default",
     GameName   = ActiveGameModule and ActiveGameModule.Name or nil,
     GameMode   = ActiveGameModule ~= nil,
+})
 
 -- Notification helper
 local function N(title, state, duration)
@@ -413,7 +417,7 @@ end
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 setSplashProgress(0.96)
 
--- Anti-AFK: always active on ALL mapss
+-- Anti-AFK: always active on ALL maps
 if ConfigMgr then
     ConfigMgr:Init(Window)
     ConfigMgr._notify = function(title, msg)
