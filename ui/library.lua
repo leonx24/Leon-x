@@ -275,7 +275,8 @@ function Library:CreateWindow(cfg)
 	local SIDEBAR_W = 140
 	local sidebarBg = tagBg(mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
-		BackgroundColor3 = theme.BG; BorderSizePixel = 0; ZIndex = 5; Parent = main;
+		BackgroundColor3 = theme.BG; BorderSizePixel = 0; ZIndex = 5;
+		ClipsDescendants = true; Parent = main;
 	}), "bg")
 
 	-- Sidebar right border
@@ -289,7 +290,7 @@ function Library:CreateWindow(cfg)
 		Size = UDim2.new(1, 0, 0, 52); Position = UDim2.fromOffset(0, 0);
 		BackgroundTransparency = 1; Text = "⚡ Leon X";
 		Font = Enum.Font.GothamBold; TextSize = 18;
-		TextColor3 = theme.Accent; ZIndex = 7; Parent = sidebarBg;
+		TextColor3 = theme.Accent; ZIndex = 5; Parent = sidebarBg;
 	}), "accent")
 
 	-- ══════════════════════════════════════════════════════════════
@@ -350,20 +351,20 @@ function Library:CreateWindow(cfg)
 		}), "textdim")
 	end
 
-	-- ── Header buttons ──
-	local function headerBtn(text, xPos, textSize)
+	-- ── Header buttons (icon-based, no unicode) ──
+	local function headerBtn(xPos)
 		local b = mk("TextButton", {
-			Size = UDim2.fromOffset(32, 32); Position = UDim2.new(1, xPos, 0.5, -16);
-			BackgroundTransparency = 1; Text = text;
-			Font = Enum.Font.GothamBold; TextSize = textSize or 14;
-			TextColor3 = theme.TextSub; AutoButtonColor = false;
+			Size = UDim2.fromOffset(34, 34); Position = UDim2.new(1, xPos, 0.5, -17);
+			BackgroundColor3 = theme.Surface; BackgroundTransparency = 1;
+			Text = ""; AutoButtonColor = false;
 			ZIndex = 15; Parent = headerBg;
+		}, {
+			mk("UICorner", { CornerRadius = UDim.new(0, 7) }),
+			mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 15 }),
 		})
-		tagText(b, "textsub")
-		mk("UICorner", { CornerRadius = UDim.new(0, 6); Parent = b })
+		tagBorder(b:FindFirstChildWhichIsA("UIStroke"), "border")
 		b.MouseEnter:Connect(function()
 			b.BackgroundTransparency = 0
-			tagBg(b, "elevated")
 			b.BackgroundColor3 = theme.Elevated
 		end)
 		b.MouseLeave:Connect(function()
@@ -372,8 +373,26 @@ function Library:CreateWindow(cfg)
 		return b
 	end
 
-	local minBtn   = headerBtn("—", -76, 16)
-	local closeBtn = headerBtn("✕", -38, 14)
+	-- Minimize button (horizontal line icon)
+	local minBtn = headerBtn(-78)
+	mk("Frame", {
+		Size = UDim2.fromOffset(14, 2); Position = UDim2.new(0.5, -7, 0.5, -1);
+		BackgroundColor3 = theme.TextSub; BorderSizePixel = 0;
+		ZIndex = 16; Parent = minBtn;
+	})
+
+	-- Close button (X icon from 2 diagonal bars)
+	local closeBtn = headerBtn(-40)
+	mk("Frame", {
+		Size = UDim2.fromOffset(14, 2); Position = UDim2.new(0.5, -7, 0.5, -1);
+		BackgroundColor3 = theme.TextSub; BorderSizePixel = 0;
+		Rotation = 45; ZIndex = 16; Parent = closeBtn;
+	})
+	mk("Frame", {
+		Size = UDim2.fromOffset(14, 2); Position = UDim2.new(0.5, -7, 0.5, -1);
+		BackgroundColor3 = theme.TextSub; BorderSizePixel = 0;
+		Rotation = -45; ZIndex = 16; Parent = closeBtn;
+	})
 
 	local minContentVisible = true
 	minBtn.MouseButton1Click:Connect(function()
@@ -493,30 +512,47 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- ── Resize Handle ──
+	-- ── Resize Handle (bottom-right corner) ──
 	local resizing, resizeStart, resizeStartSize = false, nil, nil
-	local resizeHandle = mk("Frame", {
-		Size = UDim2.fromOffset(16, 16);
-		Position = UDim2.new(1, -16, 1, -16);
+	local resizeHandle = mk("TextButton", {
+		Size = UDim2.fromOffset(20, 20);
+		Position = UDim2.new(1, -20, 1, -20);
 		BackgroundTransparency = 1;
-		BorderSizePixel = 0;
+		Text = "";
+		AutoButtonColor = false;
 		ZIndex = 10;
-		Parent = main;
+		Parent = bgFrame;
 	})
-	-- Resize grip visual (diagonal lines)
+
+	-- Draw diagonal grip lines
 	for i = 0, 2 do
 		mk("Frame", {
-			Size = UDim2.new(1, 0, 0, 2);
-			Position = UDim2.new(0, 0, 1, -3 - (i * 3));
+			Size = UDim2.fromOffset(8, 2);
+			Position = UDim2.new(1, -3 - (i * 4), 1, -3 - (i * 4));
 			BackgroundColor3 = theme.TextDim;
-			BackgroundTransparency = 0.5;
+			BackgroundTransparency = 0.4;
 			BorderSizePixel = 0;
-			Rotation = -45;
-			AnchorPoint = Vector2.new(1, 0.5);
+			Rotation = 45;
+			AnchorPoint = Vector2.new(1, 1);
 			ZIndex = 11;
 			Parent = resizeHandle;
 		})
 	end
+
+	resizeHandle.MouseEnter:Connect(function()
+		for _, line in ipairs(resizeHandle:GetChildren()) do
+			if line:IsA("Frame") then
+				line.BackgroundTransparency = 0.2
+			end
+		end
+	end)
+	resizeHandle.MouseLeave:Connect(function()
+		for _, line in ipairs(resizeHandle:GetChildren()) do
+			if line:IsA("Frame") then
+				line.BackgroundTransparency = 0.4
+			end
+		end
+	end)
 
 	resizeHandle.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
