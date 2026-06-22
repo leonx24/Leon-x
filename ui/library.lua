@@ -371,9 +371,12 @@ function Library:CreateWindow(cfg)
 		self._tabs[#self._tabs + 1] = tab
 		if idx == 1 then setActive(true) end
 
-		-- Wrap component: parent to content, tag with tab, register for visibility
+		-- Wrap component: handles both colon syntax (tab:Toggle(data))
+		-- and dot syntax (tab.Toggle(data)). Colon passes self as 1st arg.
 		local function wrap(fn)
-			return function(d)
+			return function(selfOrData, maybeData)
+				-- Detect call style: if 2 args, colon syntax (skip self)
+				local d = maybeData or selfOrData
 				local r = fn(tab, d)
 				if r and r.Frame then
 					self._allComps[#self._allComps + 1] = { _tab = tab; Frame = r.Frame }
