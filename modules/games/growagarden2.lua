@@ -11,7 +11,7 @@ local lp = Players.LocalPlayer
 
 local GAG = {}
 GAG.Name = "Grow a Garden 2"
-GAG.PlaceIds = { 77085202503540, 97598239454123 }
+GAG.PlaceIds = { 97598239454123 }
 GAG.Enabled = false
 
 -- Feature states
