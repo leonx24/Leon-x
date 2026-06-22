@@ -217,7 +217,7 @@ function Library:CreateWindow(cfg)
 	local glowFrame = tagBg(mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.Glow;
 		BackgroundTransparency = 0.97; BorderSizePixel = 0;
-		ZIndex = 2; Parent = main;
+		ZIndex = 2; Active = false; Parent = main;
 	}), "glow")
 	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = glowFrame })
 
@@ -236,7 +236,7 @@ function Library:CreateWindow(cfg)
 	local vigTop = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 60); Position = UDim2.fromOffset(0, 0);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
-		ZIndex = 3; Parent = main;
+		ZIndex = 3; Active = false; Parent = main;
 	})
 	local vigTopGrad = mk("UIGradient", {
 		Color = ColorSequence.new({
@@ -254,7 +254,7 @@ function Library:CreateWindow(cfg)
 	local vigBot = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 60); Position = UDim2.new(0, 0, 1, -60);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
-		ZIndex = 3; Parent = main;
+		ZIndex = 3; Active = false; Parent = main;
 	})
 	mk("UIGradient", {
 		Color = ColorSequence.new({
@@ -447,7 +447,7 @@ function Library:CreateWindow(cfg)
 	mk("Frame", {
 		Size = UDim2.fromOffset(14, 2); Position = UDim2.new(0.5, -7, 0.5, -1);
 		BackgroundColor3 = theme.TextSub; BorderSizePixel = 0;
-		ZIndex = 16; Parent = minBtn;
+		ZIndex = 16; Active = false; Parent = minBtn;
 	})
 
 	-- Close button (X icon from 2 diagonal bars)
@@ -455,12 +455,12 @@ function Library:CreateWindow(cfg)
 	mk("Frame", {
 		Size = UDim2.fromOffset(14, 2); Position = UDim2.new(0.5, -7, 0.5, -1);
 		BackgroundColor3 = theme.TextSub; BorderSizePixel = 0;
-		Rotation = 45; ZIndex = 16; Parent = closeBtn;
+		Rotation = 45; ZIndex = 16; Active = false; Parent = closeBtn;
 	})
 	mk("Frame", {
 		Size = UDim2.fromOffset(14, 2); Position = UDim2.new(0.5, -7, 0.5, -1);
 		BackgroundColor3 = theme.TextSub; BorderSizePixel = 0;
-		Rotation = -45; ZIndex = 16; Parent = closeBtn;
+		Rotation = -45; ZIndex = 16; Active = false; Parent = closeBtn;
 	})
 
 	local minContentVisible = true
@@ -768,7 +768,7 @@ function Library:CreateWindow(cfg)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -48, 0, 40); Position = UDim2.fromOffset(24, 98);
 		BackgroundTransparency = 1;
-		Text = "Universal Roblox Enhancement Script\nA powerful, modular framework for any game.";
+		Text = "Welcome to " .. game.Name .. "\nA powerful, modular framework for any game.";
 		Font = Enum.Font.Gotham; TextSize = 12; TextColor3 = theme.TextSub;
 		TextWrapped = true; ZIndex = 52; Parent = welcomeCard;
 	}), "textsub")
@@ -1005,6 +1005,14 @@ function Library:CreateWindow(cfg)
 				local r = fn(tab, d)
 				if r and r.Frame then
 					win._allComps[#win._allComps + 1] = { _tab = tab; Frame = r.Frame }
+					-- Update badge count (skip Sections)
+					local compCount = 0
+					for _, entry in ipairs(win._allComps) do
+						if entry._tab == tab then
+							compCount = compCount + 1
+						end
+					end
+					countBadge.Text = tostring(compCount)
 				end
 				return r
 			end
