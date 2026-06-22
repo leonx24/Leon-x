@@ -154,6 +154,70 @@ local function reg(data, api)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
+-- TOOLTIP SYSTEM
+-- ════════════════════════════════════════════════════════════════════════════
+
+local function attachTooltip(component, text)
+	if not text or text == "" then return end
+
+	local tooltip = nil
+	local tooltipLabel = nil
+
+	local function createTooltip()
+		if tooltip then return end
+
+		tooltip = mk("Frame", {
+			Name = "Tooltip";
+			Size = UDim2.fromOffset(200, 40);
+			BackgroundColor3 = Color3.fromRGB(20, 20, 20);
+			BorderSizePixel = 0;
+			ZIndex = 100;
+			Visible = false;
+			Parent = game:GetService("CoreGui");
+		})
+		mk("UICorner", { CornerRadius = UDim.new(0, 6); Parent = tooltip })
+
+		tooltipLabel = mk("TextLabel", {
+			Name = "Label";
+			Size = UDim2.new(1, -16, 1, 0);
+			Position = UDim2.new(0, 8, 0, 0);
+			BackgroundTransparency = 1;
+			Text = text;
+			TextColor3 = Color3.fromRGB(220, 220, 220);
+			TextSize = 12;
+			Font = Enum.Font.Gotham;
+			TextXAlignment = Enum.TextXAlignment.Left;
+			TextYAlignment = Enum.TextYAlignment.Center;
+			TextWrapped = true;
+			ZIndex = 101;
+			Parent = tooltip;
+		})
+	end
+
+	local frame = component.Frame
+	if not frame then return end
+
+	frame.MouseEnter:Connect(function()
+		createTooltip()
+		if tooltip then
+			tooltip.Visible = true
+		end
+	end)
+
+	frame.MouseMoved:Connect(function(x, y)
+		if tooltip then
+			tooltip.Position = UDim2.fromOffset(x + 15, y + 15)
+		end
+	end)
+
+	frame.MouseLeave:Connect(function()
+		if tooltip then
+			tooltip.Visible = false
+		end
+	end)
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
 -- NOTIFICATION SYSTEM (separate ScreenGui, always on top)
 -- ════════════════════════════════════════════════════════════════════════════
 
@@ -1196,6 +1260,22 @@ function Slider(tab, data)
 		local nv = mn + math.clamp(pos, 0, 1) * (mx - mn)
 		nv = math.floor(nv / step + 0.5) * step; nv = math.clamp(nv, mn, mx)
 		if nv ~= cur then cur = nv; upd(nv); if data.Callback then pcall(data.Callback, nv) end end
+	end)
+
+	-- Text input handler
+	valLbl.FocusLost:Connect(function(enterPressed)
+		if not enterPressed then
+			valLbl.Text = tostring(cur)
+			return
+		end
+		local num = tonumber(valLbl.Text)
+		if num then
+			num = math.clamp(num, mn, mx)
+			cur = num
+			upd(cur)
+			if data.Callback then pcall(data.Callback, cur) end
+		end
+		valLbl.Text = tostring(cur)
 	end)
 
 	local api = { Value = df; Frame = f; Name = data.Title or data.Name or "Slider"; Callback = data.Callback }
