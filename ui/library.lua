@@ -6,6 +6,8 @@
 --   Library:SetTheme("Gold")     -- or Emerald, Rose, Violet, Amber, Neon
 --   Library.Themes["MyTheme"] = { Accent = Color3.fromRGB(r,g,b), AccentDim = ... }
 
+print("[LeonX-LIB] ████ VERSION: FIX-GETLABEL-V2 ████")
+
 local Library = {}
 Library.Registry = {}
 Library._allComponents = {}
