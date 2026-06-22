@@ -1,12 +1,11 @@
--- Leon X | Noir UI Library v2
+-- Leon X | Noir UI Library v3
 -- "Quiet luxury" — dark elegant minimalism with disciplined motion.
--- Design: muted silver-blue accent (default), precision typography, no neon.
 --
 -- CUSTOMIZATION:
 --   Library:SetTheme("Gold")     -- or Emerald, Rose, Violet, Amber, Neon
 --   Library.Themes["MyTheme"] = { Accent = Color3.fromRGB(r,g,b), AccentDim = ... }
 
-print("[LeonX-LIB] ████ VERSION: UI-POLISH-V3 ████")
+print("[LeonX-LIB] ████ VERSION: UI-POLISH-V3-FINAL ████")
 
 local Library = {}
 Library.Registry = {}
@@ -61,17 +60,7 @@ local function tw(obj, dur, props)
 end
 
 local function getLabel(data)
-	local label = data.Title
-	if label == nil or label == "" then
-		label = data.Name
-	end
-	if label == nil or label == "" then
-		label = data.Text
-	end
-	if label == nil or label == "" then
-		label = data.Label
-	end
-	return label or ""
+	return data.Title or data.Name or data.Text or data.Label or ""
 end
 
 local function reg(data, api)
@@ -86,13 +75,13 @@ local function reg(data, api)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- NOTIFICATION GUI (created early, used by Library:Notify)
+-- NOTIFICATION GUI
 -- ════════════════════════════════════════════════════════════════════════════
 
 local notifGui = mk("ScreenGui", {
 	Name = "LeonXNotif"; ResetOnSpawn = false;
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
-	DisplayOrder = 9998; IgnoreGuiInset = true;
+	DisplayOrder = 9999; IgnoreGuiInset = true;
 })
 pcall(function() notifGui.Parent = lp:WaitForChild("PlayerGui") end)
 local activeNotifs = {}
@@ -105,7 +94,7 @@ function Library:CreateWindow(cfg)
 	cfg = cfg or {}
 	local title     = cfg.Title or "Leon X"
 	local author    = cfg.Author or ""
-	local size      = cfg.Size or UDim2.new(0, 580, 0, 560)
+	local size      = cfg.Size or UDim2.new(0, 600, 0, 560)
 	local toggleKey = cfg.ToggleKey or Enum.KeyCode.U
 	local themeName = cfg.Theme or "Default"
 	local theme     = Library.Themes[themeName] or Library.Themes.Default
@@ -124,8 +113,8 @@ function Library:CreateWindow(cfg)
 	local main = mk("Frame", {
 		Size = size; Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2);
 		BackgroundColor3 = theme.BG; BorderSizePixel = 0;
-		ClipsDescendants = true; Parent = sg;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+		ClipsDescendants = true; ZIndex = 1; Parent = sg;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
 
 	local mainStroke = mk("UIStroke", { Color = theme.Border; Thickness = 1; Parent = main })
 
@@ -133,74 +122,75 @@ function Library:CreateWindow(cfg)
 	local SIDEBAR_W = 130
 	local sidebar = mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
-		BackgroundColor3 = theme.BG; BorderSizePixel = 0; Parent = main;
+		BackgroundColor3 = theme.BG; BorderSizePixel = 0; ZIndex = 2; Parent = main;
 	})
 	mk("Frame", {
 		Size = UDim2.new(0, 1, 1, 0); Position = UDim2.new(1, 0, 0, 0);
-		BackgroundColor3 = theme.Border; BorderSizePixel = 0; Parent = sidebar;
+		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 2; Parent = sidebar;
 	})
 	local logo = mk("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 48); Position = UDim2.fromOffset(0, 0);
 		BackgroundTransparency = 1; Text = "⚡ Leon X";
 		Font = Enum.Font.GothamBold; TextSize = 17;
-		TextColor3 = theme.Accent; Parent = sidebar;
+		TextColor3 = theme.Accent; ZIndex = 3; Parent = sidebar;
 	})
 
 	-- ── Header ──
 	local header = mk("Frame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 0, 44); Position = UDim2.fromOffset(SIDEBAR_W, 0);
-		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; Parent = main;
+		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; ZIndex = 2; Parent = main;
 	})
 	mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 1); Position = UDim2.new(0, 0, 1, -1);
-		BackgroundColor3 = theme.Border; BorderSizePixel = 0; Parent = header;
+		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 2; Parent = header;
 	})
 	mk("TextLabel", {
-		Size = UDim2.new(1, -80, 1, 0); Position = UDim2.fromOffset(16, 0);
+		Size = UDim2.new(1, -100, 1, 0); Position = UDim2.fromOffset(16, 0);
 		BackgroundTransparency = 1; Text = title;
 		Font = Enum.Font.GothamBold; TextSize = 15; TextColor3 = theme.Text;
-		TextXAlignment = Enum.TextXAlignment.Left; Parent = header;
+		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 3; Parent = header;
 	})
 	if author ~= "" then
 		mk("TextLabel", {
-			Size = UDim2.new(0, 110, 1, 0); Position = UDim2.new(1, -120, 0, 0);
+			Size = UDim2.new(0, 110, 1, 0); Position = UDim2.new(1, -130, 0, 0);
 			BackgroundTransparency = 1; Text = author;
 			Font = Enum.Font.Gotham; TextSize = 11; TextColor3 = theme.TextSub;
-			TextXAlignment = Enum.TextXAlignment.Right; Parent = header;
+			TextXAlignment = Enum.TextXAlignment.Right; ZIndex = 3; Parent = header;
 		})
 	end
 
 	local minBtn = mk("TextButton", {
 		Size = UDim2.fromOffset(30, 30); Position = UDim2.new(1, -68, 0.5, -15);
-		BackgroundColor3 = theme.Surface; Text = "—";
+		BackgroundTransparency = 1; Text = "—";
+		Font = Enum.Font.GothamBold; TextSize = 16; TextColor3 = theme.TextSub;
+		AutoButtonColor = false; ZIndex = 10; Parent = header;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+
+	local closeBtn = mk("TextButton", {
+		Size = UDim2.fromOffset(30, 30); Position = UDim2.new(1, -36, 0.5, -15);
+		BackgroundTransparency = 1; Text = "✕";
 		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.TextSub;
-		AutoButtonColor = false; Parent = header;
-	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
-	})
+		AutoButtonColor = false; ZIndex = 10; Parent = header;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+
+	-- Hover effects for header buttons
+	for _, btn in ipairs({minBtn, closeBtn}) do
+		btn.MouseEnter:Connect(function() btn.BackgroundTransparency = 0; btn.BackgroundColor3 = theme.Elevated end)
+		btn.MouseLeave:Connect(function() btn.BackgroundTransparency = 1 end)
+	end
+
 	local minContentVisible = true
 	minBtn.MouseButton1Click:Connect(function()
 		minContentVisible = not minContentVisible
 		tw(main, 0.2, { Size = minContentVisible and size or UDim2.new(0, size.X.Offset, 0, 44) })
 	end)
 
-	local closeBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(30, 30); Position = UDim2.new(1, -34, 0.5, -15);
-		BackgroundColor3 = theme.Surface; Text = "✕";
-		Font = Enum.Font.GothamBold; TextSize = 13; TextColor3 = theme.TextSub;
-		AutoButtonColor = false; Parent = header;
-	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
-	})
-
 	local content = mk("ScrollingFrame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 1, -44); Position = UDim2.fromOffset(SIDEBAR_W, 44);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 4; ScrollBarImageColor3 = theme.AccentDim;
 		CanvasSize = UDim2.fromOffset(0, 0);
-		ClipsDescendants = true; Parent = main;
+		ClipsDescendants = true; ZIndex = 2; Parent = main;
 	})
 	local contentLayout = mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 6); Parent = content })
 	mk("UIPadding", {
@@ -230,7 +220,6 @@ function Library:CreateWindow(cfg)
 		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
 		mk("UIStroke", { Color = theme.Border; Thickness = 1.5 }),
 	})
-	-- Drag + click for float button
 	do
 		local fDragging, fDragStart, fStartPos, fDidMove = false, nil, nil, false
 		local function isTap(i)
@@ -262,17 +251,16 @@ function Library:CreateWindow(cfg)
 		end)
 	end
 
-	-- ── Close / Open (with GroupTransparency for smooth all-children fade) ──
+	-- ── Close / Open ──
 	function win:Close()
-		self._visible = false
-		tw(main, 0.18, { GroupTransparency = 1 })
-		task.wait(0.18)
-		main.Visible = false; floatBtn.Visible = true
+		win._visible = false
+		main.Visible = false
+		floatBtn.Visible = true
 	end
 	function win:Open()
-		main.Visible = true; floatBtn.Visible = false
-		self._visible = true; main.GroupTransparency = 1
-		tw(main, 0.22, { GroupTransparency = 0 })
+		floatBtn.Visible = false
+		main.Visible = true
+		win._visible = true
 	end
 	closeBtn.MouseButton1Click:Connect(function() win:Close() end)
 
@@ -292,11 +280,11 @@ function Library:CreateWindow(cfg)
 	end)
 
 	-- ── Public API ──
-	function win:SetToggleKey(k) self._toggleKey = k end
+	function win:SetToggleKey(k) win._toggleKey = k end
 	function win:SetTheme(name)
 		local t = Library.Themes[name]
 		if not t then return end
-		self._theme = t; self._themeName = name
+		win._theme = t; win._themeName = name
 		Library._lastTheme = name
 		main.BackgroundColor3 = t.BG; mainStroke.Color = t.Border
 		sidebar.BackgroundColor3 = t.BG; header.BackgroundColor3 = t.Surface
@@ -305,39 +293,179 @@ function Library:CreateWindow(cfg)
 		for _, conn in ipairs(Library._themeConns) do pcall(function() conn(t) end) end
 	end
 
-	-- FIX: use `win` instead of `self` (self = Library, not win)
+	-- FIX: use `win` not `self` (self = Library here, not win)
 	UIS.InputBegan:Connect(function(i, gp)
 		if gp or i.KeyCode ~= win._toggleKey then return end
 		if win._visible then win:Close() else win:Open() end
 	end)
 
+	-- ── WELCOME SCREEN ─────────────────────────────────────────────────────
+	local welcomeFrame = mk("Frame", {
+		Size = UDim2.fromScale(1, 1);
+		BackgroundColor3 = theme.BG; BorderSizePixel = 0;
+		ZIndex = 50; Parent = main;
+	})
+	-- Center card
+	local welcomeCard = mk("Frame", {
+		Size = UDim2.new(0, 420, 0, 400);
+		AnchorPoint = Vector2.new(0.5, 0.5);
+		Position = UDim2.fromScale(0.5, 0.5);
+		BackgroundColor3 = theme.Surface; BorderSizePixel = 0;
+		ZIndex = 51; Parent = welcomeFrame;
+	}, {
+		mk("UICorner", { CornerRadius = UDim.new(0, 12) }),
+		mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 51 }),
+	})
+
+	-- Accent glow animation on card border
+	task.spawn(function()
+		local stroke = welcomeCard:FindFirstChildWhichIsA("UIStroke")
+		while stroke and stroke.Parent do
+			tw(stroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine), {Color = theme.Accent})
+			task.wait(1.5)
+			tw(stroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine), {Color = theme.Border})
+			task.wait(1.5)
+		end
+	end)
+
+	-- Logo
+	mk("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 36); Position = UDim2.fromOffset(0, 24);
+		BackgroundTransparency = 1; Text = "⚡ Leon X";
+		Font = Enum.Font.GothamBold; TextSize = 28;
+		TextColor3 = theme.Accent; ZIndex = 52; Parent = welcomeCard;
+	})
+	-- Version badge
+	mk("TextLabel", {
+		Size = UDim2.new(0, 60, 0, 20); Position = UDim2.new(0.5, -30, 0, 62);
+		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.7;
+		Text = "v1.6"; Font = Enum.Font.GothamBold; TextSize = 11;
+		TextColor3 = theme.Text; ZIndex = 52; Parent = welcomeCard;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 10) }) })
+
+	-- Description
+	mk("TextLabel", {
+		Size = UDim2.new(1, -48, 0, 36); Position = UDim2.fromOffset(24, 90);
+		BackgroundTransparency = 1;
+		Text = "Universal Roblox Enhancement Script\nA powerful, modular framework for any game.";
+		Font = Enum.Font.Gotham; TextSize = 12; TextColor3 = theme.TextSub;
+		TextWrapped = true; ZIndex = 52; Parent = welcomeCard;
+	})
+
+	-- ── Info table ──
+	local infoData = {
+		{"Author",      "leonx24"},
+		{"Platform",    "Roblox (Universal)"},
+		{"Features",    "30+ Modules"},
+		{"Categories",  "Movement · Combat · Visual · Auto"},
+		{"Executor",    "Any modern executor"},
+		{"Config",      "Auto-save & load"},
+		{"Mobile",      "Full touch support"},
+		{"Status",      "● Active"},
+	}
+	local tableY = 138
+	local tableFrame = mk("Frame", {
+		Size = UDim2.new(1, -48, 0, #infoData * 26 + 8);
+		Position = UDim2.fromOffset(24, tableY);
+		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
+		ZIndex = 52; Parent = welcomeCard;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+
+	for i, row in ipairs(infoData) do
+		local rowBg = (i % 2 == 0) and theme.Elevated or theme.BG
+		local rowFrame = mk("Frame", {
+			Size = UDim2.new(1, -4, 0, 24);
+			Position = UDim2.fromOffset(2, 2 + (i-1) * 26);
+			BackgroundColor3 = rowBg; BackgroundTransparency = 0.5;
+			BorderSizePixel = 0; ZIndex = 53; Parent = tableFrame;
+		}, { mk("UICorner", { CornerRadius = UDim.new(0, 4) }) })
+
+		mk("TextLabel", {
+			Size = UDim2.new(0.4, -8, 1, 0); Position = UDim2.fromOffset(10, 0);
+			BackgroundTransparency = 1; Text = row[1];
+			Font = Enum.Font.GothamBold; TextSize = 11;
+			TextColor3 = theme.TextSub;
+			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 54; Parent = rowFrame;
+		})
+		local valColor = theme.Text
+		if row[1] == "Status" then valColor = Color3.fromRGB(80, 220, 120) end
+		mk("TextLabel", {
+			Size = UDim2.new(0.6, -8, 1, 0); Position = UDim2.new(0.4, 0, 0, 0);
+			BackgroundTransparency = 1; Text = row[2];
+			Font = Enum.Font.GothamMedium; TextSize = 12;
+			TextColor3 = valColor;
+			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 54; Parent = rowFrame;
+		})
+	end
+
+	-- Keybinds hint
+	mk("TextLabel", {
+		Size = UDim2.new(1, -48, 0, 20);
+		Position = UDim2.fromOffset(24, tableY + #infoData * 26 + 20);
+		BackgroundTransparency = 1;
+		Text = "Press  U  to toggle UI  ·  Press  Delete  for panic mode";
+		Font = Enum.Font.Gotham; TextSize = 11;
+		TextColor3 = theme.TextSub; ZIndex = 52; Parent = welcomeCard;
+	})
+
+	-- Enter button
+	local enterBtn = mk("TextButton", {
+		Size = UDim2.new(1, -48, 0, 42);
+		Position = UDim2.fromOffset(24, tableY + #infoData * 26 + 48);
+		BackgroundColor3 = theme.Accent; BorderSizePixel = 0;
+		Text = "Enter Leon X";
+		Font = Enum.Font.GothamBold; TextSize = 14;
+		TextColor3 = Color3.fromRGB(10,10,12);
+		AutoButtonColor = false; ZIndex = 52; Parent = welcomeCard;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	enterBtn.MouseEnter:Connect(function()
+		tw(enterBtn, 0.1, { BackgroundColor3 = Color3.fromRGB(
+			math.min(theme.Accent.R * 255 + 20, 255),
+			math.min(theme.Accent.G * 255 + 20, 255),
+			math.min(theme.Accent.B * 255 + 20, 255)
+		)})
+	end)
+	enterBtn.MouseLeave:Connect(function()
+		tw(enterBtn, 0.1, { BackgroundColor3 = theme.Accent })
+	end)
+
+	function win:DismissWelcome()
+		tw(welcomeFrame, 0.25, { BackgroundTransparency = 1 })
+		task.wait(0.25)
+		welcomeFrame.Visible = false
+	end
+
+	enterBtn.MouseButton1Click:Connect(function()
+		win:DismissWelcome()
+	end)
+
 	-- ── TAB ────────────────────────────────────────────────────────────────
 	local tabList = mk("Frame", {
 		Size = UDim2.new(1, 0, 1, -48); Position = UDim2.fromOffset(0, 48);
-		BackgroundTransparency = 1; Parent = sidebar;
+		BackgroundTransparency = 1; ZIndex = 3; Parent = sidebar;
 	})
 
 	function win:Tab(cfg)
 		cfg = cfg or {}
 		local tabName = cfg.Title or cfg.Name or "Tab"
-		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = self }
-		local idx = #self._tabs + 1
+		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = win }
+		local idx = #win._tabs + 1
 
 		local btn = mk("TextButton", {
 			Size = UDim2.new(1, -10, 0, 38);
 			Position = UDim2.fromOffset(5, (idx - 1) * 42);
 			BackgroundTransparency = 1; Text = tabName;
 			Font = Enum.Font.GothamBold; TextSize = 13;
-			TextColor3 = self._theme.TextSub; AutoButtonColor = false;
-			TextXAlignment = Enum.TextXAlignment.Left; Parent = tabList;
+			TextColor3 = win._theme.TextSub; AutoButtonColor = false;
+			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 4; Parent = tabList;
 		}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
 		local pad = Instance.new("UIPadding")
 		pad.PaddingLeft = UDim.new(0, 14)
 		pad.Parent = btn
 		local indicator = mk("Frame", {
 			Size = UDim2.new(0, 3, 0, 22); Position = UDim2.new(0, 2, 0.5, -11);
-			BackgroundColor3 = self._theme.Accent; BorderSizePixel = 0;
-			Visible = false; Parent = btn;
+			BackgroundColor3 = win._theme.Accent; BorderSizePixel = 0;
+			Visible = false; ZIndex = 5; Parent = btn;
 		}, { mk("UICorner", { CornerRadius = UDim.new(0, 2) }) })
 
 		local isActive = false
@@ -345,14 +473,14 @@ function Library:CreateWindow(cfg)
 			isActive = active
 			indicator.Visible = active
 			if active then
-				btn.TextColor3 = self._theme.Text
-				btn.BackgroundColor3 = self._theme.Surface
+				btn.TextColor3 = win._theme.Text
+				btn.BackgroundColor3 = win._theme.Surface
 				btn.BackgroundTransparency = 0.3
 			else
-				btn.TextColor3 = self._theme.TextSub
+				btn.TextColor3 = win._theme.TextSub
 				btn.BackgroundTransparency = 1
 			end
-			for _, entry in ipairs(self._allComps) do
+			for _, entry in ipairs(win._allComps) do
 				if entry._tab == tab then
 					entry.Frame.Visible = active
 				end
@@ -360,12 +488,12 @@ function Library:CreateWindow(cfg)
 		end
 
 		btn.MouseButton1Click:Connect(function()
-			for _, t in ipairs(self._tabs) do t._setActive(false) end
-			setActive(true); self._active = tab
+			for _, t in ipairs(win._tabs) do t._setActive(false) end
+			setActive(true); win._active = tab
 		end)
 		btn.MouseEnter:Connect(function()
 			if not isActive then
-				btn.BackgroundColor3 = self._theme.Surface
+				btn.BackgroundColor3 = win._theme.Surface
 				btn.BackgroundTransparency = 0.7
 			end
 		end)
@@ -374,17 +502,15 @@ function Library:CreateWindow(cfg)
 		end)
 
 		tab._setActive = setActive
-		self._tabs[#self._tabs + 1] = tab
+		win._tabs[#win._tabs + 1] = tab
 		if idx == 1 then setActive(true) end
 
-		-- Wrap component: handles both colon syntax (tab:Toggle(data))
-		-- and dot syntax (tab.Toggle(data)). Colon passes self as 1st arg.
 		local function wrap(fn)
 			return function(selfOrData, maybeData)
 				local d = maybeData or selfOrData
 				local r = fn(tab, d)
 				if r and r.Frame then
-					self._allComps[#self._allComps + 1] = { _tab = tab; Frame = r.Frame }
+					win._allComps[#win._allComps + 1] = { _tab = tab; Frame = r.Frame }
 				end
 				return r
 			end
@@ -403,11 +529,12 @@ function Library:CreateWindow(cfg)
 
 	win._sg = sg; win._main = main; win._header = header
 	win._floatGui = floatGui; win._floatBtn = floatBtn
+	win._welcomeFrame = welcomeFrame
 	return win
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- THEME HELPER (resolve theme from tab → window)
+-- THEME HELPER
 -- ════════════════════════════════════════════════════════════════════════════
 
 local function th(tab)
@@ -461,7 +588,7 @@ function Paragraph(tab, data)
 	local f = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, hasTitle and 46 or 34); BackgroundColor3 = theme.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
 	local innerPad = Instance.new("UIPadding")
 	innerPad.PaddingLeft = UDim.new(0, 14); innerPad.PaddingRight = UDim.new(0, 14)
 	innerPad.PaddingTop = UDim.new(0, 8); innerPad.PaddingBottom = UDim.new(0, 8)
@@ -610,7 +737,7 @@ function Slider(tab, data)
 	return api
 end
 
--- ── Dropdown (with search) ─────────────────────────────────────────────────
+-- ── Dropdown (with search, expanded frame to avoid ClipsDescendants) ────────
 function Dropdown(tab, data)
 	local theme = th(tab)
 	local vals = data.Values or {}
@@ -618,17 +745,36 @@ function Dropdown(tab, data)
 	if type(cur) == "number" and vals[cur] then cur = vals[cur] end
 	local open = false
 	local searchTerm = ""
+	local CLOSED_H = 58
+	local ITEM_H = 30
+	local SEARCH_H = 34
+	local MAX_VISIBLE = 6
 
+	local function calcOpenH()
+		local count = 0
+		for _, v in ipairs(vals) do
+			if searchTerm == "" or tostring(v):lower():find(searchTerm, 1, true) then
+				count = count + 1
+			end
+		end
+		return CLOSED_H + math.min(count, MAX_VISIBLE) * ITEM_H + SEARCH_H + 8
+	end
+
+	-- Frame expands when open (avoids ClipsDescendants clipping)
 	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 58); BackgroundColor3 = theme.Surface;
-		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page; ClipsDescendants = false;
+		Size = UDim2.new(1, 0, 0, CLOSED_H); BackgroundColor3 = theme.Surface;
+		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+
+	-- Label
 	mk("TextLabel", {
-		Size = UDim2.new(1, -24, 0, 14); Position = UDim2.fromOffset(14, 6);
+		Size = UDim2.new(1, -28, 0, 14); Position = UDim2.fromOffset(14, 6);
 		BackgroundTransparency = 1;
 		Text = getLabel(data); Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	})
+
+	-- Selection box
 	local box = mk("TextButton", {
 		Size = UDim2.new(1, -28, 0, 30); Position = UDim2.fromOffset(14, 22);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
@@ -638,7 +784,7 @@ function Dropdown(tab, data)
 		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
 	})
 	local valTxt = mk("TextLabel", {
-		Size = UDim2.new(1, -30, 1, 0); Position = UDim2.fromOffset(10, 0);
+		Size = UDim2.new(1, -32, 1, 0); Position = UDim2.fromOffset(10, 0);
 		BackgroundTransparency = 1; Text = tostring(cur);
 		Font = Enum.Font.GothamMedium; TextSize = 12; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = box;
@@ -649,48 +795,34 @@ function Dropdown(tab, data)
 		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.TextSub; Parent = box;
 	})
 
-	-- Dropdown list with search bar
-	local listHeight = math.min(#vals, 7) * 32 + 36 -- items + search bar
-	local list = mk("Frame", {
-		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, 56);
-		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Visible = false; ZIndex = 10; ClipsDescendants = true; Parent = f;
-	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
-	})
-
-	-- Search input at the top of dropdown
+	-- Search input (visible when open)
 	local searchBox = mk("TextBox", {
-		Size = UDim2.new(1, -16, 0, 30); Position = UDim2.fromOffset(8, 4);
-		BackgroundColor3 = theme.Surface; BorderSizePixel = 0;
-		PlaceholderText = "Search..."; PlaceholderColor3 = theme.TextSub;
+		Size = UDim2.new(1, -28, 0, 28); Position = UDim2.fromOffset(14, 56);
+		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
+		PlaceholderText = "🔍  Search..."; PlaceholderColor3 = theme.TextSub;
 		Text = ""; Font = Enum.Font.GothamMedium; TextSize = 12;
 		TextColor3 = theme.Text; ClearTextOnFocus = true;
-		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 11; Parent = list;
+		TextXAlignment = Enum.TextXAlignment.Left;
+		Visible = false; ZIndex = 2; Parent = f;
 	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 4) }),
+		mk("UICorner", { CornerRadius = UDim.new(0, 5) }),
 		mk("UIStroke", { Color = theme.BorderSub; Thickness = 1 }),
 	})
 	local searchPad = Instance.new("UIPadding")
 	searchPad.PaddingLeft = UDim.new(0, 10)
 	searchPad.Parent = searchBox
 
+	-- Scroll area for items (visible when open)
 	local scroll = mk("ScrollingFrame", {
-		Size = UDim2.new(1, -8, 1, -38); Position = UDim2.fromOffset(4, 36);
+		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, 88);
 		BackgroundTransparency = 1;
 		BorderSizePixel = 0; ScrollBarThickness = 3;
-		ScrollBarImageColor3 = theme.AccentDim; ZIndex = 11; Parent = list;
+		ScrollBarImageColor3 = theme.AccentDim;
+		Visible = false; ZIndex = 2; Parent = f;
 	})
 	local scrollLayout = mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 2); Parent = scroll })
 
 	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Dropdown"; Callback = data.Callback }
-
-	local function closeList()
-		open = false
-		tw(list, 0.12, { Size = UDim2.new(1, -28, 0, 0) })
-		task.delay(0.12, function() list.Visible = false end)
-	end
 
 	local function rebuildItems()
 		for _, c in ipairs(scroll:GetChildren()) do
@@ -705,34 +837,37 @@ function Dropdown(tab, data)
 		end
 		for _, v in ipairs(filtered) do
 			local item = mk("TextButton", {
-				Size = UDim2.new(1, -4, 0, 30); Position = UDim2.fromOffset(2, 0);
+				Size = UDim2.new(1, -4, 0, ITEM_H);
 				BackgroundTransparency = 1;
-				Text = ""; Font = Enum.Font.GothamMedium; TextSize = 12;
+				Text = tostring(v); Font = Enum.Font.GothamMedium; TextSize = 12;
 				TextColor3 = tostring(v) == tostring(cur) and theme.Accent or theme.Text;
 				TextXAlignment = Enum.TextXAlignment.Left; AutoButtonColor = false;
-				ZIndex = 11; Parent = scroll;
-			}, { mk("UICorner", { CornerRadius = UDim.new(0, 4) }) })
-			-- Proper left padding via UIPadding instead of string hack
+				ZIndex = 3; Parent = scroll;
+			}, { mk("UICorner", { CornerRadius = UDim.new(0, 5) }) })
 			local itemPad = Instance.new("UIPadding")
 			itemPad.PaddingLeft = UDim.new(0, 12)
 			itemPad.Parent = item
-			-- Set text after padding is added
-			item.Text = tostring(v)
 
 			item.MouseEnter:Connect(function()
-				item.BackgroundColor3 = theme.Surface; item.BackgroundTransparency = 0.4
+				item.BackgroundColor3 = theme.BG; item.BackgroundTransparency = 0.3
 			end)
 			item.MouseLeave:Connect(function() item.BackgroundTransparency = 1 end)
 			item.MouseButton1Click:Connect(function()
-				cur = v
-				valTxt.Text = tostring(v)
-				api.Value = v
+				cur = v; valTxt.Text = tostring(v); api.Value = v
 				searchTerm = ""; searchBox.Text = ""
-				closeList()
+				open = false
+				searchBox.Visible = false; scroll.Visible = false
+				tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H) })
 				if data.Callback then pcall(data.Callback, v) end
 			end)
 		end
-		scroll.CanvasSize = UDim2.fromOffset(0, #filtered * 32)
+		scroll.CanvasSize = UDim2.fromOffset(0, #filtered * (ITEM_H + 2))
+		-- Adjust frame height
+		if open then
+			local h = CLOSED_H + math.min(#filtered, MAX_VISIBLE) * (ITEM_H + 2) + SEARCH_H + 4
+			tw(f, 0.1, { Size = UDim2.new(1, 0, 0, h) })
+			scroll.Size = UDim2.new(1, -28, 0, math.min(#filtered, MAX_VISIBLE) * (ITEM_H + 2))
+		end
 	end
 
 	searchBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -744,19 +879,35 @@ function Dropdown(tab, data)
 
 	box.MouseButton1Click:Connect(function()
 		if open then
-			closeList()
-		else
-			open = true; list.Visible = true
+			open = false
+			searchBox.Visible = false; scroll.Visible = false
 			searchTerm = ""; searchBox.Text = ""
+			tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H) })
+		else
+			open = true
+			searchBox.Visible = true; scroll.Visible = true
+			searchBox.Text = ""
 			rebuildItems()
-			local h = math.min(#vals, 7) * 32 + 38
-			tw(list, 0.12, { Size = UDim2.new(1, -28, 0, h) })
+			local h = calcOpenH()
+			tw(f, 0.15, { Size = UDim2.new(1, 0, 0, h) })
+			scroll.Size = UDim2.new(1, -28, 0, math.min(#vals, MAX_VISIBLE) * (ITEM_H + 2))
 			task.wait(0.05)
 			pcall(function() searchBox:CaptureFocus() end)
 		end
 	end)
 
-	function api:Refresh(v) vals = v or {}; searchTerm = ""; rebuildItems() end
+	function api:Refresh(v)
+		vals = v or {}; searchTerm = ""; searchBox.Text = ""
+		rebuildItems()
+		-- Auto-select first item if current not in list
+		local found = false
+		for _, item in ipairs(vals) do
+			if tostring(item) == tostring(cur) then found = true; break end
+		end
+		if not found and #vals > 0 then
+			cur = vals[1]; valTxt.Text = tostring(vals[1]); api.Value = vals[1]
+		end
+	end
 	function api:Select(v)
 		cur = v; valTxt.Text = tostring(v); api.Value = v
 	end
@@ -894,21 +1045,22 @@ function Library:Notify(cfg)
 		Size = UDim2.new(0, 280, 0, 64);
 		Position = UDim2.new(1, 300, 0, 16 + #activeNotifs * 72);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		ClipsDescendants = true; Parent = notifGui;
+		ClipsDescendants = true; ZIndex = 100; Parent = notifGui;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 8) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
+		mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 100 }),
 	})
 	mk("Frame", {
 		Size = UDim2.new(0, 3, 1, 0); BackgroundColor3 = theme.Accent;
-		BorderSizePixel = 0; Parent = n;
+		BorderSizePixel = 0; ZIndex = 101; Parent = n;
 	})
 	if title ~= "" then
 		mk("TextLabel", {
 			Size = UDim2.new(1, -16, 0, 20); Position = UDim2.fromOffset(14, 8);
 			BackgroundTransparency = 1; Text = title;
 			Font = Enum.Font.GothamBold; TextSize = 13;
-			TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = n;
+			TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
+			ZIndex = 101; Parent = n;
 		})
 	end
 	if text ~= "" then
@@ -918,7 +1070,7 @@ function Library:Notify(cfg)
 			BackgroundTransparency = 1; Text = text;
 			Font = Enum.Font.Gotham; TextSize = 12;
 			TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left;
-			TextWrapped = true; Parent = n;
+			TextWrapped = true; ZIndex = 101; Parent = n;
 		})
 	end
 
@@ -926,8 +1078,8 @@ function Library:Notify(cfg)
 	tw(n, 0.2, { Position = UDim2.new(1, -296, 0, 16 + (#activeNotifs - 1) * 72) })
 
 	task.delay(dur, function()
-		tw(n, 0.15, { GroupTransparency = 1 })
-		task.wait(0.15)
+		tw(n, 0.15, { Position = UDim2.new(1, 300, 0, n.Position.Y.Offset), BackgroundTransparency = 1 })
+		task.wait(0.2)
 		for i, v in ipairs(activeNotifs) do
 			if v == n then table.remove(activeNotifs, i) break end
 		end
@@ -935,7 +1087,7 @@ function Library:Notify(cfg)
 			tw(v, 0.15, { Position = UDim2.new(1, -296, 0, 16 + (i - 1) * 72) })
 		end
 		task.wait(0.15)
-		n:Destroy()
+		pcall(function() n:Destroy() end)
 	end)
 end
 
