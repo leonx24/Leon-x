@@ -413,7 +413,7 @@ end
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 setSplashProgress(0.96)
 
--- Anti-AFK: always active on ALL maps
+-- Anti-AFK: always active on ALL mapss
 if ConfigMgr then
     ConfigMgr:Init(Window)
     ConfigMgr._notify = function(title, msg)
