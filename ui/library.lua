@@ -466,6 +466,7 @@ function Library:CreateWindow(cfg)
 	-- ══════════════════════════════════════════════════════════════
 	-- FLOATING BUTTON
 	-- ══════════════════════════════════════════════════════════════
+	local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 	local floatGui = mk("ScreenGui", {
 		Name = "LeonXFloat"; ResetOnSpawn = false;
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
@@ -473,14 +474,27 @@ function Library:CreateWindow(cfg)
 		Parent = lp:WaitForChild("PlayerGui");
 	})
 	local floatBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(48, 48); Position = UDim2.new(0, 16, 0.5, -24);
-		BackgroundColor3 = theme.Surface; Text = "⚡";
-		Font = Enum.Font.GothamBold; TextSize = 18; TextColor3 = theme.Accent;
+		Size = UDim2.fromOffset(56, 56); Position = UDim2.new(0, 16, 0.5, -28);
+		BackgroundColor3 = theme.Surface; Text = "";
 		AutoButtonColor = false; Visible = false; ZIndex = 10; Parent = floatGui;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
 		mk("UIStroke", { Color = theme.Border; Thickness = 1.5 }),
 	})
+	-- Add logo image to float button (try getcustomasset first, fallback to text)
+	local logoImage
+	if getcustomasset then
+		logoImage = mk("ImageLabel", {
+			Size = UDim2.fromOffset(36, 36); Position = UDim2.new(0.5, -18, 0.5, -18);
+			BackgroundTransparency = 1; Image = getcustomasset("assets/logo.png");
+			Parent = floatBtn;
+		})
+	else
+		floatBtn.Text = "⚡"
+		floatBtn.Font = Enum.Font.GothamBold
+		floatBtn.TextSize = 20
+		floatBtn.TextColor3 = theme.Accent
+	end
 	-- Float button: pulse animation
 	task.spawn(function()
 		while floatBtn and floatBtn.Parent do
@@ -524,13 +538,17 @@ function Library:CreateWindow(cfg)
 		if not win._visible then return end
 		win._visible = false
 		sg.Enabled = false
-		floatBtn.Visible = true
 
-		-- Bounce animation on float button
-		floatBtn.Size = UDim2.fromOffset(40, 40)
-		TS:Create(floatBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = UDim2.fromOffset(52, 52)
-		}):Play()
+		-- Show float button only on mobile
+		if isMobile then
+			floatBtn.Visible = true
+
+			-- Bounce animation on float button
+			floatBtn.Size = UDim2.fromOffset(40, 40)
+			TS:Create(floatBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				Size = UDim2.fromOffset(56, 56)
+			}):Play()
+		end
 	end
 
 	function win:Open()
@@ -1127,12 +1145,16 @@ function Slider(tab, data)
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
-	local valLbl = tagText(mk("TextLabel", {
-		Size = UDim2.new(0, 52, 0, 16); Position = UDim2.new(1, -64, 0, 10);
-		BackgroundTransparency = 1; Text = tostring(df);
-		Font = Enum.Font.GothamBold; TextSize = 12; TextColor3 = theme.Accent;
-		TextXAlignment = Enum.TextXAlignment.Right; Parent = f;
-	}), "accent")
+	local valLbl = mk("TextBox", {
+		Size = UDim2.new(0, 60, 0, 24); Position = UDim2.new(1, -74, 0, 8);
+		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
+		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = 12;
+		TextColor3 = theme.Accent; TextXAlignment = Enum.TextXAlignment.Center;
+		Parent = f;
+	})
+	mk("UICorner", { CornerRadius = UDim.new(0, 4); Parent = valLbl })
+	tagBg(valLbl, "elevated")
+	tagText(valLbl, "accent")
 
 	local trk = tagBg(mk("Frame", {
 		Size = UDim2.new(1, -28, 0, 6); Position = UDim2.new(0, 14, 0, 38);
