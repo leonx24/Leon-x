@@ -58,16 +58,18 @@ local function tw(obj, dur, props)
 	t:Play(); return t
 end
 
-local function getLabel(data, tab)
-	local label = data.Title or data.Name or data.Text or data.Label or ""
-	if label == "" or label == (tab and tab.Name or "") then
-		for k, v in pairs(data) do
-			if type(v) == "string" and k ~= "Flag" and k ~= "Placeholder" and k ~= "Content" and v ~= (tab and tab.Name or "") then
-				label = v; break
-			end
-		end
+local function getLabel(data, _tab)
+	local label = data.Title
+	if label == nil or label == "" then
+		label = data.Name
 	end
-	return label
+	if label == nil or label == "" then
+		label = data.Text
+	end
+	if label == nil or label == "" then
+		label = data.Label
+	end
+	return label or ""
 end
 
 local function reg(data, api)
