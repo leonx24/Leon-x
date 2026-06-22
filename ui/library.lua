@@ -523,53 +523,20 @@ function Library:CreateWindow(cfg)
 	function win:Close()
 		if not win._visible then return end
 		win._visible = false
+		sg.Enabled = false
+		floatBtn.Visible = true
 
-		-- Animate main window out (scale down + fade)
-		local closeTween = TS:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
-			Size = UDim2.new(0, size.X.Offset * 0.85, 0, size.Y.Offset * 0.85),
-			Position = UDim2.new(0.5, -size.X.Offset * 0.425, 0.5, -size.Y.Offset * 0.425)
-		})
-		local fadeTween = TS:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
-			GroupTransparency = 1
-		})
-
-		closeTween:Play()
-		fadeTween:Play()
-
-		task.delay(0.2, function()
-			sg.Enabled = false
-			main.Size = size
-			main.Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2)
-			main.GroupTransparency = 0
-			floatBtn.Visible = true
-
-			-- Bounce animation on float button
-			floatBtn.Size = UDim2.fromOffset(40, 40)
-			TS:Create(floatBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-				Size = UDim2.fromOffset(52, 52)
-			}):Play()
-		end)
+		-- Bounce animation on float button
+		floatBtn.Size = UDim2.fromOffset(40, 40)
+		TS:Create(floatBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = UDim2.fromOffset(52, 52)
+		}):Play()
 	end
 
 	function win:Open()
 		if win._visible then return end
 		floatBtn.Visible = false
-
-		-- Prepare main for animation
-		main.Size = UDim2.new(0, size.X.Offset * 0.85, 0, size.Y.Offset * 0.85)
-		main.Position = UDim2.new(0.5, -size.X.Offset * 0.425, 0.5, -size.Y.Offset * 0.425)
-		main.GroupTransparency = 1
 		sg.Enabled = true
-
-		-- Animate in (scale up + fade)
-		TS:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-			Size = size,
-			Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2)
-		}):Play()
-		TS:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
-			GroupTransparency = 0
-		}):Play()
-
 		win._visible = true
 	end
 	closeBtn.MouseButton1Click:Connect(function() win:Close() end)
