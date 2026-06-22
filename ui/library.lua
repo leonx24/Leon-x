@@ -199,14 +199,14 @@ function Library:CreateWindow(cfg)
 		Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2);
 		BackgroundTransparency = 1;
 		BorderSizePixel = 0; ClipsDescendants = true;
-		Active = true;
+		Active = false; -- Don't block input, let children handle it
 		Parent = sg;
 	})
 
 	-- ── Background layer (solid bg, tagged for theme) ──
 	local bgFrame = tagBg(mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
-		BorderSizePixel = 0; ZIndex = 1; Parent = main;
+		BorderSizePixel = 0; ZIndex = 1; Active = false; Parent = main;
 	}), "bg")
 	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = bgFrame })
 
@@ -269,7 +269,7 @@ function Library:CreateWindow(cfg)
 	local sidebarBg = mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
 		BackgroundColor3 = Color3.fromRGB(8, 8, 10); BorderSizePixel = 0; ZIndex = 5;
-		ClipsDescendants = true; Parent = main;
+		ClipsDescendants = true; Active = false; Parent = main;
 	})
 
 	-- Sidebar gradient overlay (top-to-bottom dark wash)
@@ -333,7 +333,8 @@ function Library:CreateWindow(cfg)
 	-- ══════════════════════════════════════════════════════════════
 	local headerBg = tagBg(mk("Frame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 0, 44); Position = UDim2.fromOffset(SIDEBAR_W, 0);
-		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; ZIndex = 5; Parent = main;
+		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; ZIndex = 5;
+		Active = true; Parent = main; -- Header needs Active=true for dragging
 	}), "surface")
 
 	-- Header bottom border
@@ -481,20 +482,11 @@ function Library:CreateWindow(cfg)
 		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
 		mk("UIStroke", { Color = theme.Border; Thickness = 1.5 }),
 	})
-	-- Add logo image to float button (try getcustomasset first, fallback to text)
-	local logoImage
-	if getcustomasset then
-		logoImage = mk("ImageLabel", {
-			Size = UDim2.fromOffset(36, 36); Position = UDim2.new(0.5, -18, 0.5, -18);
-			BackgroundTransparency = 1; Image = getcustomasset("assets/logo.png");
-			Parent = floatBtn;
-		})
-	else
-		floatBtn.Text = "⚡"
-		floatBtn.Font = Enum.Font.GothamBold
-		floatBtn.TextSize = 20
-		floatBtn.TextColor3 = theme.Accent
-	end
+	-- Float button text (simple, no asset loading)
+	floatBtn.Text = "⚡"
+	floatBtn.Font = Enum.Font.GothamBold
+	floatBtn.TextSize = 20
+	floatBtn.TextColor3 = theme.Accent
 	-- Float button: pulse animation
 	task.spawn(function()
 		while floatBtn and floatBtn.Parent do
@@ -820,8 +812,10 @@ function Library:CreateWindow(cfg)
 			end
 		end
 		tw(welcomeCard, 0.3, { BackgroundTransparency = 1 })
-		task.wait(0.35)
+		task.wait(0.4)
 		welcomeFrame.Visible = false
+		welcomeFrame.ZIndex = 0 -- Move behind everything
+		welcomeFrame.BackgroundTransparency = 1
 	end
 
 	enterBtn.MouseButton1Click:Connect(function() win:DismissWelcome() end)
@@ -876,7 +870,6 @@ function Library:CreateWindow(cfg)
 			BackgroundColor3 = win._theme.Accent; BorderSizePixel = 0;
 			Visible = false; ZIndex = 8; Parent = btn;
 		}), "accent")
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
 		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
 
 		-- Feature count badge (right side, shows how many items in this tab)

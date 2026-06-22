@@ -17,6 +17,7 @@ AntiVoid.CheckInterval = 0.1 -- how often to check (seconds)
 
 -- State tracking
 local connection = nil
+local charAddedConn = nil -- track CharacterAdded connection for cleanup
 local lastSafePosition = nil
 local lastSafeCFrame = nil
 local lastCheckTime = 0
@@ -146,8 +147,9 @@ function AntiVoid:Enable()
         end
     end)
     
-    -- Handle character respawn
-    lp.CharacterAdded:Connect(function(char)
+    -- Handle character respawn (store connection for cleanup)
+    if charAddedConn then charAddedConn:Disconnect() end
+    charAddedConn = lp.CharacterAdded:Connect(function(char)
         if not self.Enabled then return end
         task.wait(2) -- wait for character to load
         local hrp = char:WaitForChild("HumanoidRootPart", 5)
@@ -155,18 +157,23 @@ function AntiVoid:Enable()
             saveSafePosition(hrp)
         end
     end)
-    
+
     print("[Leon X] AntiVoid: Enabled (threshold: " .. self.VoidThreshold .. ")")
 end
 
 function AntiVoid:Disable()
     self.Enabled = false
-    
+
     if connection then
         connection:Disconnect()
         connection = nil
     end
-    
+
+    if charAddedConn then
+        charAddedConn:Disconnect()
+        charAddedConn = nil
+    end
+
     print("[Leon X] AntiVoid: Disabled")
 end
 

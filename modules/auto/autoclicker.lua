@@ -126,13 +126,15 @@ function AutoClicker:SetClickType(clickType)
 end
 
 function AutoClicker:SetHoldDown(hold)
-    self.HoldDown = hold
-    -- If currently holding, release and re-apply
+    -- Check condition BEFORE assignment
     if hold and not self.HoldDown then
+        self.HoldDown = hold
         if holdConnection then
             pcall(function() VirtualInputManager:SetMouseButtonUp(0) end)
             holdConnection = nil
         end
+    else
+        self.HoldDown = hold
     end
 end
 

@@ -44,6 +44,7 @@ MacroRecorder.RecordedPoints = {}
 local playbackConnection = nil
 local recordConnection = nil
 local inputConnection = nil
+local inputEndConnection = nil
 local lastRecordTime = 0
 local playbackIndex = 1
 local playbackStartTime = 0
@@ -252,7 +253,8 @@ function MacroRecorder:StartRecording(name)
         end
     end)
     
-    local inputEndConn = UIS.InputEnded:Connect(function(input)
+    if inputEndConnection then inputEndConnection:Disconnect() end
+    inputEndConnection = UIS.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.Keyboard then
             pressedKeys[input.KeyCode.Name] = nil
         elseif input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -299,7 +301,7 @@ end
 
 function MacroRecorder:StopRecording()
     if not self.Recording then return nil end
-    
+
     self.Recording = false
     if recordConnection then
         recordConnection:Disconnect()
@@ -309,7 +311,11 @@ function MacroRecorder:StopRecording()
         inputConnection:Disconnect()
         inputConnection = nil
     end
-    
+    if inputEndConnection then
+        inputEndConnection:Disconnect()
+        inputEndConnection = nil
+    end
+
     if self.CurrentMacro then
         self.CurrentMacro.points = self.RecordedPoints
         self.CurrentMacro.duration = #self.RecordedPoints > 0 

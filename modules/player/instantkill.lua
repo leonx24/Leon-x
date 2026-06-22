@@ -14,6 +14,8 @@ local conn = nil
 local childAddedConn = nil
 local descendantConn = nil
 local killCount = 0
+local SCAN_INTERVAL = 0.5 -- throttle: scan every 0.5s instead of every frame
+local lastScanTime = 0
 
 -- Function to check if a model is an NPC (not a player character)
 local function isNPC(model)
@@ -212,8 +214,11 @@ function Module:Enable()
             end
         end)
 
-        -- Heartbeat connection for continuous monitoring
+        -- Heartbeat connection for continuous monitoring (throttled)
         conn = RunService.Heartbeat:Connect(function()
+            local now = tick()
+            if now - lastScanTime < SCAN_INTERVAL then return end
+            lastScanTime = now
             scanWorkspace()
         end)
 

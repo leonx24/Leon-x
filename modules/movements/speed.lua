@@ -52,7 +52,7 @@ local function startAntiFall(char)
         if currentY < -50 then
             pcall(function()
                 hrp.CFrame = CFrame.new(hrp.Position.X, math.max(lastSafeY, 50), hrp.Position.Z)
-                hrp.Velocity = Vector3.new(0, 0, 0)
+                hrp.AssemblyLinearVelocity = Vector3.zero
             end)
         end
     end)

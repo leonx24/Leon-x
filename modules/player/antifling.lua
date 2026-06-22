@@ -55,44 +55,32 @@ end
 -- Make character heavy so harder to fling
 local function applyMassManipulation(char)
     if not AntiFling.UseMassManipulation then return end
-    
+
     pcall(function()
-        -- Store original masses
+        -- Store original physical properties
         for _, part in ipairs(char:GetDescendants()) do
             if part:IsA("BasePart") then
-                originalMass[part] = part.Mass
-                -- Make parts much heavier (harder to fling)
-                part.Mass = part.Mass * 5
+                originalMass[part] = part.CustomPhysicalProperties
+                -- Make parts much heavier via CustomPhysicalProperties (Mass is read-only)
+                part.CustomPhysicalProperties = PhysicalProperties.new(
+                    10,    -- Density (heavier)
+                    0.3,   -- Friction
+                    0.5    -- Elasticity (less bouncy)
+                )
             end
-        end
-        
-        -- Also set HumanoidRootPart CustomPhysicalProperties for stability
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CustomPhysicalProperties = PhysicalProperties.new(
-                10,    -- Density (heavier)
-                0.3,   -- Friction
-                0.5    -- Elasticity (less bouncy)
-            )
         end
     end)
 end
 
--- Restore original mass
+-- Restore original physical properties
 local function removeMassManipulation(char)
     pcall(function()
-        for part, mass in pairs(originalMass) do
+        for part, props in pairs(originalMass) do
             if part and part.Parent then
-                part.Mass = mass
+                part.CustomPhysicalProperties = props
             end
         end
         originalMass = {}
-        
-        -- Reset HRP properties
-        local hrp = char:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            hrp.CustomPhysicalProperties = nil
-        end
     end)
 end
 

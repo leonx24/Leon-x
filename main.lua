@@ -415,7 +415,7 @@ else
 end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
-setSplashProgress(0.92)
+setSplashProgress(0.96)
 
 -- Anti-AFK: always active on ALL maps
 if AntiAFK then AntiAFK:Enable() else warn("[LeonX] AntiAFK nil") end
@@ -1530,7 +1530,7 @@ TeleTab:Paragraph({
 })
 
 local wpQueueDropdown = nil
-local selectedQueueItem = nil
+local selectedWpQueueItem = nil
 
 local function refreshWpQueue()
     local queue = Waypoint:GetQueue()
@@ -1542,7 +1542,7 @@ local function refreshWpQueue()
     if wpQueueDropdown then
         wpQueueDropdown:Refresh(names)
         wpQueueDropdown:Select(names[1])
-        selectedQueueItem = names[1]
+        selectedWpQueueItem = names[1]
     end
     return names
 end
@@ -1566,8 +1566,8 @@ TeleTab:Button({
 TeleTab:Button({
     Title = "➖ Remove Selected from Queue",
     Callback = function()
-        if selectedQueueItem and selectedQueueItem ~= "(empty queue)" then
-            local wpName = selectedQueueItem:match("%d+%.%s+(.+)")
+        if selectedWpQueueItem and selectedWpQueueItem ~= "(empty queue)" then
+            local wpName = selectedWpQueueItem:match("%d+%.%s+(.+)")
             if wpName and Waypoint:RemoveFromQueue(wpName) then
                 refreshWpQueue()
                 N("Queue", "Removed: " .. wpName)
@@ -1589,7 +1589,7 @@ wpQueueDropdown = TeleTab:Dropdown({
     Title = "Current Queue",
     Values = refreshWpQueue(),
     Value = 1,
-    Callback = function(v) selectedQueueItem = v end
+    Callback = function(v) selectedWpQueueItem = v end
 })
 
 local queueDelaySlider = TeleTab:Slider({
@@ -2187,6 +2187,13 @@ end)
 
 task.delay(2, function()
     N("Leon X", "Welcome!")
+end)
+
+-- Auto-dismiss welcome screen after 3 seconds
+task.delay(3, function()
+    if Window and Window.DismissWelcome then
+        Window:DismissWelcome()
+    end
 end)
 
 print("[LeonX] Script complete! UI should be fully loaded.")
