@@ -40,6 +40,14 @@ Library.Themes = {
 	Neon    = mkTheme({80,225,185},  {50,170,135},  {70,210,170}),
 }
 
+-- Glassmorphism transparency settings (subtle blur effect)
+local GLASS_TRANSPARENCY = {
+	Window = 0.15,      -- Main window background
+	Sidebar = 0.25,     -- Sidebar panel
+	Surface = 0.15,     -- Component surfaces (toggles, sliders, etc)
+	Elevated = 0.25,    -- Elevated elements (buttons, inputs)
+}
+
 -- ════════════════════════════════════════════════════════════════════════════
 -- CORE UTILITIES
 -- ════════════════════════════════════════════════════════════════════════════
@@ -267,9 +275,10 @@ function Library:CreateWindow(cfg)
 		Parent = sg;
 	})
 
-	-- ── Background layer (solid bg, tagged for theme) ──
+	-- ── Background layer (glassmorphism bg, tagged for theme) ──
 	local bgFrame = tagBg(mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
+		BackgroundTransparency = GLASS_TRANSPARENCY.Window;
 		BorderSizePixel = 0; ZIndex = 1; Active = false; Parent = main;
 	}), "bg")
 	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = bgFrame })
@@ -332,7 +341,9 @@ function Library:CreateWindow(cfg)
 	local SIDEBAR_W = 148
 	local sidebarBg = mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
-		BackgroundColor3 = Color3.fromRGB(8, 8, 10); BorderSizePixel = 0; ZIndex = 5;
+		BackgroundColor3 = Color3.fromRGB(8, 8, 10);
+		BackgroundTransparency = GLASS_TRANSPARENCY.Sidebar;
+		BorderSizePixel = 0; ZIndex = 5;
 		ClipsDescendants = true; Active = false; Parent = main;
 	})
 
@@ -904,6 +915,8 @@ function Library:CreateWindow(cfg)
 	function win:Tab(cfg)
 		cfg = cfg or {}
 		local tabName = cfg.Title or cfg.Name or "Tab"
+		local tabIcon = cfg.Icon or ""
+		local tabDisplayName = (tabIcon ~= "" and tabIcon .. " " or "") .. tabName
 		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = win }
 		local idx = #win._tabs + 1
 
@@ -911,7 +924,7 @@ function Library:CreateWindow(cfg)
 		local btn = mk("TextButton", {
 			Size = UDim2.new(1, -10, 0, 38);
 			Position = UDim2.fromOffset(-SIDEBAR_W, (idx - 1) * 42);
-			BackgroundTransparency = 1; Text = tabName;
+			BackgroundTransparency = 1; Text = tabDisplayName;
 			Font = Enum.Font.GothamBold; TextSize = 13;
 			TextColor3 = win._theme.TextSub; AutoButtonColor = false;
 			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 7; Parent = tabList;
@@ -928,13 +941,13 @@ function Library:CreateWindow(cfg)
 		pad.PaddingLeft = UDim.new(0, 18)
 		pad.Parent = btn
 
-		-- Accent indicator bar (left side, bolder)
+		-- Full highlight fill indicator (replaces left vertical bar)
 		local indicator = tagBg(mk("Frame", {
-			Size = UDim2.new(0, 4, 0, 32); Position = UDim2.new(0, 0, 0.5, -16);
+			Size = UDim2.new(1, 0, 1, -4); Position = UDim2.fromOffset(0, 2);
 			BackgroundColor3 = win._theme.Accent; BorderSizePixel = 0;
-			Visible = false; ZIndex = 8; Parent = btn;
+			BackgroundTransparency = 1; Visible = false; ZIndex = 6; Parent = btn;
 		}), "accent")
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
+		mk("UICorner", { CornerRadius = UDim.new(0, 6); Parent = indicator })
 
 		-- Feature count badge (right side, shows how many items in this tab)
 		local countBadge = mk("TextLabel", {
@@ -953,16 +966,17 @@ function Library:CreateWindow(cfg)
 			isActive = active
 			indicator.Visible = active
 			if active then
+				tw(indicator, 0.15, { BackgroundTransparency = 0.85 })
 				tw(btn, 0.15, {
 					TextColor3 = win._theme.Text,
-					BackgroundColor3 = win._theme.Surface,
-					BackgroundTransparency = 0.25,
+					BackgroundTransparency = 1,
 				})
 				-- Glow on badge when active
 				countBadge.BackgroundColor3 = win._theme.Accent
 				countBadge.BackgroundTransparency = 0.7
 				countBadge.TextColor3 = win._theme.Accent
 			else
+				tw(indicator, 0.15, { BackgroundTransparency = 1 })
 				tw(btn, 0.15, {
 					TextColor3 = win._theme.TextSub,
 					BackgroundTransparency = 1,
@@ -1138,6 +1152,7 @@ function Toggle(tab, data)
 	local val = data.Value ~= nil and data.Value or (data.Default ~= nil and data.Default or false)
 	local f = tagBg(mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 44); BackgroundColor3 = theme.Surface;
+		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
@@ -1177,6 +1192,7 @@ function Toggle(tab, data)
 	local btn = mk("TextButton", { Size = UDim2.new(1, 0, 1, 0); BackgroundTransparency = 1; Text = ""; Parent = f })
 	btn.MouseButton1Click:Connect(function() api:Set(not api.Value) end)
 	reg(data, api)
+	attachTooltip(api, data.Tooltip)
 	return api
 end
 
@@ -1190,20 +1206,22 @@ function Slider(tab, data)
 	local cur = df
 
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 58); BackgroundColor3 = theme.Surface;
+		Size = UDim2.new(1, 0, 0, 56); BackgroundColor3 = theme.Surface;
+		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
 
+	-- Label + value on same row
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -74, 0, 16); Position = UDim2.fromOffset(14, 10);
+		Size = UDim2.new(1, -74, 0, 16); Position = UDim2.fromOffset(14, 8);
 		BackgroundTransparency = 1;
 		Text = getLabel(data); Font = Enum.Font.GothamMedium; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
 	local valLbl = mk("TextBox", {
-		Size = UDim2.new(0, 60, 0, 24); Position = UDim2.new(1, -74, 0, 8);
+		Size = UDim2.new(0, 60, 0, 24); Position = UDim2.new(1, -74, 0, 4);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = 12;
 		TextColor3 = theme.Accent; TextXAlignment = Enum.TextXAlignment.Center;
@@ -1213,33 +1231,47 @@ function Slider(tab, data)
 	tagBg(valLbl, "elevated")
 	tagText(valLbl, "accent")
 
+	-- Progress bar track (thicker, more visible)
 	local trk = tagBg(mk("Frame", {
-		Size = UDim2.new(1, -28, 0, 6); Position = UDim2.new(0, 14, 0, 38);
+		Size = UDim2.new(1, -28, 0, 10); Position = UDim2.new(0, 14, 0, 36);
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; Parent = f;
 	}), "border")
-	mk("UICorner", { CornerRadius = UDim.new(0, 3); Parent = trk })
+	mk("UICorner", { CornerRadius = UDim.new(0, 5); Parent = trk })
 
+	-- Progress bar fill (gradient accent)
 	local fill = tagBg(mk("Frame", {
 		Size = UDim2.new((df - mn) / math.max(mx - mn, 1), 0, 1, 0);
 		BackgroundColor3 = theme.Accent; BorderSizePixel = 0; Parent = trk;
 	}), "accent")
-	mk("UICorner", { CornerRadius = UDim.new(0, 3); Parent = fill })
+	mk("UICorner", { CornerRadius = UDim.new(0, 5); Parent = fill })
 
-	local knob = mk("Frame", {
-		Size = UDim2.fromOffset(18, 18);
-		Position = UDim2.new((df - mn) / math.max(mx - mn, 1), -9, 0.5, -9);
-		BackgroundColor3 = Color3.fromRGB(255,255,255); BorderSizePixel = 0; Parent = trk;
-	}, {
-		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
+	-- Gradient overlay on fill for depth
+	mk("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
+			ColorSequenceKeypoint.new(1, theme.Accent),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.85),
+			NumberSequenceKeypoint.new(0.5, 0.95),
+			NumberSequenceKeypoint.new(1, 0.9),
+		}),
+		Rotation = 90;
+		Parent = fill;
 	})
-	local knobStroke = tagBorder(mk("UIStroke", {
-		Color = theme.AccentDim; Thickness = 2; Parent = knob;
-	}), "accentdim")
+
+	-- Edge handle (thin vertical line at end of fill, no knob)
+	local handle = mk("Frame", {
+		Size = UDim2.new(0, 3, 1, 2);
+		Position = UDim2.new(1, -2, 0, -1);
+		BackgroundColor3 = Color3.fromRGB(255,255,255);
+		BorderSizePixel = 0; Parent = fill;
+	})
+	mk("UICorner", { CornerRadius = UDim.new(0, 1); Parent = handle })
 
 	local function upd(v)
 		local pct = math.clamp((v - mn) / math.max(mx - mn, 1), 0, 1)
 		fill.Size = UDim2.new(pct, 0, 1, 0)
-		knob.Position = UDim2.new(pct, -9, 0.5, -9)
 		valLbl.Text = tostring(math.floor(v + 0.5))
 	end
 
@@ -1247,11 +1279,18 @@ function Slider(tab, data)
 	trk.InputBegan:Connect(function(i)
 		if i.UserInputType ~= Enum.UserInputType.MouseButton1 and i.UserInputType ~= Enum.UserInputType.Touch then return end
 		dragging = true
+		-- Visual feedback: slight pulse on handle
+		tw(handle, 0.1, { Size = UDim2.new(0, 4, 1, 4) })
 		local pos = (i.Position.X - trk.AbsolutePosition.X) / trk.AbsoluteSize.X
 		local nv = mn + math.clamp(pos, 0, 1) * (mx - mn)
 		nv = math.floor(nv / step + 0.5) * step; nv = math.clamp(nv, mn, mx)
 		if nv ~= cur then cur = nv; upd(nv); if data.Callback then pcall(data.Callback, nv) end end
-		i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
+		i.Changed:Connect(function()
+			if i.UserInputState == Enum.UserInputState.End then
+				dragging = false
+				tw(handle, 0.1, { Size = UDim2.new(0, 3, 1, 2) })
+			end
+		end)
 	end)
 	UIS.InputChanged:Connect(function(i)
 		if not dragging then return end
@@ -1287,6 +1326,7 @@ function Slider(tab, data)
 	end
 	function api:Get() return self.Value end
 	reg(data, api)
+	attachTooltip(api, data.Tooltip)
 	return api
 end
 
@@ -1305,6 +1345,7 @@ function Dropdown(tab, data)
 
 	local f = tagBg(mk("Frame", {
 		Size = UDim2.new(1, 0, 0, CLOSED_H); BackgroundColor3 = theme.Surface;
+		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
@@ -1470,41 +1511,96 @@ function Dropdown(tab, data)
 	function api:Set(v) self:Select(v); if self.Callback then pcall(self.Callback, v) end end
 	function api:Get() return self.Value end
 	reg(data, api)
+	attachTooltip(api, data.Tooltip)
 	return api
 end
 
 -- ── Button ─────────────────────────────────────────────────────────────────
+-- Styles: "Primary" (accent fill), "Outline" (border only), "Danger" (red fill), "Ghost" (transparent)
 function Button(tab, data)
 	local theme = th(tab)
+	local style = data.Style or "Surface"
 	local f = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 40); BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
-	local btn = tagBg(mk("TextButton", {
-		Size = UDim2.new(1, 0, 1, 0); BackgroundColor3 = theme.Surface;
+
+	local bgColor, textColor, borderColor, borderThickness
+	if style == "Primary" then
+		bgColor = theme.Accent
+		textColor = Color3.fromRGB(255, 255, 255)
+		borderColor = theme.Accent
+		borderThickness = 0
+	elseif style == "Outline" then
+		bgColor = Color3.fromRGB(0, 0, 0)
+		textColor = theme.Accent
+		borderColor = theme.Accent
+		borderThickness = 1
+	elseif style == "Danger" then
+		bgColor = Color3.fromRGB(220, 53, 69)
+		textColor = Color3.fromRGB(255, 255, 255)
+		borderColor = Color3.fromRGB(220, 53, 69)
+		borderThickness = 0
+	elseif style == "Ghost" then
+		bgColor = Color3.fromRGB(0, 0, 0)
+		textColor = theme.Text
+		borderColor = Color3.fromRGB(0, 0, 0)
+		borderThickness = 0
+	else -- Surface (default)
+		bgColor = theme.Surface
+		textColor = theme.Text
+		borderColor = theme.Border
+		borderThickness = 1
+	end
+
+	local btn = mk("TextButton", {
+		Size = UDim2.new(1, 0, 1, 0); BackgroundColor3 = bgColor;
+		BackgroundTransparency = (style == "Outline" or style == "Ghost") and 1 or 0;
 		BorderSizePixel = 0; Text = getLabel(data);
-		Font = Enum.Font.GothamMedium; TextSize = 13; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = 13; TextColor3 = textColor;
 		AutoButtonColor = false; Parent = f;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 8) }),
-	}), "surface")
-	tagText(btn, "text")
-	local btnStroke = tagBorder(mk("UIStroke", {
-		Color = theme.Border; Thickness = 1; Parent = btn;
-	}), "border")
+	})
+
+	local btnStroke = mk("UIStroke", {
+		Color = borderColor; Thickness = borderThickness; Parent = btn;
+	})
 
 	btn.MouseEnter:Connect(function()
-		tw(btn, 0.12, { BackgroundColor3 = theme.Elevated })
-		btnStroke.Color = theme.AccentDim
+		if style == "Primary" then
+			tw(btn, 0.12, { BackgroundColor3 = theme.Accent:Lerp(Color3.fromRGB(255,255,255), 0.15) })
+		elseif style == "Outline" then
+			tw(btn, 0.12, { BackgroundColor3 = theme.Accent, BackgroundTransparency = 0.9 })
+		elseif style == "Danger" then
+			tw(btn, 0.12, { BackgroundColor3 = Color3.fromRGB(255, 80, 90) })
+		elseif style == "Ghost" then
+			tw(btn, 0.12, { BackgroundColor3 = theme.Surface, BackgroundTransparency = 0 })
+		else
+			tw(btn, 0.12, { BackgroundColor3 = theme.Elevated })
+			btnStroke.Color = theme.AccentDim
+		end
 	end)
+
 	btn.MouseLeave:Connect(function()
-		tw(btn, 0.12, { BackgroundColor3 = theme.Surface })
-		btnStroke.Color = theme.Border
+		btn.BackgroundColor3 = bgColor
+		btn.BackgroundTransparency = (style == "Outline" or style == "Ghost") and 1 or 0
+		btnStroke.Color = borderColor
 	end)
-	btn.MouseButton1Down:Connect(function() tw(btn, 0.06, { TextColor3 = theme.Accent }) end)
-	btn.MouseButton1Up:Connect(function() tw(btn, 0.06, { TextColor3 = theme.Text }) end)
+
+	btn.MouseButton1Down:Connect(function()
+		tw(btn, 0.06, { TextColor3 = (style == "Outline") and Color3.fromRGB(255,255,255) or theme.Accent })
+	end)
+
+	btn.MouseButton1Up:Connect(function()
+		tw(btn, 0.06, { TextColor3 = textColor })
+	end)
+
 	btn.MouseButton1Click:Connect(function() if data.Callback then pcall(data.Callback) end end)
-	return { Frame = f; Name = data.Title or data.Name or "Button" }
+
+	local api = { Frame = f; Name = data.Title or data.Name or "Button" }
+	attachTooltip(api, data.Tooltip)
+	return api
 end
 
 -- ── Keybind ────────────────────────────────────────────────────────────────
@@ -1514,6 +1610,7 @@ function Keybind(tab, data)
 	local capturing = false
 	local f = tagBg(mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 44); BackgroundColor3 = theme.Surface;
+		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
@@ -1559,6 +1656,7 @@ function Keybind(tab, data)
 	function api:Set(v) cur = tostring(v); kbtn.Text = cur end
 	function api:Get() return cur end
 	reg(data, api)
+	attachTooltip(api, data.Tooltip)
 	return api
 end
 
@@ -1567,6 +1665,7 @@ function Input(tab, data)
 	local theme = th(tab)
 	local f = tagBg(mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 60); BackgroundColor3 = theme.Surface;
+		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
@@ -1593,15 +1692,20 @@ function Input(tab, data)
 	}), "elevated")
 	tagText(tb, "text")
 
+	local api = { Value = data.Value or ""; Frame = f; Name = data.Title or data.Name or "Input"; Callback = data.Callback }
+
 	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 10); pad.Parent = tb
-	tb.FocusLost:Connect(function() if data.Callback then pcall(data.Callback, tb.Text) end end)
+	tb.FocusLost:Connect(function()
+		api.Value = tb.Text
+		if data.Callback then pcall(data.Callback, tb.Text) end
+	end)
 	tb.Focused:Connect(function() stroke.Color = theme.AccentDim end)
 	tb.FocusLost:Connect(function() stroke.Color = theme.Border end)
 
-	local api = { Value = data.Value or ""; Frame = f; Name = data.Title or data.Name or "Input"; Callback = data.Callback }
 	function api:Set(v) self.Value = tostring(v or ""); tb.Text = self.Value end
 	function api:Get() return tb.Text end
 	reg(data, api)
+	attachTooltip(api, data.Tooltip)
 	return api
 end
 

@@ -445,14 +445,14 @@ if ActiveGameModule then
     N("Game Detected", ActiveGameModule.Name)
 else
     -- ══ UNIVERSAL MODE: all standard tabs ═══════════════════════════════════
-    local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
-    local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
-    local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
-    local TeleTab = Window:Tab({ Title = "Teleport", Icon = "map-pin" })
-    local VisTab = Window:Tab({ Title = "Visual", Icon = "eye" })
-    local AutoTab = Window:Tab({ Title = "Auto", Icon = "zap" })
-    local MacroTab = Window:Tab({ Title = "Macro", Icon = "radio" })
-    local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+    local MovTab = Window:Tab({ Title = "Movement", Icon = "🏃" })
+    local CombatTab = Window:Tab({ Title = "Combat", Icon = "⚔️" })
+    local PlayerTab = Window:Tab({ Title = "Player", Icon = "🛡️" })
+    local TeleTab = Window:Tab({ Title = "Teleport", Icon = "📍" })
+    local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
+    local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
+    local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
+    local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
     print("[LeonX] 8 tabs created")
 
 -- ── Macro Recorder UI ────────────────────────────────────────────────────────
@@ -488,7 +488,7 @@ MovTab:Section({ Title = "Flight" })
 print("[LeonX] Creating components...")
 
 print("[LeonX] MAIN.LUA DEBUG: about to create Fly toggle with Title=Fly")
-local _flyData = { Title = "Fly", Value = false, Callback = function(v)
+local _flyData = { Title = "Fly", Value = false, Tooltip = "Free flight with adjustable speed", Callback = function(v)
     if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
     N("Fly", v and "Enabled" or "Disabled")
 end }
@@ -500,6 +500,7 @@ local flySpeedSlider = MovTab:Slider({
     Title    = "Fly Speed",
     Value    = { Min = 10, Max = 300, Default = 60 },
     Step     = 1,
+    Tooltip  = "Adjust flight speed (10-300)",
     Callback = function(v) if v >= 10 then Fly:SetSpeed(v) end end
 })
 ConfigMgr:Register("FlySpeed", flySpeedSlider)
@@ -507,6 +508,7 @@ local flyKey = Enum.KeyCode.F
 MovTab:Keybind({
     Title    = "Fly Keybind",
     Value    = "F",
+    Tooltip  = "Press to toggle fly on/off",
     Callback = function(k)
         flyKey = Enum.KeyCode[k] or Enum.KeyCode.F
         N("Fly Keybind", k)
@@ -524,6 +526,7 @@ MovTab:Section({ Title = "Speed" })
 local speedToggle = MovTab:Toggle({
     Title    = "Speed Hack",
     Value    = false,
+    Tooltip  = "Customizable walk speed and jump power",
     Callback = function(v)
         if v then
             local cur = walkSpeedSlider.Value or 16
@@ -542,6 +545,7 @@ local walkSpeedSlider = MovTab:Slider({
     Title    = "Walk Speed",
     Value    = { Min = 16, Max = 250, Default = 16 },
     Step     = 1,
+    Tooltip  = "Set walking speed (16-250)",
     Callback = function(v) Speed:SetWalkSpeed(v) end
 })
 ConfigMgr:Register("WalkSpeed", walkSpeedSlider)
@@ -549,6 +553,7 @@ local jumpPowerSlider = MovTab:Slider({
     Title    = "Jump Power",
     Value    = { Min = 50, Max = 500, Default = 50 },
     Step     = 1,
+    Tooltip  = "Set jump height (50-500)",
     Callback = function(v) Speed:SetJumpPower(v) end
 })
 ConfigMgr:Register("JumpPower", jumpPowerSlider)
@@ -558,6 +563,7 @@ MovTab:Section({ Title = "Physics" })
 local infJumpToggle = MovTab:Toggle({
     Title    = "Infinite Jump",
     Value    = false,
+    Tooltip  = "Jump mid-air indefinitely",
     Callback = function(v)
         if v then InfJump:Enable() else InfJump:Disable() end
         N("Infinite Jump", v and "Enabled" or "Disabled")
@@ -567,6 +573,7 @@ ConfigMgr:Register("InfiniteJump", infJumpToggle)
 local noclipToggle = MovTab:Toggle({
     Title    = "Noclip",
     Value    = false,
+    Tooltip  = "Walk through walls and objects",
     Callback = function(v)
         if v then Noclip:Enable() else Noclip:Disable() end
         N("Noclip", v and "Enabled" or "Disabled")
@@ -576,6 +583,7 @@ ConfigMgr:Register("Noclip", noclipToggle)
 MovTab:Keybind({
     Title    = "Noclip Keybind",
     Value    = "N",
+    Tooltip  = "Press to toggle noclip on/off",
     Callback = function(k)
         noclipKey = Enum.KeyCode[k] or Enum.KeyCode.N
         N("Noclip Keybind", k)
@@ -584,6 +592,7 @@ MovTab:Keybind({
 local antiRagdollToggle = MovTab:Toggle({
     Title    = "Anti Ragdoll",
     Value    = false,
+    Tooltip  = "Prevent ragdoll physics",
     Callback = function(v)
         if v then AntiRagdoll:Enable() else AntiRagdoll:Disable() end
         N("Anti Ragdoll", v and "Enabled" or "Disabled")
@@ -593,6 +602,7 @@ ConfigMgr:Register("AntiRagdoll", antiRagdollToggle)
 local invisToggle = MovTab:Toggle({
     Title    = "Invisible (local)",
     Value    = false,
+    Tooltip  = "Become invisible to other players",
     Callback = function(v)
         if v then Invisible:Enable() else Invisible:Disable() end
         N("Invisible", v and "Enabled" or "Disabled")
@@ -606,6 +616,7 @@ local fcKey    = Enum.KeyCode.V
 local fcToggle = MovTab:Toggle({
     Title    = "Free Cam",
     Value    = false,
+    Tooltip  = "Detach camera for cinematic views",
     Callback = function(v)
         if v then FreeCam:Enable() else FreeCam:Disable() end
         N("Free Cam", v and "Enabled" or "Disabled")
@@ -616,12 +627,14 @@ local fcSpeedSlider = MovTab:Slider({
     Title    = "Free Cam Speed",
     Value    = { Min = 5, Max = 300, Default = 40 },
     Step     = 1,
+    Tooltip  = "Camera movement speed (5-300)",
     Callback = function(v) FreeCam:SetSpeed(v) end
 })
 ConfigMgr:Register("FreeCamSpeed", fcSpeedSlider)
 MovTab:Keybind({
     Title    = "FreeCam Keybind",
     Value    = "V",
+    Tooltip  = "Press to toggle free cam on/off",
     Callback = function(k)
         fcKey = Enum.KeyCode[k] or Enum.KeyCode.V
         N("FreeCam Keybind", k)
@@ -639,6 +652,7 @@ MovTab:Section({ Title = "Special" })
 local clickTPToggle = MovTab:Toggle({
     Title    = "Click Teleport",
     Value    = false,
+    Tooltip  = "Click anywhere to teleport to that location",
     Callback = function(v)
         if v then ClickTP:Enable() else ClickTP:Disable() end
         N("Click Teleport", v and "Enabled — click to tp" or "Disabled")
@@ -649,6 +663,7 @@ ConfigMgr:Register("ClickTeleport", clickTPToggle)
 local wowToggle = MovTab:Toggle({
     Title    = "Walk on Water",
     Value    = false,
+    Tooltip  = "Walk on water surfaces",
     Callback = function(v)
         if v then WalkOnWater:Enable() else WalkOnWater:Disable() end
         N("Walk on Water", v and "Enabled" or "Disabled")
@@ -665,6 +680,7 @@ local macroNameInput = MacroTab:Input({
     Title = "Macro Name",
     Placeholder = "e.g. route_to_peak",
     Value = "",
+    Tooltip = "Name your macro before recording",
     Callback = function() end
 })
 
@@ -678,6 +694,7 @@ MacroTab:Section({ Title = "Recording" })
 
 MacroTab:Button({
     Title = "⏺️ Start Recording",
+    Tooltip = "Begin recording your movement path",
     Callback = function()
         local name = macroNameInput.Value
         if not name or name == "" then
@@ -691,6 +708,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "⏹️ Stop Recording",
+    Tooltip = "Stop and save the current recording",
     Callback = function()
         local macro = MacroRec:StopRecording()
         if macro then
@@ -703,6 +721,7 @@ MacroTab:Section({ Title = "Playback" })
 
 MacroTab:Button({
     Title = "▶️ Play Current Macro",
+    Tooltip = "Play back the selected macro with smooth interpolation",
     Callback = function()
         local macro = MacroRec:GetCurrentMacro()
         if macro then
@@ -716,6 +735,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "⏸️ Pause / Resume",
+    Tooltip = "Pause or resume macro playback",
     Callback = function()
         MacroRec:PausePlayback()
     end
@@ -723,6 +743,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "⏹️ Stop Playback",
+    Tooltip = "Stop macro playback immediately",
     Callback = function()
         MacroRec:StopPlayback()
     end
@@ -732,6 +753,7 @@ local speedSlider = MacroTab:Slider({
     Title = "Playback Speed",
     Value = { Min = 1, Max = 10, Default = 1 },
     Step = 1,
+    Tooltip = "Macro playback speed multiplier (1x-10x)",
     Callback = function(v) MacroRec:SetPlaybackSpeed(v) end
 })
 ConfigMgr:Register("MacroSpeed", speedSlider)
@@ -739,6 +761,7 @@ ConfigMgr:Register("MacroSpeed", speedSlider)
 local loopToggle = MacroTab:Toggle({
     Title = "Loop Playback",
     Value = false,
+    Tooltip = "Replay macro continuously after finishing",
     Callback = function(v) MacroRec:SetLoop(v) end
 })
 ConfigMgr:Register("MacroLoop", loopToggle)
@@ -746,6 +769,7 @@ ConfigMgr:Register("MacroLoop", loopToggle)
 local antiFallToggle = MacroTab:Toggle({
     Title = "Anti-Fall (auto-recover)",
     Value = true,
+    Tooltip = "Auto-correct position if character falls during playback",
     Callback = function(v) MacroRec.AntiFall = v end
 })
 ConfigMgr:Register("MacroAntiFall", antiFallToggle)
@@ -753,6 +777,7 @@ ConfigMgr:Register("MacroAntiFall", antiFallToggle)
 local recordInputsToggle = MacroTab:Toggle({
     Title = "Record Inputs (jump, WASD, click)",
     Value = true,
+    Tooltip = "Capture keyboard/mouse inputs during recording",
     Callback = function(v) MacroRec.RecordInputs = v end
 })
 ConfigMgr:Register("MacroRecordInputs", recordInputsToggle)
@@ -761,6 +786,7 @@ MacroTab:Section({ Title = "Save / Load" })
 
 MacroTab:Button({
     Title = "💾 Save Current Macro",
+    Tooltip = "Save the recorded macro to disk",
     Callback = function()
         local macro = MacroRec:GetCurrentMacro()
         if macro then
@@ -781,11 +807,13 @@ macroDropdown = MacroTab:Dropdown({
     Title = "Select Macro",
     Values = refreshMacroList(),
     Value = 1,
+    Tooltip = "Choose a saved macro to load or play",
     Callback = function(v) selectedMacroName = v end
 })
 
 MacroTab:Button({
     Title = "🔄 Refresh List",
+    Tooltip = "Refresh the saved macros list",
     Callback = function()
         refreshMacroList()
         N("Macro", "List refreshed")
@@ -794,6 +822,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "📂 Load Selected",
+    Tooltip = "Load the selected macro for playback",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
             local macro = MacroRec:LoadMacro(selectedMacroName)
@@ -808,6 +837,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "🗑️ Delete Selected",
+    Tooltip = "Permanently delete the selected macro",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
             MacroRec:DeleteMacro(selectedMacroName)
@@ -821,6 +851,7 @@ MacroTab:Section({ Title = "Import / Export" })
 
 MacroTab:Button({
     Title = "📤 Export to Clipboard",
+    Tooltip = "Copy macro data as JSON to clipboard",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
             local json, err = MacroRec:ExportMacro(selectedMacroName)
@@ -837,11 +868,13 @@ local importInput = MacroTab:Input({
     Title = "Paste JSON to Import",
     Placeholder = "Paste exported macro here...",
     Value = "",
+    Tooltip = "Paste macro JSON data here to import",
     Callback = function() end
 })
 
 MacroTab:Button({
     Title = "📥 Import from Clipboard",
+    Tooltip = "Import macro from clipboard or text field",
     Callback = function()
         local clipboard = ""
         if getclipboard then
@@ -895,6 +928,7 @@ end
 
 MacroTab:Button({
     Title = "➕ Add Selected to Queue",
+    Tooltip = "Add selected macro to the playback queue",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
             if MacroRec:AddToQueue(selectedMacroName) then
@@ -911,6 +945,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "➖ Remove Selected from Queue",
+    Tooltip = "Remove selected macro from queue",
     Callback = function()
         if selectedQueueItem and selectedQueueItem ~= "(empty queue)" then
             -- Extract macro name from "1. macro_name" format
@@ -925,6 +960,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "🗑 Clear Queue",
+    Tooltip = "Remove all macros from the queue",
     Callback = function()
         MacroRec:ClearQueue()
         refreshQueueDisplay()
@@ -934,6 +970,7 @@ MacroTab:Button({
 
 queueDisplayDropdown = MacroTab:Dropdown({
     Title = "Current Queue",
+    Tooltip = "View macros in the playback queue",
     Values = refreshQueueDisplay(),
     Value = 1,
     Callback = function(v) selectedQueueItem = v end
@@ -941,9 +978,10 @@ queueDisplayDropdown = MacroTab:Dropdown({
 
 local queueLoopToggle = MacroTab:Toggle({
     Title = "Loop Queue",
+    Tooltip = "Replay the entire queue continuously",
     Value = true,
-    Callback = function(v) 
-        MacroRec:SetQueueLoop(v) 
+    Callback = function(v)
+        MacroRec:SetQueueLoop(v)
         N("Queue", v and "Loop enabled" or "Loop disabled")
     end
 })
@@ -953,6 +991,7 @@ MacroTab:Section({ Title = "Queue Playback" })
 
 MacroTab:Button({
     Title = "▶️ Start Queue Playback",
+    Tooltip = "Start sequential macro queue playback",
     Callback = function()
         if #MacroRec:GetQueue() == 0 then
             N("Queue", "Queue is empty! Add macros first")
@@ -968,6 +1007,7 @@ MacroTab:Button({
 
 MacroTab:Button({
     Title = "⏹️ Stop Queue Playback",
+    Tooltip = "Stop the macro queue playback",
     Callback = function()
         MacroRec:StopQueuePlayback()
         N("Queue", "Queue stopped")
@@ -983,6 +1023,7 @@ MacroTab:Paragraph({
 
 local perMapToggle = MacroTab:Toggle({
     Title = "Per-Map Macros",
+    Tooltip = "Save macros per game instead of globally",
     Value = true,
     Callback = function(v)
         MacroRec.PerMapEnabled = v
@@ -1012,6 +1053,7 @@ VisTab:Section({ Title = "Rendering" })
 
 local perfStatsToggle = VisTab:Toggle({
     Title    = "Perf Stats (HUD)",
+    Tooltip = "Show real-time FPS and performance overlay",
     Value    = true,
     Callback = function(v)
         if v then PerfStats:Enable() else PerfStats:Disable() end
@@ -1021,6 +1063,7 @@ local perfStatsToggle = VisTab:Toggle({
 ConfigMgr:Register("PerfStats", perfStatsToggle)
 local espToggle = VisTab:Toggle({
     Title    = "ESP",
+    Tooltip = "See players through walls",
     Value    = false,
     Callback = function(v)
         if v then ESP:Enable() else ESP:Disable() end
@@ -1030,6 +1073,7 @@ local espToggle = VisTab:Toggle({
 ConfigMgr:Register("ESP", espToggle)
 local fullBrightToggle = VisTab:Toggle({
     Title    = "FullBright",
+    Tooltip = "Remove all darkness and shadows",
     Value    = false,
     Callback = function(v)
         if v then FullBright:Enable() else FullBright:Disable() end
@@ -1039,6 +1083,7 @@ local fullBrightToggle = VisTab:Toggle({
 ConfigMgr:Register("FullBright", fullBrightToggle)
 local removeFogToggle = VisTab:Toggle({
     Title    = "Remove Fog",
+    Tooltip = "Clear fog for better visibility",
     Value    = false,
     Callback = function(v)
         if v then RemoveFog:Enable() else RemoveFog:Disable() end
@@ -1057,6 +1102,7 @@ local EC = {
 }
 local espColorDrop = VisTab:Dropdown({
     Title    = "ESP Color",
+    Tooltip = "Color of the ESP overlay",
     Values   = {"White","Red","Green","Blue","Yellow","Cyan","Pink"},
     Value    = "White",
     Callback = function(v) ESP:SetColor(EC[v] or Color3.new(1,1,1)) end
@@ -1064,6 +1110,7 @@ local espColorDrop = VisTab:Dropdown({
 ConfigMgr:Register("ESPColor", espColorDrop)
 local espOpacitySlider = VisTab:Slider({
     Title    = "ESP Fill Opacity",
+    Tooltip = "ESP box fill transparency (0-100)",
     Value    = { Min = 0, Max = 100, Default = 15 },
     Step     = 1,
     Callback = function(v) ESP:SetOpacity(v) end
@@ -1071,6 +1118,7 @@ local espOpacitySlider = VisTab:Slider({
 ConfigMgr:Register("ESPOpacity", espOpacitySlider)
 local espModeDrop = VisTab:Dropdown({
     Title    = "ESP Show Mode",
+    Tooltip = "Show body, name, or both",
     Values   = {"Both","Body","Name"},
     Value    = "Both",
     Callback = function(v) ESP:SetShowMode(v) end
@@ -1081,6 +1129,7 @@ VisTab:Section({ Title = "Tracer" })
 
 local tracerToggle = VisTab:Toggle({
     Title    = "Player Tracer",
+    Tooltip = "Draw lines from screen to players",
     Value    = false,
     Callback = function(v)
         if v then Tracer:Enable() else Tracer:Disable() end
@@ -1095,6 +1144,7 @@ local TC = {
 }
 local tracerColorDrop = VisTab:Dropdown({
     Title    = "Tracer Color",
+    Tooltip = "Color of tracer lines",
     Values   = {"White","Red","Green","Blue","Yellow","Cyan"},
     Value    = "White",
     Callback = function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end
@@ -1102,6 +1152,7 @@ local tracerColorDrop = VisTab:Dropdown({
 ConfigMgr:Register("TracerColor", tracerColorDrop)
 local tracerOpacitySlider = VisTab:Slider({
     Title    = "Tracer Opacity",
+    Tooltip = "Tracer line transparency (0-100)",
     Value    = { Min = 0, Max = 100, Default = 100 },
     Step     = 1,
     Callback = function(v) Tracer:SetOpacity(v) end
@@ -1109,6 +1160,7 @@ local tracerOpacitySlider = VisTab:Slider({
 ConfigMgr:Register("TracerOpacity", tracerOpacitySlider)
 local tracerThickSlider = VisTab:Slider({
     Title    = "Tracer Thickness",
+    Tooltip = "Tracer line width (1-8)",
     Value    = { Min = 1, Max = 8, Default = 2 },
     Step     = 1,
     Callback = function(v) Tracer:SetThickness(v) end
@@ -1122,6 +1174,7 @@ CombatTab:Section({ Title = "Kill Aura" })
 
 local killAuraToggle = CombatTab:Toggle({
     Title    = "Kill Aura",
+    Tooltip = "Auto-attack nearby enemies",
     Value    = false,
     Callback = function(v)
         if v then KillAura:Enable() else KillAura:Disable() end
@@ -1132,6 +1185,7 @@ ConfigMgr:Register("KillAura", killAuraToggle)
 
 local killAuraRadiusSlider = CombatTab:Slider({
     Title    = "Radius",
+    Tooltip = "Kill aura detection range (5-50)",
     Value    = { Min = 5, Max = 50, Default = 15 },
     Step     = 1,
     Callback = function(v) KillAura:SetRadius(v) end
@@ -1140,6 +1194,7 @@ ConfigMgr:Register("KillAuraRadius", killAuraRadiusSlider)
 
 local killAuraIntervalSlider = CombatTab:Slider({
     Title    = "Attack Interval (ms)",
+    Tooltip = "Time between attacks in milliseconds",
     Value    = { Min = 50, Max = 1000, Default = 100 },
     Step     = 50,
     Callback = function(v) KillAura:SetAttackInterval(v / 1000) end
@@ -1148,6 +1203,7 @@ ConfigMgr:Register("KillAuraInterval", killAuraIntervalSlider)
 
 local killAuraPlayersToggle = CombatTab:Toggle({
     Title    = "Target Players",
+    Tooltip = "Include players in kill aura targets",
     Value    = true,
     Callback = function(v) KillAura:SetTargetPlayers(v) end
 })
@@ -1155,6 +1211,7 @@ ConfigMgr:Register("KillAuraPlayers", killAuraPlayersToggle)
 
 local killAuraNPCsToggle = CombatTab:Toggle({
     Title    = "Target NPCs",
+    Tooltip = "Include NPCs in kill aura targets",
     Value    = true,
     Callback = function(v) KillAura:SetTargetNPCs(v) end
 })
@@ -1162,6 +1219,7 @@ ConfigMgr:Register("KillAuraNPCs", killAuraNPCsToggle)
 
 local killAuraTeamToggle = CombatTab:Toggle({
     Title    = "Team Check",
+    Tooltip = "Skip teammates when attacking",
     Value    = true,
     Callback = function(v) KillAura:SetTeamCheck(v) end
 })
@@ -1171,6 +1229,7 @@ CombatTab:Section({ Title = "Hitbox Expander" })
 
 local hitboxToggle = CombatTab:Toggle({
     Title    = "Hitbox Expander",
+    Tooltip = "Visualize and expand hitboxes",
     Value    = false,
     Callback = function(v)
         if v then HitboxExp:Enable() else HitboxExp:Disable() end
@@ -1180,6 +1239,7 @@ local hitboxToggle = CombatTab:Toggle({
 ConfigMgr:Register("HitboxExpander", hitboxToggle)
 local hitboxSizeSlider = CombatTab:Slider({
     Title    = "Size",
+    Tooltip = "Hitbox expansion size (5-30)",
     Value    = { Min = 5, Max = 30, Default = 10 },
     Step     = 1,
     Callback = function(v) HitboxExp:SetSize(v) end
@@ -1187,6 +1247,7 @@ local hitboxSizeSlider = CombatTab:Slider({
 ConfigMgr:Register("HitboxSize", hitboxSizeSlider)
 local hitboxAlphaSlider = CombatTab:Slider({
     Title    = "Transparency",
+    Tooltip = "Hitbox visual transparency (0-100)",
     Value    = { Min = 0, Max = 100, Default = 80 },
     Step     = 1,
     Callback = function(v) HitboxExp:SetTransparency(v) end
@@ -1200,6 +1261,7 @@ local HC = {
 }
 local hitboxColorDrop = CombatTab:Dropdown({
     Title    = "Color",
+    Tooltip = "Hitbox overlay color",
     Values   = {"Red","Green","Blue","Yellow","Cyan","Pink","White","Orange"},
     Value    = "Red",
     Callback = function(v) HitboxExp:SetColor(HC[v] or Color3.fromRGB(255,60,60)) end
@@ -1207,6 +1269,7 @@ local hitboxColorDrop = CombatTab:Dropdown({
 ConfigMgr:Register("HitboxColor", hitboxColorDrop)
 local teamCheckToggle = CombatTab:Toggle({
     Title    = "Team Check",
+    Tooltip = "Skip teammates for hitbox expansion",
     Value    = true,
     Callback = function(v)
         HitboxExp:SetTeamCheck(v)
@@ -1217,6 +1280,7 @@ ConfigMgr:Register("TeamCheck", teamCheckToggle)
 
 CombatTab:Keybind({
     Title    = "Hitbox Keybind",
+    Tooltip = "Press to toggle hitbox expander",
     Value    = "H",
     Callback = function(k)
         hitboxKey = Enum.KeyCode[k] or Enum.KeyCode.H
@@ -1228,6 +1292,7 @@ CombatTab:Section({ Title = "Instant Kill" })
 
 local ikToggle = CombatTab:Toggle({
     Title    = "Instant Kill NPC",
+    Tooltip = "One-hit eliminate NPCs",
     Value    = false,
     Callback = function(v)
         if v then InstantKill:Enable() else InstantKill:Disable() end
@@ -1238,6 +1303,7 @@ ConfigMgr:Register("InstantKill", ikToggle)
 local ikModeDrop
 ikModeDrop = CombatTab:Dropdown({
     Title    = "Kill Mode",
+    Tooltip = "Kill all NPCs or specific names only",
     Values   = {"All","Specific"},
     Value    = "All",
     Callback = function(v)
@@ -1248,6 +1314,7 @@ ikModeDrop = CombatTab:Dropdown({
 ConfigMgr:Register("KillMode", ikModeDrop)
 local ikTargetIn = CombatTab:Input({
     Title       = "Target NPC Name",
+    Tooltip = "NPC name to target in Specific mode",
     Placeholder = "e.g. Zombie",
     Value       = "",
     Callback    = function(v) InstantKill:SetTarget(v) end
@@ -1255,6 +1322,7 @@ local ikTargetIn = CombatTab:Input({
 ConfigMgr:Register("KillTarget", ikTargetIn)
 CombatTab:Button({
     Title    = "Show Kill Count",
+    Tooltip = "Display current NPC kill count",
     Callback = function()
         N("Kill Count", tostring(InstantKill:GetKillCount()).." NPCs")
     end
@@ -1267,6 +1335,7 @@ PlayerTab:Section({ Title = "Utility" })
 
 local antiAFKToggle = PlayerTab:Toggle({
     Title    = "Anti AFK",
+    Tooltip  = "Prevent idle kick (always on when enabled)",
     Value    = false,
     Callback = function(v)
         if v then AntiAFK:Enable() else AntiAFK:Disable() end
@@ -1277,6 +1346,7 @@ ConfigMgr:Register("AntiAFK", antiAFKToggle)
 
 local infStaminaToggle = PlayerTab:Toggle({
     Title    = "Infinite Stamina",
+    Tooltip  = "Never get tired while running",
     Value    = false,
     Callback = function(v)
         if v then InfStamina:Enable() else InfStamina:Disable() end
@@ -1287,6 +1357,7 @@ ConfigMgr:Register("InfStamina", infStaminaToggle)
 
 local godModeToggle = PlayerTab:Toggle({
     Title    = "God Mode",
+    Tooltip  = "Become immune to damage (game-dependent)",
     Value    = false,
     Callback = function(v)
         if v then GodMode:Enable() else GodMode:Disable() end
@@ -1299,6 +1370,7 @@ PlayerTab:Section({ Title = "Protection" })
 
 local antiDetectToggle = PlayerTab:Toggle({
     Title    = "Anti Detect (Adonis/AC)",
+    Tooltip  = "Bypass Adonis anti-cheat detection",
     Value    = false,
     Callback = function(v)
         if AntiDetect then
@@ -1311,6 +1383,7 @@ ConfigMgr:Register("AntiDetect", antiDetectToggle)
 
 local noFallToggle = PlayerTab:Toggle({
     Title    = "No Fall Damage",
+    Tooltip  = "Immune to fall damage",
     Value    = false,
     Callback = function(v)
         if v then NoFallDmg:Enable() else NoFallDmg:Disable() end
@@ -1321,6 +1394,7 @@ ConfigMgr:Register("NoFallDamage", noFallToggle)
 
 local antiFlingToggle = PlayerTab:Toggle({
     Title    = "Anti Fling",
+    Tooltip  = "Protection against being flung by other players",
     Value    = false,
     Callback = function(v)
         if v then AntiFling:Enable() else AntiFling:Disable() end
@@ -1331,6 +1405,7 @@ ConfigMgr:Register("AntiFling", antiFlingToggle)
 
 local flingThreshSlider = PlayerTab:Slider({
     Title    = "Fling Threshold",
+    Tooltip  = "Velocity spike threshold to trigger anti-fling",
     Value    = { Min = 50, Max = 500, Default = 150 },
     Step     = 10,
     Callback = function(v) AntiFling:SetThreshold(v) end
@@ -1339,6 +1414,7 @@ ConfigMgr:Register("FlingThreshold", flingThreshSlider)
 
 local massManipToggle = PlayerTab:Toggle({
     Title    = "Mass Manipulation",
+    Tooltip  = "Increase character mass to resist flings",
     Value    = true,
     Callback = function(v) 
         AntiFling:SetMassManipulation(v)
@@ -1349,6 +1425,7 @@ ConfigMgr:Register("MassManipulation", massManipToggle)
 
 local antiVoidToggle = PlayerTab:Toggle({
     Title    = "Anti Void",
+    Tooltip  = "Teleport back when falling into the void",
     Value    = false,
     Callback = function(v)
         if v then AntiVoid:Enable() else AntiVoid:Disable() end
@@ -1359,6 +1436,7 @@ ConfigMgr:Register("AntiVoid", antiVoidToggle)
 
 local voidThreshSlider = PlayerTab:Slider({
     Title    = "Void Threshold (Y)",
+    Tooltip  = "Y position that triggers anti-void teleport",
     Value    = { Min = -200, Max = 0, Default = -50 },
     Step     = 10,
     Callback = function(v) AntiVoid:SetVoidThreshold(v) end
@@ -1369,6 +1447,7 @@ PlayerTab:Section({ Title = "Exploit" })
 
 local gpSpoofToggle = PlayerTab:Toggle({
     Title    = "Gamepass Spoof",
+    Tooltip = "Spoof gamepass ownership",
     Value    = false,
     Callback = function(v)
         if v then GamepassSpoof:Enable() else GamepassSpoof:Disable() end
@@ -1382,6 +1461,7 @@ PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
 PlayerTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
 PlayerTab:Button({
     Title    = "Copy Player ID",
+    Tooltip = "Copy your Roblox user ID to clipboard",
     Callback = function()
         pcall(function() setclipboard(tostring(lp.UserId)) end)
         N("Player ID", tostring(lp.UserId))
@@ -1395,6 +1475,7 @@ TeleTab:Section({ Title = "Position" })
 
 TeleTab:Button({
     Title    = "Copy My Position",
+    Tooltip = "Save your current position",
     Callback = function()
         local p = Teleport:SavePosition()
         if p then N("Teleport", ("Saved: %.0f, %.0f, %.0f"):format(p.X,p.Y,p.Z))
@@ -1403,6 +1484,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Go to Saved Position",
+    Tooltip = "Teleport to your last saved position",
     Callback = function()
         if Teleport:GotoSaved(Fly) then N("Teleport", "Teleported")
         else N("Teleport", "No position saved") end
@@ -1414,6 +1496,7 @@ TeleTab:Section({ Title = "To Player" })
 local selectedPlayer = nil
 local tpDrop = TeleTab:Dropdown({
     Title    = "Select Player",
+    Tooltip = "Choose a player to teleport to",
     Values   = Teleport:GetPlayerList(),
     Value    = 1,
     Callback = function(v) selectedPlayer = v end
@@ -1422,6 +1505,7 @@ do local list = Teleport:GetPlayerList(); selectedPlayer = list[1] end
 
 TeleTab:Button({
     Title    = "Refresh Players",
+    Tooltip = "Refresh the player list",
     Callback = function()
         local list = Teleport:GetPlayerList()
         tpDrop:Refresh(list)
@@ -1431,6 +1515,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Teleport to Player",
+    Tooltip = "Teleport to the selected player",
     Callback = function()
         local name = selectedPlayer
         if not name or name == "(no players)" then return end
@@ -1443,6 +1528,7 @@ TeleTab:Section({ Title = "Waypoints" })
 
 local wpNameIn = TeleTab:Input({
     Title       = "Waypoint Name",
+    Tooltip = "Name for your waypoint",
     Placeholder = "e.g. spawn",
     Value       = "",
     Callback    = function() end
@@ -1453,6 +1539,7 @@ local wpDrop
 
 TeleTab:Button({
     Title    = "Create Waypoint",
+    Tooltip = "Save current position as a waypoint",
     Callback = function()
         local name = wpNameIn.Value or ""
         if name == "" then N("Waypoint", "Enter a name"); return end
@@ -1471,6 +1558,7 @@ TeleTab:Button({
 
 wpDrop = TeleTab:Dropdown({
     Title    = "Select Waypoint",
+    Tooltip = "Choose a waypoint to teleport to",
     Values   = Waypoint:GetList(),
     Value    = 1,
     Callback = function(v) selectedWaypoint = v end
@@ -1479,6 +1567,7 @@ do local list = Waypoint:GetList(); selectedWaypoint = list[1] end
 
 TeleTab:Button({
     Title    = "Refresh Waypoints",
+    Tooltip = "Refresh the waypoint list",
     Callback = function()
         local list = Waypoint:GetList()
         wpDrop:Refresh(list)
@@ -1488,6 +1577,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Teleport to Waypoint",
+    Tooltip = "Teleport to the selected waypoint",
     Callback = function()
         local name = selectedWaypoint
         if not name or name == "(no waypoints)" then
@@ -1499,6 +1589,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Delete Waypoint",
+    Tooltip = "Delete the selected waypoint",
     Callback = function()
         local name = selectedWaypoint
         if not name or name == "(no waypoints)" then return end
@@ -1515,6 +1606,7 @@ TeleTab:Button({
 
 TeleTab:Keybind({
     Title    = "Teleport Keybind",
+    Tooltip = "Press to teleport to selected waypoint",
     Value    = "G",
     Callback = function(k)
         tpWaypointKey = Enum.KeyCode[k] or Enum.KeyCode.G
@@ -1549,6 +1641,7 @@ end
 
 TeleTab:Button({
     Title = "➕ Add Selected to Queue",
+    Tooltip = "Add selected waypoint to the queue",
     Callback = function()
         local name = selectedWaypoint
         if not name or name == "(no waypoints)" then
@@ -1565,6 +1658,7 @@ TeleTab:Button({
 
 TeleTab:Button({
     Title = "➖ Remove Selected from Queue",
+    Tooltip = "Remove selected waypoint from queue",
     Callback = function()
         if selectedWpQueueItem and selectedWpQueueItem ~= "(empty queue)" then
             local wpName = selectedWpQueueItem:match("%d+%.%s+(.+)")
@@ -1578,6 +1672,7 @@ TeleTab:Button({
 
 TeleTab:Button({
     Title = "🗑 Clear Queue",
+    Tooltip = "Clear the waypoint queue",
     Callback = function()
         Waypoint:ClearQueue()
         refreshWpQueue()
@@ -1587,6 +1682,7 @@ TeleTab:Button({
 
 wpQueueDropdown = TeleTab:Dropdown({
     Title = "Current Queue",
+    Tooltip = "View waypoints in the teleport queue",
     Values = refreshWpQueue(),
     Value = 1,
     Callback = function(v) selectedWpQueueItem = v end
@@ -1594,6 +1690,7 @@ wpQueueDropdown = TeleTab:Dropdown({
 
 local queueDelaySlider = TeleTab:Slider({
     Title = "Delay Between TPs (sec)",
+    Tooltip = "Wait time between queue teleports (1-10s)",
     Value = { Min = 1, Max = 10, Default = 2 },
     Step = 1,
     Callback = function(v) Waypoint:SetQueueDelay(v) end
@@ -1602,6 +1699,7 @@ ConfigMgr:Register("WpQueueDelay", queueDelaySlider)
 
 TeleTab:Button({
     Title = "▶️ Start Queue",
+    Tooltip = "Start sequential waypoint teleport",
     Callback = function()
         if #Waypoint:GetQueue() == 0 then
             N("Queue", "Queue is empty! Add waypoints first"); return
@@ -1616,6 +1714,7 @@ TeleTab:Button({
 
 TeleTab:Button({
     Title = "⏹️ Stop Queue",
+    Tooltip = "Stop the waypoint queue",
     Callback = function()
         Waypoint:StopQueue()
         N("Queue", "Queue stopped")
@@ -1624,6 +1723,7 @@ TeleTab:Button({
 
 TeleTab:Keybind({
     Title    = "Queue Keybind",
+    Tooltip = "Press to start/stop waypoint queue",
     Value    = "X",
     Callback = function(k)
         wpQueueKey = Enum.KeyCode[k] or Enum.KeyCode.X
@@ -1635,6 +1735,7 @@ TeleTab:Section({ Title = "Server" })
 
 TeleTab:Button({
     Title    = "Rejoin Server",
+    Tooltip = "Reconnect to the same server",
     Callback = function()
         N("Rejoin", "Rejoining...")
         task.wait(1.5)
@@ -1643,6 +1744,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Server Hop",
+    Tooltip = "Join a different server of the same game",
     Callback = function()
         N("Server Hop", "Finding server...")
         task.wait(0.5)
@@ -1658,6 +1760,7 @@ AutoTab:Section({ Title = "Auto Clicker" })
 local autoClickerToggle = AutoTab:Toggle({
     Title    = "Auto Clicker",
     Value    = false,
+    Tooltip  = "Automatically click at configurable speed",
     Callback = function(v)
         if v then AutoClicker:Enable() else AutoClicker:Disable() end
         N("Auto Clicker", v and "Enabled" or "Disabled")
@@ -1669,6 +1772,7 @@ local cpsSlider = AutoTab:Slider({
     Title    = "Clicks Per Second (CPS)",
     Value    = { Min = 1, Max = 100, Default = 10 },
     Step     = 1,
+    Tooltip  = "How many clicks per second (1-100)",
     Callback = function(v) AutoClicker:SetCPS(v) end
 })
 ConfigMgr:Register("AutoClickerCPS", cpsSlider)
@@ -1677,6 +1781,7 @@ local clickTypeDrop = AutoTab:Dropdown({
     Title    = "Click Type",
     Values   = {"mouse", "tool"},
     Value    = "mouse",
+    Tooltip  = "Mouse click or tool activation",
     Callback = function(v) 
         AutoClicker:SetClickType(v)
         N("Auto Clicker", "Click type: " .. v)
@@ -1687,6 +1792,7 @@ ConfigMgr:Register("AutoClickerType", clickTypeDrop)
 local holdDownToggle = AutoTab:Toggle({
     Title    = "Hold Mouse Down",
     Value    = false,
+    Tooltip  = "Hold mouse button instead of clicking",
     Callback = function(v) 
         AutoClicker:SetHoldDown(v)
         N("Auto Clicker", v and "Hold mode" or "Click mode")
@@ -1697,6 +1803,7 @@ ConfigMgr:Register("AutoClickerHold", holdDownToggle)
 local randomDelayToggle = AutoTab:Toggle({
     Title    = "Random Delay",
     Value    = true,
+    Tooltip  = "Randomize click timing to avoid detection",
     Callback = function(v) 
         AutoClicker:SetRandomDelay(v)
         N("Auto Clicker", v and "Randomized timing" or "Fixed timing")
@@ -1707,6 +1814,7 @@ ConfigMgr:Register("AutoClickerRandom", randomDelayToggle)
 AutoTab:Keybind({
     Title    = "Auto Clicker Keybind",
     Value    = "C",
+    Tooltip  = "Press to toggle auto clicker on/off",
     Callback = function(k)
         autoClickerKey = Enum.KeyCode[k] or Enum.KeyCode.C
         N("AutoClicker Keybind", k)
@@ -1721,6 +1829,7 @@ SetTab:Section({ Title = "Interface" })
 SetTab:Keybind({
     Title    = "Toggle UI Key",
     Value    = "U",
+    Tooltip  = "Key to show/hide the Leon X interface",
     Callback = function(k)
         Window:SetToggleKey(Enum.KeyCode[k])
         N("Toggle Key", k)
@@ -1730,6 +1839,7 @@ local themeDrop = SetTab:Dropdown({
     Title    = "Theme",
     Values   = {"Default","Gold","Emerald","Rose","Violet","Amber","Neon"},
     Value    = "Default",
+    Tooltip  = "Change the UI color theme",
     Callback = function(v)
         Window:SetTheme(v)
         N("Theme", v)
@@ -1743,6 +1853,7 @@ local cfgNameIn = SetTab:Input({
     Title       = "Config Name",
     Placeholder = "e.g. pvp",
     Value       = "default",
+    Tooltip     = "Name for saving/loading configs",
     Callback    = function() end
 })
 
@@ -1760,12 +1871,15 @@ local cfgDrop = SetTab:Dropdown({
     Title    = "Select Config",
     Values   = getCfgList(),
     Value    = 1,
+    Tooltip  = "Choose a saved config to load or manage",
     Callback = function(v) selectedConfig = v end
 })
 do local list = getCfgList(); selectedConfig = list[1] end
 
 SetTab:Button({
     Title    = "💾 Save",
+    Style    = "Primary",
+    Tooltip  = "Save current settings as a config",
     Callback = function()
         local n = getCfgName()
         local ok = ConfigMgr:Save(n)
@@ -1780,6 +1894,8 @@ SetTab:Button({
 })
 SetTab:Button({
     Title    = "📂 Load",
+    Style    = "Outline",
+    Tooltip  = "Load the selected config",
     Callback = function()
         local s = selectedConfig
         if not s or s == "(none)" then return end
@@ -1789,6 +1905,8 @@ SetTab:Button({
 })
 SetTab:Button({
     Title    = "🗑 Delete",
+    Style    = "Danger",
+    Tooltip  = "Delete the selected config permanently",
     Callback = function()
         local s = selectedConfig
         if not s or s == "(none)" then return end
@@ -1801,6 +1919,8 @@ SetTab:Button({
 })
 SetTab:Button({
     Title    = "⭐ Set as Default",
+    Style    = "Outline",
+    Tooltip  = "Auto-load this config on startup",
     Callback = function()
         local s = selectedConfig
         if not s or s == "(none)" then return end
