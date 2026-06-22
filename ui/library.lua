@@ -270,28 +270,97 @@ function Library:CreateWindow(cfg)
 	})
 
 	-- ══════════════════════════════════════════════════════════════
-	-- SIDEBAR
+	-- SIDEBAR — dark glass with accent glow edge
 	-- ══════════════════════════════════════════════════════════════
-	local SIDEBAR_W = 140
-	local sidebarBg = tagBg(mk("Frame", {
+	local SIDEBAR_W = 148
+	local sidebarBg = mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
-		BackgroundColor3 = theme.BG; BorderSizePixel = 0; ZIndex = 5;
+		BackgroundColor3 = Color3.fromRGB(8, 8, 10); BorderSizePixel = 0; ZIndex = 5;
 		ClipsDescendants = true; Parent = main;
-	}), "bg")
+	})
 
-	-- Sidebar right border
+	-- Sidebar gradient overlay (top-to-bottom dark wash)
+	mk("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, theme.Surface),
+			ColorSequenceKeypoint.new(0.4, theme.BG),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(6, 6, 8)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.7),
+			NumberSequenceKeypoint.new(0.4, 0.3),
+			NumberSequenceKeypoint.new(1, 0.1),
+		}),
+		Rotation = 180;
+		Parent = sidebarBg;
+	})
+
+	-- Accent glow line on right edge of sidebar
+	local sidebarGlow = tagBg(mk("Frame", {
+		Size = UDim2.new(0, 2, 1, 0); Position = UDim2.new(1, -2, 0, 0);
+		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.6;
+		BorderSizePixel = 0; ZIndex = 7; Parent = sidebarBg;
+	}), "accent")
+
+	-- Animated glow pulse on sidebar edge
+	task.spawn(function()
+		while sidebarGlow and sidebarGlow.Parent do
+			tw(sidebarGlow, 2.5, { BackgroundTransparency = 0.3 }, Enum.EasingStyle.Sine)
+			task.wait(2.5)
+			tw(sidebarGlow, 2.5, { BackgroundTransparency = 0.7 }, Enum.EasingStyle.Sine)
+			task.wait(2.5)
+		end
+	end)
+
+	-- Sidebar border line (subtle)
 	tagBg(mk("Frame", {
 		Size = UDim2.new(0, 1, 1, 0); Position = UDim2.new(1, 0, 0, 0);
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 6; Parent = sidebarBg;
 	}), "border")
 
-	-- Logo
-	local logo = tagText(mk("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 52); Position = UDim2.fromOffset(0, 0);
-		BackgroundTransparency = 1; Text = "⚡ Leon X";
-		Font = Enum.Font.GothamBold; TextSize = 18;
-		TextColor3 = theme.Accent; ZIndex = 5; Parent = sidebarBg;
+	-- ── Logo area ──
+	-- Logo accent dot (pulsing circle before text)
+	local logoDot = tagBg(mk("Frame", {
+		Size = UDim2.fromOffset(8, 8); Position = UDim2.fromOffset(16, 22);
+		BackgroundColor3 = theme.Accent; BorderSizePixel = 0;
+		ZIndex = 7; Parent = sidebarBg;
 	}), "accent")
+	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = logoDot })
+
+	-- Dot pulse
+	task.spawn(function()
+		while logoDot and logoDot.Parent do
+			tw(logoDot, 1, { Size = UDim2.fromOffset(10, 10) }, Enum.EasingStyle.Back)
+			task.wait(1)
+			tw(logoDot, 1, { Size = UDim2.fromOffset(8, 8) }, Enum.EasingStyle.Quint)
+			task.wait(1)
+		end
+	end)
+
+	-- Logo text
+	local logo = tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -34, 0, 52); Position = UDim2.fromOffset(30, 0);
+		BackgroundTransparency = 1; Text = "Leon X";
+		Font = Enum.Font.GothamBold; TextSize = 18;
+		TextColor3 = theme.Accent; TextXAlignment = Enum.TextXAlignment.Left;
+		ZIndex = 7; Parent = sidebarBg;
+	}), "accent")
+
+	-- Version label under logo
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -34, 0, 14); Position = UDim2.fromOffset(30, 32);
+		BackgroundTransparency = 1; Text = "v1.6";
+		Font = Enum.Font.Gotham; TextSize = 10;
+		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
+		ZIndex = 7; Parent = sidebarBg;
+	}), "textdim")
+
+	-- Thin divider line under logo area
+	tagBg(mk("Frame", {
+		Size = UDim2.new(1, -28, 0, 1); Position = UDim2.fromOffset(14, 52);
+		BackgroundColor3 = theme.Border; BorderSizePixel = 0;
+		BackgroundTransparency = 0.5; ZIndex = 6; Parent = sidebarBg;
+	}), "border")
 
 	-- ══════════════════════════════════════════════════════════════
 	-- HEADER
@@ -483,16 +552,58 @@ function Library:CreateWindow(cfg)
 	end
 
 	-- ══════════════════════════════════════════════════════════════
-	-- CLOSE / OPEN — minimize goes directly to float button
+	-- CLOSE / OPEN — smooth transitions
 	-- ══════════════════════════════════════════════════════════════
 	function win:Close()
+		if not win._visible then return end
 		win._visible = false
-		sg.Enabled = false
-		floatBtn.Visible = true
+
+		-- Animate main window out (scale down + fade)
+		local closeTween = TS:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Back, Enum.EasingDirection.In), {
+			Size = UDim2.new(0, size.X.Offset * 0.85, 0, size.Y.Offset * 0.85),
+			Position = UDim2.new(0.5, -size.X.Offset * 0.425, 0.5, -size.Y.Offset * 0.425)
+		})
+		local fadeTween = TS:Create(main, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {
+			GroupTransparency = 1
+		})
+
+		closeTween:Play()
+		fadeTween:Play()
+
+		task.delay(0.2, function()
+			sg.Enabled = false
+			main.Size = size
+			main.Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2)
+			main.GroupTransparency = 0
+			floatBtn.Visible = true
+
+			-- Bounce animation on float button
+			floatBtn.Size = UDim2.fromOffset(40, 40)
+			TS:Create(floatBtn, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+				Size = UDim2.fromOffset(52, 52)
+			}):Play()
+		end)
 	end
+
 	function win:Open()
+		if win._visible then return end
 		floatBtn.Visible = false
+
+		-- Prepare main for animation
+		main.Size = UDim2.new(0, size.X.Offset * 0.85, 0, size.Y.Offset * 0.85)
+		main.Position = UDim2.new(0.5, -size.X.Offset * 0.425, 0.5, -size.Y.Offset * 0.425)
+		main.GroupTransparency = 1
 		sg.Enabled = true
+
+		-- Animate in (scale up + fade)
+		TS:Create(main, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Size = size,
+			Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2)
+		}):Play()
+		TS:Create(main, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+			GroupTransparency = 0
+		}):Play()
+
 		win._visible = true
 	end
 	closeBtn.MouseButton1Click:Connect(function() win:Close() end)
@@ -765,12 +876,21 @@ function Library:CreateWindow(cfg)
 	enterBtn.MouseButton1Click:Connect(function() win:DismissWelcome() end)
 
 	-- ══════════════════════════════════════════════════════════════
-	-- TABS
+	-- TABS — interactive with count badges + staggered reveal
 	-- ══════════════════════════════════════════════════════════════
 	local tabList = mk("Frame", {
-		Size = UDim2.new(1, 0, 1, -52); Position = UDim2.fromOffset(0, 52);
+		Size = UDim2.new(1, 0, 1, -60); Position = UDim2.fromOffset(0, 60);
 		BackgroundTransparency = 1; ZIndex = 6; Parent = sidebarBg;
 	})
+
+	-- Tab count label at top of sidebar
+	local tabCountLabel = tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -20, 0, 14); Position = UDim2.fromOffset(14, 56);
+		BackgroundTransparency = 1; Text = "";
+		Font = Enum.Font.Gotham; TextSize = 9;
+		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
+		ZIndex = 7; Parent = sidebarBg;
+	}), "textdim")
 
 	function win:Tab(cfg)
 		cfg = cfg or {}
@@ -778,9 +898,10 @@ function Library:CreateWindow(cfg)
 		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = win }
 		local idx = #win._tabs + 1
 
+		-- Staggered entry animation — slide in from left
 		local btn = mk("TextButton", {
 			Size = UDim2.new(1, -10, 0, 38);
-			Position = UDim2.fromOffset(5, (idx - 1) * 42);
+			Position = UDim2.fromOffset(-SIDEBAR_W, (idx - 1) * 42);
 			BackgroundTransparency = 1; Text = tabName;
 			Font = Enum.Font.GothamBold; TextSize = 13;
 			TextColor3 = win._theme.TextSub; AutoButtonColor = false;
@@ -788,28 +909,58 @@ function Library:CreateWindow(cfg)
 		}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
 		tagText(btn, "textsub")
 
+		-- Staggered slide-in animation
+		task.delay(idx * 0.06, function()
+			tw(btn, 0.35, { Position = UDim2.fromOffset(5, (idx - 1) * 42) },
+				Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+		end)
+
 		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0, 16)
+		pad.PaddingLeft = UDim.new(0, 18)
 		pad.Parent = btn
 
+		-- Accent indicator bar (left side)
 		local indicator = tagBg(mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 22); Position = UDim2.new(0, 2, 0.5, -11);
+			Size = UDim2.new(0, 3, 0, 24); Position = UDim2.new(0, 2, 0.5, -12);
 			BackgroundColor3 = win._theme.Accent; BorderSizePixel = 0;
 			Visible = false; ZIndex = 8; Parent = btn;
 		}), "accent")
 		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
+
+		-- Feature count badge (right side, shows how many items in this tab)
+		local countBadge = mk("TextLabel", {
+			Size = UDim2.fromOffset(24, 18); Position = UDim2.new(1, -32, 0.5, -9);
+			BackgroundColor3 = theme.Elevated; BackgroundTransparency = 0.3;
+			BorderSizePixel = 0; Text = "0";
+			Font = Enum.Font.GothamBold; TextSize = 10;
+			TextColor3 = theme.TextSub; ZIndex = 8; Parent = btn;
+		}, { mk("UICorner", { CornerRadius = UDim.new(0, 9) }) })
+		tagBg(countBadge, "elevated")
+		tagText(countBadge, "textsub")
+		tab._countBadge = countBadge
 
 		local isActive = false
 		local function setActive(active)
 			isActive = active
 			indicator.Visible = active
 			if active then
-				btn.TextColor3 = win._theme.Text
-				btn.BackgroundColor3 = win._theme.Surface
-				btn.BackgroundTransparency = 0.3
+				tw(btn, 0.15, {
+					TextColor3 = win._theme.Text,
+					BackgroundColor3 = win._theme.Surface,
+					BackgroundTransparency = 0.25,
+				})
+				-- Glow on badge when active
+				countBadge.BackgroundColor3 = win._theme.Accent
+				countBadge.BackgroundTransparency = 0.7
+				countBadge.TextColor3 = win._theme.Accent
 			else
-				btn.TextColor3 = win._theme.TextSub
-				btn.BackgroundTransparency = 1
+				tw(btn, 0.15, {
+					TextColor3 = win._theme.TextSub,
+					BackgroundTransparency = 1,
+				})
+				countBadge.BackgroundColor3 = theme.Elevated
+				countBadge.BackgroundTransparency = 0.3
+				countBadge.TextColor3 = theme.TextSub
 			end
 			for _, entry in ipairs(win._allComps) do
 				if entry._tab == tab then
@@ -822,19 +973,31 @@ function Library:CreateWindow(cfg)
 			for _, t in ipairs(win._tabs) do t._setActive(false) end
 			setActive(true); win._active = tab
 		end)
+		-- Enhanced hover: subtle surface reveal + slight indent
 		btn.MouseEnter:Connect(function()
 			if not isActive then
-				btn.BackgroundColor3 = win._theme.Surface
-				btn.BackgroundTransparency = 0.7
+				tw(btn, 0.12, {
+					BackgroundColor3 = win._theme.Surface,
+					BackgroundTransparency = 0.6,
+					Position = UDim2.fromOffset(8, (idx - 1) * 42),
+				})
 			end
 		end)
 		btn.MouseLeave:Connect(function()
-			if not isActive then btn.BackgroundTransparency = 1 end
+			if not isActive then
+				tw(btn, 0.12, {
+					BackgroundTransparency = 1,
+					Position = UDim2.fromOffset(5, (idx - 1) * 42),
+				})
+			end
 		end)
 
 		tab._setActive = setActive
 		win._tabs[#win._tabs + 1] = tab
 		if idx == 1 then setActive(true) end
+
+		-- Update tab count label
+		tabCountLabel.Text = tostring(#win._tabs) .. " tabs"
 
 		local function wrap(fn)
 			return function(selfOrData, maybeData)
