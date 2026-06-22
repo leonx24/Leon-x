@@ -1,51 +1,53 @@
--- Leon X | Noir UI Library v3
--- "Quiet luxury" — dark elegant minimalism with disciplined motion.
---
--- CUSTOMIZATION:
---   Library:SetTheme("Gold")     -- or Emerald, Rose, Violet, Amber, Neon
---   Library.Themes["MyTheme"] = { Accent = Color3.fromRGB(r,g,b), AccentDim = ... }
+-- ╔══════════════════════════════════════════════════════════════════╗
+-- ║  Leon X  |  Noir UI Library v4                                 ║
+-- ║  "Cinematic darkness — where light is earned, not given."      ║
+-- ╚══════════════════════════════════════════════════════════════════╝
 
-print("[LeonX-LIB] ████ VERSION: UI-POLISH-V3-FINAL ████")
+print("[LeonX-LIB] ████ NOIR-UI-V4 ████")
 
 local Library = {}
 Library.Registry = {}
 Library._allComponents = {}
-Library._themeConns = {}
 Library._windows = {}
 
 -- ════════════════════════════════════════════════════════════════════════════
--- THEMES
+-- THEMES — deep, cinematic palettes (NOT just accent color swaps)
 -- ════════════════════════════════════════════════════════════════════════════
 
-local function baseTh(accent, accentDim)
+local function mkTheme(accent, accentDim, glowTint)
 	return {
-		BG = Color3.fromRGB(14,14,16); Surface = Color3.fromRGB(22,22,26);
-		Elevated = Color3.fromRGB(30,30,36); Border = Color3.fromRGB(42,42,48);
-		BorderSub = Color3.fromRGB(34,34,40);
-		Text = Color3.fromRGB(230,230,235); TextSub = Color3.fromRGB(130,130,140);
-		Accent = Color3.fromRGB(table.unpack(accent));
-		AccentDim = Color3.fromRGB(table.unpack(accentDim));
+		BG        = Color3.fromRGB(10, 10, 12),
+		Surface   = Color3.fromRGB(18, 18, 22),
+		Elevated  = Color3.fromRGB(26, 26, 32),
+		Border    = Color3.fromRGB(38, 38, 44),
+		BorderSub = Color3.fromRGB(28, 28, 34),
+		Text      = Color3.fromRGB(232, 232, 238),
+		TextSub   = Color3.fromRGB(110, 110, 125),
+		TextDim   = Color3.fromRGB(70, 70, 82),
+		Accent    = Color3.fromRGB(table.unpack(accent)),
+		AccentDim = Color3.fromRGB(table.unpack(accentDim)),
+		Glow      = Color3.fromRGB(table.unpack(glowTint or accent)),
 	}
 end
 
 Library.Themes = {
-	Default = baseTh({140,160,210}, {90,105,140}),
-	Gold    = baseTh({200,175,110}, {140,120,70}),
-	Emerald = baseTh({110,190,140}, {70,130,95}),
-	Rose    = baseTh({210,130,150}, {150,85,100}),
-	Violet  = baseTh({160,130,220}, {110,85,160}),
-	Amber   = baseTh({220,170,80},  {160,120,50}),
-	Neon    = baseTh({100,220,180}, {60,160,130}),
+	Default = mkTheme({130,155,210}, {80,100,150}, {100,130,200}),
+	Gold    = mkTheme({210,185,110}, {155,130,75},  {200,170,90}),
+	Emerald = mkTheme({100,195,135}, {60,140,90},   {80,180,120}),
+	Rose    = mkTheme({215,125,148}, {160,80,100},  {200,110,135}),
+	Violet  = mkTheme({155,125,225}, {105,80,165},  {140,110,210}),
+	Amber   = mkTheme({225,175,75},  {170,125,45},  {210,160,60}),
+	Neon    = mkTheme({80,225,185},  {50,170,135},  {70,210,170}),
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
--- UTILITIES
+-- CORE UTILITIES
 -- ════════════════════════════════════════════════════════════════════════════
 
-local TS = game:GetService("TweenService")
-local UIS = game:GetService("UserInputService")
+local TS      = game:GetService("TweenService")
+local UIS     = game:GetService("UserInputService")
 local Players = game:GetService("Players")
-local lp = Players.LocalPlayer
+local lp      = Players.LocalPlayer
 
 local function mk(class, props, children)
 	local inst = Instance.new(class)
@@ -54,10 +56,87 @@ local function mk(class, props, children)
 	return inst
 end
 
-local function tw(obj, dur, props)
-	local t = TS:Create(obj, TweenInfo.new(dur, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), props)
+local function tw(obj, dur, props, style, dir)
+	local info = TweenInfo.new(
+		dur,
+		style or Enum.EasingStyle.Quad,
+		dir or Enum.EasingDirection.Out
+	)
+	local t = TS:Create(obj, info, props)
 	t:Play(); return t
 end
+
+-- ── Theme-aware instance tagging ──
+-- Every visual element gets a "_role" attribute so theme changes
+-- can find and update them without tracking each one manually.
+local ROLE_COLORS = {
+	bg        = "BG",
+	surface   = "Surface",
+	elevated  = "Elevated",
+	border    = "Border",
+	bordersub = "BorderSub",
+	text      = "Text",
+	textsub   = "TextSub",
+	textdim   = "TextDim",
+	accent    = "Accent",
+	accentdim = "AccentDim",
+	glow      = "Glow",
+}
+
+local function tag(inst, role, accentSub)
+	if not role then return inst end
+	inst:SetAttribute("_role", role)
+	if accentSub then
+		inst:SetAttribute("_accentSub", accentSub)
+	end
+	return inst
+end
+
+local function tagText(inst, role)
+	inst:SetAttribute("_role", role or "text")
+	inst:SetAttribute("_isText", true)
+	return inst
+end
+
+local function tagBorder(inst, role)
+	inst:SetAttribute("_role", role or "border")
+	inst:SetAttribute("_isStroke", true)
+	return inst
+end
+
+local function tagBg(inst, role)
+	inst:SetAttribute("_role", role or "bg")
+	inst:SetAttribute("_isBg", true)
+	return inst
+end
+
+-- Apply theme colors to a tagged instance
+local function applyTheme(inst, theme)
+	local role = inst:GetAttribute("_role")
+	if not role then return end
+	local color = ROLE_COLORS[role] and theme[ROLE_COLORS[role]]
+	if not color then return end
+	if inst:GetAttribute("_isText") then
+		inst.TextColor3 = color
+	elseif inst:GetAttribute("_isStroke") then
+		inst.Color = color
+	elseif inst:GetAttribute("_isBg") then
+		inst.BackgroundColor3 = color
+	end
+end
+
+-- Update ALL tagged descendants of a frame
+local function retagAll(frame, theme)
+	for _, inst in ipairs(frame:GetDescendants()) do
+		if inst:GetAttribute("_role") then
+			applyTheme(inst, theme)
+		end
+	end
+end
+
+-- ════════════════════════════════════════════════════════════════════════════
+-- LABEL / REGISTRY HELPERS
+-- ════════════════════════════════════════════════════════════════════════════
 
 local function getLabel(data)
 	return data.Title or data.Name or data.Text or data.Label or ""
@@ -75,13 +154,13 @@ local function reg(data, api)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- NOTIFICATION GUI
+-- NOTIFICATION SYSTEM (separate ScreenGui, always on top)
 -- ════════════════════════════════════════════════════════════════════════════
 
 local notifGui = mk("ScreenGui", {
 	Name = "LeonXNotif"; ResetOnSpawn = false;
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
-	DisplayOrder = 9999; IgnoreGuiInset = true;
+	DisplayOrder = 10000; IgnoreGuiInset = true;
 })
 pcall(function() notifGui.Parent = lp:WaitForChild("PlayerGui") end)
 local activeNotifs = {}
@@ -94,15 +173,19 @@ function Library:CreateWindow(cfg)
 	cfg = cfg or {}
 	local title     = cfg.Title or "Leon X"
 	local author    = cfg.Author or ""
-	local size      = cfg.Size or UDim2.new(0, 600, 0, 560)
+	local size      = cfg.Size or UDim2.new(0, 660, 0, 580)
 	local toggleKey = cfg.ToggleKey or Enum.KeyCode.U
 	local themeName = cfg.Theme or "Default"
 	local theme     = Library.Themes[themeName] or Library.Themes.Default
 
-	local win = { _tabs = {}; _active = nil; _visible = true; _theme = theme; _toggleKey = toggleKey; _themeName = themeName }
+	local win = {
+		_tabs = {}; _active = nil; _visible = true;
+		_theme = theme; _toggleKey = toggleKey; _themeName = themeName;
+	}
 	Library._windows[#Library._windows + 1] = win
 	Library._lastTheme = themeName
 
+	-- ── ScreenGui ──
 	local sg = mk("ScreenGui", {
 		Name = "LeonXNoir"; ResetOnSpawn = false;
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
@@ -110,89 +193,211 @@ function Library:CreateWindow(cfg)
 		Parent = lp:WaitForChild("PlayerGui");
 	})
 
+	-- ── Main frame ──
 	local main = mk("Frame", {
-		Size = size; Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2);
-		BackgroundColor3 = theme.BG; BorderSizePixel = 0;
-		ClipsDescendants = true; ZIndex = 1; Parent = sg;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+		Size = size;
+		Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2);
+		BackgroundTransparency = 1;
+		BorderSizePixel = 0; ClipsDescendants = true; Parent = sg;
+	})
 
-	local mainStroke = mk("UIStroke", { Color = theme.Border; Thickness = 1; Parent = main })
+	-- ── Background layer (solid bg, tagged for theme) ──
+	local bgFrame = tagBg(mk("Frame", {
+		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
+		BorderSizePixel = 0; ZIndex = 1; Parent = main;
+	}), "bg")
+	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = bgFrame })
 
-	-- ── Sidebar ──
-	local SIDEBAR_W = 130
-	local sidebar = mk("Frame", {
+	-- ── Main border stroke ──
+	local mainStroke = tagBorder(mk("UIStroke", {
+		Color = theme.Border; Thickness = 1; Parent = bgFrame;
+	}), "border")
+
+	-- ── Signature: Ambient glow frame (pulses subtly) ──
+	local glowFrame = tagBg(mk("Frame", {
+		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.Glow;
+		BackgroundTransparency = 0.97; BorderSizePixel = 0;
+		ZIndex = 2; Parent = main;
+	}), "glow")
+	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = glowFrame })
+
+	-- Ambient pulse animation
+	task.spawn(function()
+		while glowFrame and glowFrame.Parent do
+			tw(glowFrame, 3, { BackgroundTransparency = 0.95 }, Enum.EasingStyle.Sine)
+			task.wait(3)
+			tw(glowFrame, 3, { BackgroundTransparency = 0.98 }, Enum.EasingStyle.Sine)
+			task.wait(3)
+		end
+	end)
+
+	-- ── Noir vignette (subtle darkening at edges) ──
+	-- Top vignette
+	local vigTop = mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 60); Position = UDim2.fromOffset(0, 0);
+		BackgroundTransparency = 1; BorderSizePixel = 0;
+		ZIndex = 3; Parent = main;
+	})
+	local vigTopGrad = mk("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.6),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Rotation = 90;
+		Parent = vigTop;
+	})
+	-- Bottom vignette
+	local vigBot = mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 60); Position = UDim2.new(0, 0, 1, -60);
+		BackgroundTransparency = 1; BorderSizePixel = 0;
+		ZIndex = 3; Parent = main;
+	})
+	mk("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(0,0,0)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(0,0,0)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(1, 0.6),
+		}),
+		Rotation = 90;
+		Parent = vigBot;
+	})
+
+	-- ══════════════════════════════════════════════════════════════
+	-- SIDEBAR
+	-- ══════════════════════════════════════════════════════════════
+	local SIDEBAR_W = 140
+	local sidebarBg = tagBg(mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
-		BackgroundColor3 = theme.BG; BorderSizePixel = 0; ZIndex = 2; Parent = main;
-	})
-	mk("Frame", {
+		BackgroundColor3 = theme.BG; BorderSizePixel = 0; ZIndex = 5; Parent = main;
+	}), "bg")
+
+	-- Sidebar right border
+	tagBg(mk("Frame", {
 		Size = UDim2.new(0, 1, 1, 0); Position = UDim2.new(1, 0, 0, 0);
-		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 2; Parent = sidebar;
-	})
-	local logo = mk("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 48); Position = UDim2.fromOffset(0, 0);
+		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 6; Parent = sidebarBg;
+	}), "border")
+
+	-- Logo
+	local logo = tagText(mk("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 52); Position = UDim2.fromOffset(0, 0);
 		BackgroundTransparency = 1; Text = "⚡ Leon X";
-		Font = Enum.Font.GothamBold; TextSize = 17;
-		TextColor3 = theme.Accent; ZIndex = 3; Parent = sidebar;
-	})
+		Font = Enum.Font.GothamBold; TextSize = 18;
+		TextColor3 = theme.Accent; ZIndex = 7; Parent = sidebarBg;
+	}), "accent")
 
-	-- ── Header ──
-	local header = mk("Frame", {
+	-- ══════════════════════════════════════════════════════════════
+	-- HEADER
+	-- ══════════════════════════════════════════════════════════════
+	local headerBg = tagBg(mk("Frame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 0, 44); Position = UDim2.fromOffset(SIDEBAR_W, 0);
-		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; ZIndex = 2; Parent = main;
-	})
-	mk("Frame", {
+		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; ZIndex = 5; Parent = main;
+	}), "surface")
+
+	-- Header bottom border
+	tagBg(mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 1); Position = UDim2.new(0, 0, 1, -1);
-		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 2; Parent = header;
-	})
-	mk("TextLabel", {
-		Size = UDim2.new(1, -100, 1, 0); Position = UDim2.fromOffset(16, 0);
+		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 6; Parent = headerBg;
+	}), "border")
+
+	-- ── Signature: Accent beam under header (animated shimmer) ──
+	local beamTrack = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 2); Position = UDim2.new(0, 0, 1, -2);
+		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 7; Parent = headerBg;
+	}), "border")
+
+	local beamFill = tagBg(mk("Frame", {
+		Size = UDim2.new(0, 60, 1, 0); Position = UDim2.fromOffset(-60, 0);
+		BackgroundColor3 = theme.Accent; BorderSizePixel = 0; ZIndex = 8; Parent = beamTrack;
+	}), "accent")
+
+	-- Beam shimmer animation
+	task.spawn(function()
+		while beamFill and beamFill.Parent do
+			beamFill.Position = UDim2.fromOffset(-60, 0)
+			beamFill.BackgroundTransparency = 0
+			tw(beamFill, 4, { Position = UDim2.new(1, 0, 0, 0) }, Enum.EasingStyle.Linear)
+			task.wait(4.2)
+			tw(beamFill, 0, { BackgroundTransparency = 1 })
+			task.wait(2)
+			tw(beamFill, 0, { BackgroundTransparency = 0 })
+			task.wait(0.5)
+		end
+	end)
+
+	-- Header title
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -110, 1, 0); Position = UDim2.fromOffset(18, 0);
 		BackgroundTransparency = 1; Text = title;
-		Font = Enum.Font.GothamBold; TextSize = 15; TextColor3 = theme.Text;
-		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 3; Parent = header;
-	})
+		Font = Enum.Font.GothamBold; TextSize = 15;
+		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
+		ZIndex = 7; Parent = headerBg;
+	}), "text")
+
 	if author ~= "" then
-		mk("TextLabel", {
-			Size = UDim2.new(0, 110, 1, 0); Position = UDim2.new(1, -130, 0, 0);
+		tagText(mk("TextLabel", {
+			Size = UDim2.new(0, 120, 1, 0); Position = UDim2.new(1, -140, 0, 0);
 			BackgroundTransparency = 1; Text = author;
-			Font = Enum.Font.Gotham; TextSize = 11; TextColor3 = theme.TextSub;
-			TextXAlignment = Enum.TextXAlignment.Right; ZIndex = 3; Parent = header;
+			Font = Enum.Font.Gotham; TextSize = 11;
+			TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Right;
+			ZIndex = 7; Parent = headerBg;
+		}), "textdim")
+	end
+
+	-- ── Header buttons ──
+	local function headerBtn(text, xPos, textSize)
+		local b = mk("TextButton", {
+			Size = UDim2.fromOffset(32, 32); Position = UDim2.new(1, xPos, 0.5, -16);
+			BackgroundTransparency = 1; Text = text;
+			Font = Enum.Font.GothamBold; TextSize = textSize or 14;
+			TextColor3 = theme.TextSub; AutoButtonColor = false;
+			ZIndex = 15; Parent = headerBg;
 		})
+		tagText(b, "textsub")
+		mk("UICorner", { CornerRadius = UDim.new(0, 6); Parent = b })
+		b.MouseEnter:Connect(function()
+			b.BackgroundTransparency = 0
+			tagBg(b, "elevated")
+			b.BackgroundColor3 = theme.Elevated
+		end)
+		b.MouseLeave:Connect(function()
+			b.BackgroundTransparency = 1
+		end)
+		return b
 	end
 
-	local minBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(30, 30); Position = UDim2.new(1, -68, 0.5, -15);
-		BackgroundTransparency = 1; Text = "—";
-		Font = Enum.Font.GothamBold; TextSize = 16; TextColor3 = theme.TextSub;
-		AutoButtonColor = false; ZIndex = 10; Parent = header;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
-
-	local closeBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(30, 30); Position = UDim2.new(1, -36, 0.5, -15);
-		BackgroundTransparency = 1; Text = "✕";
-		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.TextSub;
-		AutoButtonColor = false; ZIndex = 10; Parent = header;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
-
-	-- Hover effects for header buttons
-	for _, btn in ipairs({minBtn, closeBtn}) do
-		btn.MouseEnter:Connect(function() btn.BackgroundTransparency = 0; btn.BackgroundColor3 = theme.Elevated end)
-		btn.MouseLeave:Connect(function() btn.BackgroundTransparency = 1 end)
-	end
+	local minBtn   = headerBtn("—", -76, 16)
+	local closeBtn = headerBtn("✕", -38, 14)
 
 	local minContentVisible = true
 	minBtn.MouseButton1Click:Connect(function()
 		minContentVisible = not minContentVisible
-		tw(main, 0.2, { Size = minContentVisible and size or UDim2.new(0, size.X.Offset, 0, 44) })
+		if minContentVisible then
+			win:Open()
+		else
+			win:Close()
+		end
 	end)
 
+	-- ══════════════════════════════════════════════════════════════
+	-- CONTENT AREA
+	-- ══════════════════════════════════════════════════════════════
 	local content = mk("ScrollingFrame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 1, -44); Position = UDim2.fromOffset(SIDEBAR_W, 44);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 4; ScrollBarImageColor3 = theme.AccentDim;
 		CanvasSize = UDim2.fromOffset(0, 0);
-		ClipsDescendants = true; ZIndex = 2; Parent = main;
+		ClipsDescendants = true; ZIndex = 5; Parent = main;
 	})
-	local contentLayout = mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 6); Parent = content })
+	local contentLayout = mk("UIListLayout", {
+		SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 6); Parent = content;
+	})
 	mk("UIPadding", {
 		PaddingTop = UDim.new(0, 14); PaddingBottom = UDim.new(0, 14);
 		PaddingLeft = UDim.new(0, 16); PaddingRight = UDim.new(0, 16);
@@ -204,7 +409,9 @@ function Library:CreateWindow(cfg)
 	pcall(function() content.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
 	win._allComps = {}
 
-	-- ── Floating open button ──
+	-- ══════════════════════════════════════════════════════════════
+	-- FLOATING BUTTON
+	-- ══════════════════════════════════════════════════════════════
 	local floatGui = mk("ScreenGui", {
 		Name = "LeonXFloat"; ResetOnSpawn = false;
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
@@ -212,14 +419,29 @@ function Library:CreateWindow(cfg)
 		Parent = lp:WaitForChild("PlayerGui");
 	})
 	local floatBtn = mk("TextButton", {
-		Size = UDim2.fromOffset(52, 52); Position = UDim2.new(0, 16, 0.5, -26);
-		BackgroundColor3 = theme.Surface; Text = "X";
-		Font = Enum.Font.GothamBold; TextSize = 16; TextColor3 = theme.Accent;
+		Size = UDim2.fromOffset(48, 48); Position = UDim2.new(0, 16, 0.5, -24);
+		BackgroundColor3 = theme.Surface; Text = "⚡";
+		Font = Enum.Font.GothamBold; TextSize = 18; TextColor3 = theme.Accent;
 		AutoButtonColor = false; Visible = false; ZIndex = 10; Parent = floatGui;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
 		mk("UIStroke", { Color = theme.Border; Thickness = 1.5 }),
 	})
+	-- Float button: pulse animation
+	task.spawn(function()
+		while floatBtn and floatBtn.Parent do
+			if floatBtn.Visible then
+				tw(floatBtn, 1.5, { Size = UDim2.fromOffset(52, 52) }, Enum.EasingStyle.Sine)
+				task.wait(1.5)
+				tw(floatBtn, 1.5, { Size = UDim2.fromOffset(48, 48) }, Enum.EasingStyle.Sine)
+				task.wait(1.5)
+			else
+				task.wait(0.5)
+			end
+		end
+	end)
+
+	-- Float button drag + click
 	do
 		local fDragging, fDragStart, fStartPos, fDidMove = false, nil, nil, false
 		local function isTap(i)
@@ -227,46 +449,38 @@ function Library:CreateWindow(cfg)
 				or i.UserInputType == Enum.UserInputType.Touch
 		end
 		floatBtn.InputBegan:Connect(function(i)
-			if isTap(i) then
-				fDragging = true; fDidMove = false
-				fDragStart = i.Position; fStartPos = floatBtn.Position
-			end
+			if isTap(i) then fDragging = true; fDidMove = false; fDragStart = i.Position; fStartPos = floatBtn.Position end
 		end)
 		UIS.InputChanged:Connect(function(i)
-			if fDragging and (i.UserInputType == Enum.UserInputType.MouseMovement
-					or i.UserInputType == Enum.UserInputType.Touch) then
+			if fDragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
 				local d = i.Position - fDragStart
 				if math.abs(d.X) > 6 or math.abs(d.Y) > 6 then fDidMove = true end
-				floatBtn.Position = UDim2.new(
-					fStartPos.X.Scale, fStartPos.X.Offset + d.X,
-					fStartPos.Y.Scale, fStartPos.Y.Offset + d.Y
-				)
+				floatBtn.Position = UDim2.new(fStartPos.X.Scale, fStartPos.X.Offset + d.X, fStartPos.Y.Scale, fStartPos.Y.Offset + d.Y)
 			end
 		end)
 		UIS.InputEnded:Connect(function(i)
-			if isTap(i) and fDragging then
-				fDragging = false
-				if not fDidMove then win:Open() end
-			end
+			if isTap(i) and fDragging then fDragging = false; if not fDidMove then win:Open() end end
 		end)
 	end
 
-	-- ── Close / Open ──
+	-- ══════════════════════════════════════════════════════════════
+	-- CLOSE / OPEN — minimize goes directly to float button
+	-- ══════════════════════════════════════════════════════════════
 	function win:Close()
 		win._visible = false
-		main.Visible = false
+		sg.Enabled = false
 		floatBtn.Visible = true
 	end
 	function win:Open()
 		floatBtn.Visible = false
-		main.Visible = true
+		sg.Enabled = true
 		win._visible = true
 	end
 	closeBtn.MouseButton1Click:Connect(function() win:Close() end)
 
 	-- ── Drag ──
 	local dragging, dragStart, startPos
-	header.InputBegan:Connect(function(i)
+	headerBg.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
 			dragging = true; dragStart = i.Position; startPos = main.Position
 			i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
@@ -279,80 +493,140 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- ── Public API ──
+	-- ── Resize Handle ──
+	local resizing, resizeStart, resizeStartSize = false, nil, nil
+	local resizeHandle = mk("Frame", {
+		Size = UDim2.fromOffset(16, 16);
+		Position = UDim2.new(1, -16, 1, -16);
+		BackgroundTransparency = 1;
+		BorderSizePixel = 0;
+		ZIndex = 10;
+		Parent = main;
+	})
+	-- Resize grip visual (diagonal lines)
+	for i = 0, 2 do
+		mk("Frame", {
+			Size = UDim2.new(1, 0, 0, 2);
+			Position = UDim2.new(0, 0, 1, -3 - (i * 3));
+			BackgroundColor3 = theme.TextDim;
+			BackgroundTransparency = 0.5;
+			BorderSizePixel = 0;
+			Rotation = -45;
+			AnchorPoint = Vector2.new(1, 0.5);
+			ZIndex = 11;
+			Parent = resizeHandle;
+		})
+	end
+
+	resizeHandle.InputBegan:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+			resizing = true
+			resizeStart = i.Position
+			resizeStartSize = main.Size
+			i.Changed:Connect(function()
+				if i.UserInputState == Enum.UserInputState.End then
+					resizing = false
+				end
+			end)
+		end
+	end)
+
+	UIS.InputChanged:Connect(function(i)
+		if resizing and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+			local d = i.Position - resizeStart
+			local newSizeX = math.max(400, resizeStartSize.X.Offset + d.X)
+			local newSizeY = math.max(300, resizeStartSize.Y.Offset + d.Y)
+			main.Size = UDim2.new(0, newSizeX, 0, newSizeY)
+		end
+	end)
+
+	-- ══════════════════════════════════════════════════════════════
+	-- PUBLIC API
+	-- ══════════════════════════════════════════════════════════════
 	function win:SetToggleKey(k) win._toggleKey = k end
+
 	function win:SetTheme(name)
 		local t = Library.Themes[name]
 		if not t then return end
 		win._theme = t; win._themeName = name
 		Library._lastTheme = name
-		main.BackgroundColor3 = t.BG; mainStroke.Color = t.Border
-		sidebar.BackgroundColor3 = t.BG; header.BackgroundColor3 = t.Surface
-		logo.TextColor3 = t.Accent; floatBtn.TextColor3 = t.Accent
-		floatBtn.BackgroundColor3 = t.Surface
-		for _, conn in ipairs(Library._themeConns) do pcall(function() conn(t) end) end
+		-- Update ALL tagged instances across the entire window
+		retagAll(main, t)
+		retagAll(floatBtn, t)
 	end
 
-	-- FIX: use `win` not `self` (self = Library here, not win)
+	-- Toggle key handler — uses `win` not `self`
 	UIS.InputBegan:Connect(function(i, gp)
 		if gp or i.KeyCode ~= win._toggleKey then return end
 		if win._visible then win:Close() else win:Open() end
 	end)
 
-	-- ── WELCOME SCREEN ─────────────────────────────────────────────────────
+	-- ══════════════════════════════════════════════════════════════
+	-- WELCOME SCREEN
+	-- ══════════════════════════════════════════════════════════════
 	local welcomeFrame = mk("Frame", {
-		Size = UDim2.fromScale(1, 1);
-		BackgroundColor3 = theme.BG; BorderSizePixel = 0;
+		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
+		BackgroundTransparency = 0; BorderSizePixel = 0;
 		ZIndex = 50; Parent = main;
 	})
-	-- Center card
+	tagBg(welcomeFrame, "bg")
+
 	local welcomeCard = mk("Frame", {
-		Size = UDim2.new(0, 420, 0, 400);
+		Size = UDim2.new(0, 440, 0, 420);
 		AnchorPoint = Vector2.new(0.5, 0.5);
 		Position = UDim2.fromScale(0.5, 0.5);
 		BackgroundColor3 = theme.Surface; BorderSizePixel = 0;
 		ZIndex = 51; Parent = welcomeFrame;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 12) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 51 }),
 	})
+	tagBg(welcomeCard, "surface")
 
-	-- Accent glow animation on card border
+	local cardStroke = tagBorder(mk("UIStroke", {
+		Color = theme.Border; Thickness = 1; ZIndex = 51; Parent = welcomeCard;
+	}), "border")
+
+	-- Card accent glow
 	task.spawn(function()
-		local stroke = welcomeCard:FindFirstChildWhichIsA("UIStroke")
-		while stroke and stroke.Parent do
-			tw(stroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine), {Color = theme.Accent})
-			task.wait(1.5)
-			tw(stroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine), {Color = theme.Border})
-			task.wait(1.5)
+		while cardStroke and cardStroke.Parent do
+			tw(cardStroke, 2, { Color = theme.Accent }, Enum.EasingStyle.Sine)
+			task.wait(2)
+			tw(cardStroke, 2, { Color = theme.Border }, Enum.EasingStyle.Sine)
+			task.wait(2)
 		end
 	end)
 
 	-- Logo
-	mk("TextLabel", {
-		Size = UDim2.new(1, 0, 0, 36); Position = UDim2.fromOffset(0, 24);
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 40); Position = UDim2.fromOffset(0, 26);
 		BackgroundTransparency = 1; Text = "⚡ Leon X";
-		Font = Enum.Font.GothamBold; TextSize = 28;
+		Font = Enum.Font.GothamBold; TextSize = 30;
 		TextColor3 = theme.Accent; ZIndex = 52; Parent = welcomeCard;
-	})
-	-- Version badge
-	mk("TextLabel", {
-		Size = UDim2.new(0, 60, 0, 20); Position = UDim2.new(0.5, -30, 0, 62);
-		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.7;
-		Text = "v1.6"; Font = Enum.Font.GothamBold; TextSize = 11;
-		TextColor3 = theme.Text; ZIndex = 52; Parent = welcomeCard;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 10) }) })
+	}), "accent")
 
-	-- Description
-	mk("TextLabel", {
-		Size = UDim2.new(1, -48, 0, 36); Position = UDim2.fromOffset(24, 90);
+	-- Version pill
+	local vPill = mk("Frame", {
+		Size = UDim2.new(0, 56, 0, 22); Position = UDim2.new(0.5, -28, 0, 68);
+		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.8;
+		BorderSizePixel = 0; ZIndex = 52; Parent = welcomeCard;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 11) }) })
+	tagBg(vPill, "accent")
+	tagText(mk("TextLabel", {
+		Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1;
+		Text = "v1.6"; Font = Enum.Font.GothamBold; TextSize = 11;
+		TextColor3 = theme.Text; ZIndex = 53; Parent = vPill;
+	}), "text")
+
+	-- Tagline
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -48, 0, 40); Position = UDim2.fromOffset(24, 98);
 		BackgroundTransparency = 1;
 		Text = "Universal Roblox Enhancement Script\nA powerful, modular framework for any game.";
 		Font = Enum.Font.Gotham; TextSize = 12; TextColor3 = theme.TextSub;
 		TextWrapped = true; ZIndex = 52; Parent = welcomeCard;
-	})
+	}), "textsub")
 
-	-- ── Info table ──
+	-- Info table
 	local infoData = {
 		{"Author",      "leonx24"},
 		{"Platform",    "Roblox (Universal)"},
@@ -363,86 +637,103 @@ function Library:CreateWindow(cfg)
 		{"Mobile",      "Full touch support"},
 		{"Status",      "● Active"},
 	}
-	local tableY = 138
+	local tableY = 148
 	local tableFrame = mk("Frame", {
-		Size = UDim2.new(1, -48, 0, #infoData * 26 + 8);
+		Size = UDim2.new(1, -48, 0, #infoData * 28 + 8);
 		Position = UDim2.fromOffset(24, tableY);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		ZIndex = 52; Parent = welcomeCard;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	tagBg(tableFrame, "elevated")
 
 	for i, row in ipairs(infoData) do
-		local rowBg = (i % 2 == 0) and theme.Elevated or theme.BG
 		local rowFrame = mk("Frame", {
-			Size = UDim2.new(1, -4, 0, 24);
-			Position = UDim2.fromOffset(2, 2 + (i-1) * 26);
-			BackgroundColor3 = rowBg; BackgroundTransparency = 0.5;
+			Size = UDim2.new(1, -4, 0, 26);
+			Position = UDim2.fromOffset(2, 2 + (i-1) * 28);
+			BackgroundColor3 = (i % 2 == 0) and theme.Elevated or theme.BG;
+			BackgroundTransparency = 0.5;
 			BorderSizePixel = 0; ZIndex = 53; Parent = tableFrame;
 		}, { mk("UICorner", { CornerRadius = UDim.new(0, 4) }) })
+		tagBg(rowFrame, (i % 2 == 0) and "elevated" or "bg")
 
-		mk("TextLabel", {
-			Size = UDim2.new(0.4, -8, 1, 0); Position = UDim2.fromOffset(10, 0);
+		tagText(mk("TextLabel", {
+			Size = UDim2.new(0.38, -8, 1, 0); Position = UDim2.fromOffset(12, 0);
 			BackgroundTransparency = 1; Text = row[1];
 			Font = Enum.Font.GothamBold; TextSize = 11;
-			TextColor3 = theme.TextSub;
-			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 54; Parent = rowFrame;
-		})
-		local valColor = theme.Text
-		if row[1] == "Status" then valColor = Color3.fromRGB(80, 220, 120) end
-		mk("TextLabel", {
-			Size = UDim2.new(0.6, -8, 1, 0); Position = UDim2.new(0.4, 0, 0, 0);
+			TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left;
+			ZIndex = 54; Parent = rowFrame;
+		}), "textsub")
+
+		local valColor = (row[1] == "Status") and Color3.fromRGB(80, 220, 120) or theme.Text
+		local valLabel = tagText(mk("TextLabel", {
+			Size = UDim2.new(0.62, -8, 1, 0); Position = UDim2.new(0.38, 0, 0, 0);
 			BackgroundTransparency = 1; Text = row[2];
 			Font = Enum.Font.GothamMedium; TextSize = 12;
-			TextColor3 = valColor;
-			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 54; Parent = rowFrame;
-		})
+			TextColor3 = valColor; TextXAlignment = Enum.TextXAlignment.Left;
+			ZIndex = 54; Parent = rowFrame;
+		}), "text")
+
+		-- Override green for status
+		if row[1] == "Status" then
+			valLabel:SetAttribute("_role", nil) -- don't let theme override this
+		end
 	end
 
-	-- Keybinds hint
-	mk("TextLabel", {
-		Size = UDim2.new(1, -48, 0, 20);
-		Position = UDim2.fromOffset(24, tableY + #infoData * 26 + 20);
+	-- Keybind hints
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -48, 0, 18);
+		Position = UDim2.fromOffset(24, tableY + #infoData * 28 + 18);
 		BackgroundTransparency = 1;
-		Text = "Press  U  to toggle UI  ·  Press  Delete  for panic mode";
-		Font = Enum.Font.Gotham; TextSize = 11;
-		TextColor3 = theme.TextSub; ZIndex = 52; Parent = welcomeCard;
-	})
+		Text = "[ U ] toggle UI    [ Delete ] panic mode";
+		Font = Enum.Font.GothamMedium; TextSize = 11;
+		TextColor3 = theme.TextDim; ZIndex = 52; Parent = welcomeCard;
+	}), "textdim")
 
 	-- Enter button
 	local enterBtn = mk("TextButton", {
-		Size = UDim2.new(1, -48, 0, 42);
-		Position = UDim2.fromOffset(24, tableY + #infoData * 26 + 48);
+		Size = UDim2.new(1, -48, 0, 44);
+		Position = UDim2.fromOffset(24, tableY + #infoData * 28 + 44);
 		BackgroundColor3 = theme.Accent; BorderSizePixel = 0;
-		Text = "Enter Leon X";
+		Text = "Enter Leon X  →";
 		Font = Enum.Font.GothamBold; TextSize = 14;
-		TextColor3 = Color3.fromRGB(10,10,12);
+		TextColor3 = Color3.fromRGB(8, 8, 10);
 		AutoButtonColor = false; ZIndex = 52; Parent = welcomeCard;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	tagBg(enterBtn, "accent")
+
 	enterBtn.MouseEnter:Connect(function()
-		tw(enterBtn, 0.1, { BackgroundColor3 = Color3.fromRGB(
-			math.min(theme.Accent.R * 255 + 20, 255),
-			math.min(theme.Accent.G * 255 + 20, 255),
-			math.min(theme.Accent.B * 255 + 20, 255)
+		tw(enterBtn, 0.12, { BackgroundColor3 = Color3.fromRGB(
+			math.min(theme.Accent.R * 255 + 30, 255),
+			math.min(theme.Accent.G * 255 + 30, 255),
+			math.min(theme.Accent.B * 255 + 30, 255)
 		)})
 	end)
 	enterBtn.MouseLeave:Connect(function()
-		tw(enterBtn, 0.1, { BackgroundColor3 = theme.Accent })
+		tw(enterBtn, 0.12, { BackgroundColor3 = theme.Accent })
 	end)
 
 	function win:DismissWelcome()
-		tw(welcomeFrame, 0.25, { BackgroundTransparency = 1 })
-		task.wait(0.25)
+		tw(welcomeFrame, 0.3, { BackgroundTransparency = 1 })
+		for _, child in ipairs(welcomeCard:GetDescendants()) do
+			if child:IsA("TextLabel") or child:IsA("TextButton") then
+				pcall(function() tw(child, 0.25, { TextTransparency = 1 }) end)
+			elseif child:IsA("Frame") and child ~= welcomeCard then
+				pcall(function() tw(child, 0.25, { BackgroundTransparency = 1 }) end)
+			end
+		end
+		tw(welcomeCard, 0.3, { BackgroundTransparency = 1 })
+		task.wait(0.35)
 		welcomeFrame.Visible = false
 	end
 
-	enterBtn.MouseButton1Click:Connect(function()
-		win:DismissWelcome()
-	end)
+	enterBtn.MouseButton1Click:Connect(function() win:DismissWelcome() end)
 
-	-- ── TAB ────────────────────────────────────────────────────────────────
+	-- ══════════════════════════════════════════════════════════════
+	-- TABS
+	-- ══════════════════════════════════════════════════════════════
 	local tabList = mk("Frame", {
-		Size = UDim2.new(1, 0, 1, -48); Position = UDim2.fromOffset(0, 48);
-		BackgroundTransparency = 1; ZIndex = 3; Parent = sidebar;
+		Size = UDim2.new(1, 0, 1, -52); Position = UDim2.fromOffset(0, 52);
+		BackgroundTransparency = 1; ZIndex = 6; Parent = sidebarBg;
 	})
 
 	function win:Tab(cfg)
@@ -457,16 +748,20 @@ function Library:CreateWindow(cfg)
 			BackgroundTransparency = 1; Text = tabName;
 			Font = Enum.Font.GothamBold; TextSize = 13;
 			TextColor3 = win._theme.TextSub; AutoButtonColor = false;
-			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 4; Parent = tabList;
+			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 7; Parent = tabList;
 		}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+		tagText(btn, "textsub")
+
 		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0, 14)
+		pad.PaddingLeft = UDim.new(0, 16)
 		pad.Parent = btn
-		local indicator = mk("Frame", {
+
+		local indicator = tagBg(mk("Frame", {
 			Size = UDim2.new(0, 3, 0, 22); Position = UDim2.new(0, 2, 0.5, -11);
 			BackgroundColor3 = win._theme.Accent; BorderSizePixel = 0;
-			Visible = false; ZIndex = 5; Parent = btn;
-		}, { mk("UICorner", { CornerRadius = UDim.new(0, 2) }) })
+			Visible = false; ZIndex = 8; Parent = btn;
+		}), "accent")
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
 
 		local isActive = false
 		local function setActive(active)
@@ -527,7 +822,7 @@ function Library:CreateWindow(cfg)
 		return tab
 	end
 
-	win._sg = sg; win._main = main; win._header = header
+	win._sg = sg; win._main = main; win._header = headerBg
 	win._floatGui = floatGui; win._floatBtn = floatBtn
 	win._welcomeFrame = welcomeFrame
 	return win
@@ -556,27 +851,30 @@ function Section(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
 	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 32); BackgroundTransparency = 1;
+		Size = UDim2.new(1, 0, 0, 34); BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
 	if tab._layoutOrder > 1 then
-		mk("Frame", {
+		tagBg(mk("Frame", {
 			Size = UDim2.new(1, 0, 0, 1); BackgroundColor3 = theme.BorderSub;
 			BorderSizePixel = 0; Position = UDim2.fromOffset(0, 0); Parent = f;
-		})
+		}), "bordersub")
 	end
-	mk("Frame", {
-		Size = UDim2.new(0, 4, 0, 16); Position = UDim2.fromOffset(0, 10);
+	-- Accent dot + bar
+	tagBg(mk("Frame", {
+		Size = UDim2.new(0, 4, 0, 18); Position = UDim2.fromOffset(0, 10);
 		BackgroundColor3 = theme.Accent; BorderSizePixel = 0; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 2) }) })
-	mk("TextLabel", {
-		Size = UDim2.new(1, -14, 0, 18); Position = UDim2.fromOffset(12, 9);
+	}), "accent")
+	mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = f:GetChildren()[#f:GetChildren()] })
+
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -16, 0, 18); Position = UDim2.fromOffset(12, 10);
 		BackgroundTransparency = 1;
 		Text = label:upper();
 		Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-	})
+	}), "textsub")
 	return { Frame = f }
 end
 
@@ -585,30 +883,32 @@ function Paragraph(tab, data)
 	local theme = th(tab)
 	local label = getLabel(data)
 	local hasTitle = data.Title and data.Title ~= ""
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, hasTitle and 46 or 34); BackgroundColor3 = theme.Surface;
-		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, hasTitle and 48 or 36);
+		BackgroundColor3 = theme.Surface; BorderSizePixel = 0;
+		LayoutOrder = nextOrder(tab); Parent = tab._page;
+	}), "surface")
+	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+
 	local innerPad = Instance.new("UIPadding")
 	innerPad.PaddingLeft = UDim.new(0, 14); innerPad.PaddingRight = UDim.new(0, 14)
-	innerPad.PaddingTop = UDim.new(0, 8); innerPad.PaddingBottom = UDim.new(0, 8)
+	innerPad.PaddingTop = UDim.new(0, 10); innerPad.PaddingBottom = UDim.new(0, 10)
 	innerPad.Parent = f
+
 	if hasTitle then
-		mk("TextLabel", {
-			Size = UDim2.new(1, 0, 0, 14);
-			BackgroundTransparency = 1;
+		tagText(mk("TextLabel", {
+			Size = UDim2.new(1, 0, 0, 14); BackgroundTransparency = 1;
 			Text = label; Font = Enum.Font.GothamBold; TextSize = 11;
 			TextColor3 = theme.TextSub;
 			TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-		})
+		}), "textsub")
 	end
-	local cl = mk("TextLabel", {
+	local cl = tagText(mk("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 18); Position = UDim2.fromOffset(0, hasTitle and 18 or 0);
 		BackgroundTransparency = 1; Text = data.Content or "";
-		Font = Enum.Font.Gotham; TextSize = 13;
-		TextColor3 = theme.Text;
+		Font = Enum.Font.Gotham; TextSize = 13; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; TextWrapped = true; Parent = f;
-	})
+	}), "text")
 	local api = { Frame = f; Name = data.Title or "Paragraph" }
 	function api:Set(t) cl.Text = t end
 	function api:Get() return cl.Text end
@@ -620,33 +920,40 @@ function Toggle(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
 	local val = data.Value ~= nil and data.Value or (data.Default ~= nil and data.Default or false)
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 42); BackgroundColor3 = theme.Surface;
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 44); BackgroundColor3 = theme.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
-	mk("TextLabel", {
-		Size = UDim2.new(1, -62, 1, 0); Position = UDim2.fromOffset(14, 0);
+	}), "surface")
+	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -64, 1, 0); Position = UDim2.fromOffset(14, 0);
 		BackgroundTransparency = 1;
 		Text = label; Font = Enum.Font.GothamMedium; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-	})
-	local track = mk("Frame", {
-		Size = UDim2.fromOffset(42, 22); Position = UDim2.new(1, -52, 0.5, -11);
+	}), "text")
+
+	local track = tagBg(mk("Frame", {
+		Size = UDim2.fromOffset(44, 24); Position = UDim2.new(1, -54, 0.5, -12);
 		BackgroundColor3 = val and theme.Accent or theme.Border; BorderSizePixel = 0; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 11) }) })
+	}), val and "accent" or "border")
+	mk("UICorner", { CornerRadius = UDim.new(0, 12); Parent = track })
+
 	local knob = mk("Frame", {
-		Size = UDim2.fromOffset(16, 16);
-		Position = val and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8);
+		Size = UDim2.fromOffset(18, 18);
+		Position = val and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9);
 		BackgroundColor3 = Color3.fromRGB(255,255,255); BorderSizePixel = 0; Parent = track;
-	}, { mk("UICorner", { CornerRadius = UDim.new(1, 0) }) })
+	})
+	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = knob })
 
 	local api = { Value = val; Frame = f; Name = data.Title or data.Name or "Toggle"; Callback = data.Callback }
 	function api:Set(v)
 		v = not not v
 		if self.Value == v then return end
 		self.Value = v
-		tw(track, 0.18, { BackgroundColor3 = v and theme.Accent or theme.Border })
-		tw(knob, 0.18, { Position = v and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) })
+		tw(track, 0.2, { BackgroundColor3 = v and theme.Accent or theme.Border })
+		track:SetAttribute("_role", v and "accent" or "border")
+		tw(knob, 0.2, { Position = v and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9) })
 		if self.Callback then pcall(self.Callback, v) end
 	end
 	function api:Get() return self.Value end
@@ -666,43 +973,53 @@ function Slider(tab, data)
 	local step = data.Step or 1
 	local cur = df
 
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 56); BackgroundColor3 = theme.Surface;
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 58); BackgroundColor3 = theme.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
-	mk("TextLabel", {
-		Size = UDim2.new(1, -72, 0, 16); Position = UDim2.fromOffset(14, 10);
+	}), "surface")
+	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -74, 0, 16); Position = UDim2.fromOffset(14, 10);
 		BackgroundTransparency = 1;
 		Text = getLabel(data); Font = Enum.Font.GothamMedium; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-	})
-	local valLbl = mk("TextLabel", {
-		Size = UDim2.new(0, 50, 0, 16); Position = UDim2.new(1, -62, 0, 10);
+	}), "text")
+
+	local valLbl = tagText(mk("TextLabel", {
+		Size = UDim2.new(0, 52, 0, 16); Position = UDim2.new(1, -64, 0, 10);
 		BackgroundTransparency = 1; Text = tostring(df);
 		Font = Enum.Font.GothamBold; TextSize = 12; TextColor3 = theme.Accent;
 		TextXAlignment = Enum.TextXAlignment.Right; Parent = f;
-	})
-	local trk = mk("Frame", {
-		Size = UDim2.new(1, -28, 0, 6); Position = UDim2.new(0, 14, 0, 36);
+	}), "accent")
+
+	local trk = tagBg(mk("Frame", {
+		Size = UDim2.new(1, -28, 0, 6); Position = UDim2.new(0, 14, 0, 38);
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 3) }) })
-	local fill = mk("Frame", {
+	}), "border")
+	mk("UICorner", { CornerRadius = UDim.new(0, 3); Parent = trk })
+
+	local fill = tagBg(mk("Frame", {
 		Size = UDim2.new((df - mn) / math.max(mx - mn, 1), 0, 1, 0);
 		BackgroundColor3 = theme.Accent; BorderSizePixel = 0; Parent = trk;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 3) }) })
+	}), "accent")
+	mk("UICorner", { CornerRadius = UDim.new(0, 3); Parent = fill })
+
 	local knob = mk("Frame", {
-		Size = UDim2.fromOffset(16, 16);
-		Position = UDim2.new((df - mn) / math.max(mx - mn, 1), -8, 0.5, -8);
+		Size = UDim2.fromOffset(18, 18);
+		Position = UDim2.new((df - mn) / math.max(mx - mn, 1), -9, 0.5, -9);
 		BackgroundColor3 = Color3.fromRGB(255,255,255); BorderSizePixel = 0; Parent = trk;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(1, 0) }),
-		mk("UIStroke", { Color = theme.AccentDim; Thickness = 2 }),
 	})
+	local knobStroke = tagBorder(mk("UIStroke", {
+		Color = theme.AccentDim; Thickness = 2; Parent = knob;
+	}), "accentdim")
 
 	local function upd(v)
 		local pct = math.clamp((v - mn) / math.max(mx - mn, 1), 0, 1)
 		fill.Size = UDim2.new(pct, 0, 1, 0)
-		knob.Position = UDim2.new(pct, -8, 0.5, -8)
+		knob.Position = UDim2.new(pct, -9, 0.5, -9)
 		valLbl.Text = tostring(math.floor(v + 0.5))
 	end
 
@@ -737,7 +1054,7 @@ function Slider(tab, data)
 	return api
 end
 
--- ── Dropdown (with search, expanded frame to avoid ClipsDescendants) ────────
+-- ── Dropdown (frame expands, search, no clipping issues) ──────────────────
 function Dropdown(tab, data)
 	local theme = th(tab)
 	local vals = data.Values or {}
@@ -745,84 +1062,94 @@ function Dropdown(tab, data)
 	if type(cur) == "number" and vals[cur] then cur = vals[cur] end
 	local open = false
 	local searchTerm = ""
-	local CLOSED_H = 58
-	local ITEM_H = 30
-	local SEARCH_H = 34
+	local CLOSED_H = 60
+	local ITEM_H = 32
+	local SEARCH_H = 36
 	local MAX_VISIBLE = 6
 
-	local function calcOpenH()
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, CLOSED_H); BackgroundColor3 = theme.Surface;
+		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
+	}), "surface")
+	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+
+	-- Label
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -28, 0, 14); Position = UDim2.fromOffset(14, 6);
+		BackgroundTransparency = 1;
+		Text = getLabel(data); Font = Enum.Font.GothamBold; TextSize = 11;
+		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
+	}), "textsub")
+
+	-- Selection box
+	local box = mk("TextButton", {
+		Size = UDim2.new(1, -28, 0, 32); Position = UDim2.fromOffset(14, 22);
+		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
+		Text = ""; AutoButtonColor = false; ZIndex = 2; Parent = f;
+	}, {
+		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
+	})
+	tagBg(box, "elevated")
+	local boxStroke = tagBorder(mk("UIStroke", {
+		Color = theme.Border; Thickness = 1; Parent = box;
+	}), "border")
+
+	local valTxt = tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -36, 1, 0); Position = UDim2.fromOffset(12, 0);
+		BackgroundTransparency = 1; Text = tostring(cur);
+		Font = Enum.Font.GothamMedium; TextSize = 12; TextColor3 = theme.Text;
+		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 3; Parent = box;
+	}), "text")
+
+	-- Arrow icon (chevron down)
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(0, 32, 1, 0); Position = UDim2.new(1, -32, 0, 0);
+		BackgroundTransparency = 1; Text = "▼";
+		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.Accent;
+		TextXAlignment = Enum.TextXAlignment.Center;
+		TextYAlignment = Enum.TextYAlignment.Center;
+		ZIndex = 3; Parent = box;
+	}), "accent")
+
+	-- Search input
+	local searchBox = mk("TextBox", {
+		Size = UDim2.new(1, -28, 0, 28); Position = UDim2.fromOffset(14, 58);
+		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
+		PlaceholderText = "Search..."; PlaceholderColor3 = theme.TextDim;
+		Text = ""; Font = Enum.Font.GothamMedium; TextSize = 12;
+		TextColor3 = theme.Text; ClearTextOnFocus = true;
+		TextXAlignment = Enum.TextXAlignment.Left;
+		Visible = false; ZIndex = 3; Parent = f;
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 5) }) })
+	tagBg(searchBox, "elevated")
+	tagText(searchBox, "text")
+	local searchStroke = tagBorder(mk("UIStroke", {
+		Color = theme.BorderSub; Thickness = 1; Parent = searchBox;
+	}), "bordersub")
+	local searchPad = Instance.new("UIPadding")
+	searchPad.PaddingLeft = UDim.new(0, 10)
+	searchPad.Parent = searchBox
+
+	-- Scroll
+	local scroll = mk("ScrollingFrame", {
+		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, 90);
+		BackgroundTransparency = 1; BorderSizePixel = 0;
+		ScrollBarThickness = 3; ScrollBarImageColor3 = theme.AccentDim;
+		Visible = false; ZIndex = 3; Parent = f;
+	})
+	mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 2); Parent = scroll })
+
+	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Dropdown"; Callback = data.Callback }
+
+	local function countFiltered()
 		local count = 0
 		for _, v in ipairs(vals) do
 			if searchTerm == "" or tostring(v):lower():find(searchTerm, 1, true) then
 				count = count + 1
 			end
 		end
-		return CLOSED_H + math.min(count, MAX_VISIBLE) * ITEM_H + SEARCH_H + 8
+		return count
 	end
-
-	-- Frame expands when open (avoids ClipsDescendants clipping)
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, CLOSED_H); BackgroundColor3 = theme.Surface;
-		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
-
-	-- Label
-	mk("TextLabel", {
-		Size = UDim2.new(1, -28, 0, 14); Position = UDim2.fromOffset(14, 6);
-		BackgroundTransparency = 1;
-		Text = getLabel(data); Font = Enum.Font.GothamBold; TextSize = 11;
-		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-	})
-
-	-- Selection box
-	local box = mk("TextButton", {
-		Size = UDim2.new(1, -28, 0, 30); Position = UDim2.fromOffset(14, 22);
-		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Text = ""; AutoButtonColor = false; Parent = f;
-	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
-	})
-	local valTxt = mk("TextLabel", {
-		Size = UDim2.new(1, -32, 1, 0); Position = UDim2.fromOffset(10, 0);
-		BackgroundTransparency = 1; Text = tostring(cur);
-		Font = Enum.Font.GothamMedium; TextSize = 12; TextColor3 = theme.Text;
-		TextXAlignment = Enum.TextXAlignment.Left; Parent = box;
-	})
-	mk("TextLabel", {
-		Size = UDim2.new(0, 24, 1, 0); Position = UDim2.new(1, -26, 0, 0);
-		BackgroundTransparency = 1; Text = "▾";
-		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.TextSub; Parent = box;
-	})
-
-	-- Search input (visible when open)
-	local searchBox = mk("TextBox", {
-		Size = UDim2.new(1, -28, 0, 28); Position = UDim2.fromOffset(14, 56);
-		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		PlaceholderText = "🔍  Search..."; PlaceholderColor3 = theme.TextSub;
-		Text = ""; Font = Enum.Font.GothamMedium; TextSize = 12;
-		TextColor3 = theme.Text; ClearTextOnFocus = true;
-		TextXAlignment = Enum.TextXAlignment.Left;
-		Visible = false; ZIndex = 2; Parent = f;
-	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 5) }),
-		mk("UIStroke", { Color = theme.BorderSub; Thickness = 1 }),
-	})
-	local searchPad = Instance.new("UIPadding")
-	searchPad.PaddingLeft = UDim.new(0, 10)
-	searchPad.Parent = searchBox
-
-	-- Scroll area for items (visible when open)
-	local scroll = mk("ScrollingFrame", {
-		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, 88);
-		BackgroundTransparency = 1;
-		BorderSizePixel = 0; ScrollBarThickness = 3;
-		ScrollBarImageColor3 = theme.AccentDim;
-		Visible = false; ZIndex = 2; Parent = f;
-	})
-	local scrollLayout = mk("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 2); Parent = scroll })
-
-	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Dropdown"; Callback = data.Callback }
 
 	local function rebuildItems()
 		for _, c in ipairs(scroll:GetChildren()) do
@@ -842,7 +1169,7 @@ function Dropdown(tab, data)
 				Text = tostring(v); Font = Enum.Font.GothamMedium; TextSize = 12;
 				TextColor3 = tostring(v) == tostring(cur) and theme.Accent or theme.Text;
 				TextXAlignment = Enum.TextXAlignment.Left; AutoButtonColor = false;
-				ZIndex = 3; Parent = scroll;
+				ZIndex = 4; Parent = scroll;
 			}, { mk("UICorner", { CornerRadius = UDim.new(0, 5) }) })
 			local itemPad = Instance.new("UIPadding")
 			itemPad.PaddingLeft = UDim.new(0, 12)
@@ -855,18 +1182,17 @@ function Dropdown(tab, data)
 			item.MouseButton1Click:Connect(function()
 				cur = v; valTxt.Text = tostring(v); api.Value = v
 				searchTerm = ""; searchBox.Text = ""
-				open = false
-				searchBox.Visible = false; scroll.Visible = false
+				open = false; searchBox.Visible = false; scroll.Visible = false
 				tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H) })
 				if data.Callback then pcall(data.Callback, v) end
 			end)
 		end
 		scroll.CanvasSize = UDim2.fromOffset(0, #filtered * (ITEM_H + 2))
-		-- Adjust frame height
 		if open then
-			local h = CLOSED_H + math.min(#filtered, MAX_VISIBLE) * (ITEM_H + 2) + SEARCH_H + 4
+			local visCount = math.min(#filtered, MAX_VISIBLE)
+			local h = CLOSED_H + visCount * (ITEM_H + 2) + SEARCH_H + 6
+			scroll.Size = UDim2.new(1, -28, 0, visCount * (ITEM_H + 2))
 			tw(f, 0.1, { Size = UDim2.new(1, 0, 0, h) })
-			scroll.Size = UDim2.new(1, -28, 0, math.min(#filtered, MAX_VISIBLE) * (ITEM_H + 2))
 		end
 	end
 
@@ -874,23 +1200,20 @@ function Dropdown(tab, data)
 		searchTerm = searchBox.Text:lower()
 		rebuildItems()
 	end)
-
 	rebuildItems()
 
 	box.MouseButton1Click:Connect(function()
 		if open then
-			open = false
-			searchBox.Visible = false; scroll.Visible = false
+			open = false; searchBox.Visible = false; scroll.Visible = false
 			searchTerm = ""; searchBox.Text = ""
 			tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H) })
 		else
-			open = true
-			searchBox.Visible = true; scroll.Visible = true
-			searchBox.Text = ""
-			rebuildItems()
-			local h = calcOpenH()
+			open = true; searchBox.Visible = true; scroll.Visible = true
+			searchBox.Text = ""; rebuildItems()
+			local visCount = math.min(countFiltered(), MAX_VISIBLE)
+			local h = CLOSED_H + visCount * (ITEM_H + 2) + SEARCH_H + 6
+			scroll.Size = UDim2.new(1, -28, 0, visCount * (ITEM_H + 2))
 			tw(f, 0.15, { Size = UDim2.new(1, 0, 0, h) })
-			scroll.Size = UDim2.new(1, -28, 0, math.min(#vals, MAX_VISIBLE) * (ITEM_H + 2))
 			task.wait(0.05)
 			pcall(function() searchBox:CaptureFocus() end)
 		end
@@ -899,7 +1222,6 @@ function Dropdown(tab, data)
 	function api:Refresh(v)
 		vals = v or {}; searchTerm = ""; searchBox.Text = ""
 		rebuildItems()
-		-- Auto-select first item if current not in list
 		local found = false
 		for _, item in ipairs(vals) do
 			if tostring(item) == tostring(cur) then found = true; break end
@@ -908,9 +1230,7 @@ function Dropdown(tab, data)
 			cur = vals[1]; valTxt.Text = tostring(vals[1]); api.Value = vals[1]
 		end
 	end
-	function api:Select(v)
-		cur = v; valTxt.Text = tostring(v); api.Value = v
-	end
+	function api:Select(v) cur = v; valTxt.Text = tostring(v); api.Value = v end
 	function api:Set(v) self:Select(v); if self.Callback then pcall(self.Callback, v) end end
 	function api:Get() return self.Value end
 	reg(data, api)
@@ -921,20 +1241,30 @@ end
 function Button(tab, data)
 	local theme = th(tab)
 	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 38); BackgroundTransparency = 1;
+		Size = UDim2.new(1, 0, 0, 40); BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
-	local btn = mk("TextButton", {
+	local btn = tagBg(mk("TextButton", {
 		Size = UDim2.new(1, 0, 1, 0); BackgroundColor3 = theme.Surface;
 		BorderSizePixel = 0; Text = getLabel(data);
 		Font = Enum.Font.GothamMedium; TextSize = 13; TextColor3 = theme.Text;
 		AutoButtonColor = false; Parent = f;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 8) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
-	})
-	btn.MouseEnter:Connect(function() tw(btn, 0.12, { BackgroundColor3 = theme.Elevated }); btn.UIStroke.Color = theme.AccentDim end)
-	btn.MouseLeave:Connect(function() tw(btn, 0.12, { BackgroundColor3 = theme.Surface }); btn.UIStroke.Color = theme.Border end)
+	}), "surface")
+	tagText(btn, "text")
+	local btnStroke = tagBorder(mk("UIStroke", {
+		Color = theme.Border; Thickness = 1; Parent = btn;
+	}), "border")
+
+	btn.MouseEnter:Connect(function()
+		tw(btn, 0.12, { BackgroundColor3 = theme.Elevated })
+		btnStroke.Color = theme.AccentDim
+	end)
+	btn.MouseLeave:Connect(function()
+		tw(btn, 0.12, { BackgroundColor3 = theme.Surface })
+		btnStroke.Color = theme.Border
+	end)
 	btn.MouseButton1Down:Connect(function() tw(btn, 0.06, { TextColor3 = theme.Accent }) end)
 	btn.MouseButton1Up:Connect(function() tw(btn, 0.06, { TextColor3 = theme.Text }) end)
 	btn.MouseButton1Click:Connect(function() if data.Callback then pcall(data.Callback) end end)
@@ -946,41 +1276,45 @@ function Keybind(tab, data)
 	local theme = th(tab)
 	local cur = data.Value or data.Default or "None"
 	local capturing = false
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 42); BackgroundColor3 = theme.Surface;
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 44); BackgroundColor3 = theme.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
-	mk("TextLabel", {
-		Size = UDim2.new(1, -104, 1, 0); Position = UDim2.fromOffset(14, 0);
+	}), "surface")
+	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+
+	tagText(mk("TextLabel", {
+		Size = UDim2.new(1, -106, 1, 0); Position = UDim2.fromOffset(14, 0);
 		BackgroundTransparency = 1;
 		Text = getLabel(data); Font = Enum.Font.GothamMedium; TextSize = 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-	})
-	local kbtn = mk("TextButton", {
-		Size = UDim2.fromOffset(84, 28); Position = UDim2.new(1, -96, 0.5, -14);
+	}), "text")
+
+	local kbtn = tagBg(mk("TextButton", {
+		Size = UDim2.fromOffset(86, 28); Position = UDim2.new(1, -98, 0.5, -14);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		Text = tostring(cur); Font = Enum.Font.GothamBold; TextSize = 12;
 		TextColor3 = theme.Accent; AutoButtonColor = false; Parent = f;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1 }),
-	})
+	}), "elevated")
+	tagText(kbtn, "accent")
+	local kbStroke = tagBorder(mk("UIStroke", {
+		Color = theme.Border; Thickness = 1; Parent = kbtn;
+	}), "border")
+
 	kbtn.MouseButton1Click:Connect(function()
 		if capturing then return end
-		capturing = true; kbtn.Text = "..."; kbtn.TextColor3 = theme.Accent
-		kbtn.UIStroke.Color = theme.AccentDim
+		capturing = true; kbtn.Text = "..."; kbStroke.Color = theme.AccentDim
 	end)
 	UIS.InputBegan:Connect(function(i, gp)
 		if not capturing then return end
 		if gp then return end
 		if i.UserInputType == Enum.UserInputType.Keyboard then
 			if i.KeyCode == Enum.KeyCode.Escape then
-				capturing = false; kbtn.Text = tostring(cur); kbtn.TextColor3 = theme.Accent
-				kbtn.UIStroke.Color = theme.Border
+				capturing = false; kbtn.Text = tostring(cur); kbStroke.Color = theme.Border
 			else
 				cur = i.KeyCode.Name; capturing = false
-				kbtn.Text = cur; kbtn.TextColor3 = theme.Accent
-				kbtn.UIStroke.Color = theme.Border
+				kbtn.Text = cur; kbStroke.Color = theme.Border
 				if data.Callback then pcall(data.Callback, cur) end
 			end
 		end
@@ -995,33 +1329,38 @@ end
 -- ── Input ──────────────────────────────────────────────────────────────────
 function Input(tab, data)
 	local theme = th(tab)
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 58); BackgroundColor3 = theme.Surface;
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 60); BackgroundColor3 = theme.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
-	mk("TextLabel", {
+	}), "surface")
+	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+
+	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -28, 0, 14); Position = UDim2.fromOffset(14, 6);
 		BackgroundTransparency = 1;
 		Text = getLabel(data); Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
-	})
-	local stroke = mk("UIStroke", { Color = theme.Border; Thickness = 1 })
-	local tb = mk("TextBox", {
+	}), "textsub")
+
+	local stroke = tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1 }), "border")
+	local tb = tagBg(mk("TextBox", {
 		Size = UDim2.new(1, -28, 0, 30); Position = UDim2.fromOffset(14, 22);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		PlaceholderText = data.Placeholder or "";
 		Text = data.Value or ""; Font = Enum.Font.GothamMedium; TextSize = 13;
-		TextColor3 = theme.Text; PlaceholderColor3 = theme.TextSub;
+		TextColor3 = theme.Text; PlaceholderColor3 = theme.TextDim;
 		TextXAlignment = Enum.TextXAlignment.Left; ClearTextOnFocus = false;
 		Parent = f;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
 		stroke,
-	})
+	}), "elevated")
+	tagText(tb, "text")
+
 	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 10); pad.Parent = tb
 	tb.FocusLost:Connect(function() if data.Callback then pcall(data.Callback, tb.Text) end end)
-	tb.Focused:Connect(function() tw(stroke, 0.15, { Color = theme.AccentDim }) end)
-	tb.FocusLost:Connect(function() tw(stroke, 0.15, { Color = theme.Border }) end)
+	tb.Focused:Connect(function() stroke.Color = theme.AccentDim end)
+	tb.FocusLost:Connect(function() stroke.Color = theme.Border end)
 
 	local api = { Value = data.Value or ""; Frame = f; Name = data.Title or data.Name or "Input"; Callback = data.Callback }
 	function api:Set(v) self.Value = tostring(v or ""); tb.Text = self.Value end
@@ -1048,12 +1387,14 @@ function Library:Notify(cfg)
 		ClipsDescendants = true; ZIndex = 100; Parent = notifGui;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 8) }),
-		mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 100 }),
 	})
+	-- Accent bar
 	mk("Frame", {
 		Size = UDim2.new(0, 3, 1, 0); BackgroundColor3 = theme.Accent;
 		BorderSizePixel = 0; ZIndex = 101; Parent = n;
 	})
+	mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 100; Parent = n })
+
 	if title ~= "" then
 		mk("TextLabel", {
 			Size = UDim2.new(1, -16, 0, 20); Position = UDim2.fromOffset(14, 8);
@@ -1078,8 +1419,8 @@ function Library:Notify(cfg)
 	tw(n, 0.2, { Position = UDim2.new(1, -296, 0, 16 + (#activeNotifs - 1) * 72) })
 
 	task.delay(dur, function()
-		tw(n, 0.15, { Position = UDim2.new(1, 300, 0, n.Position.Y.Offset), BackgroundTransparency = 1 })
-		task.wait(0.2)
+		tw(n, 0.2, { Position = UDim2.new(1, 300, 0, n.Position.Y.Offset), BackgroundTransparency = 1 })
+		task.wait(0.25)
 		for i, v in ipairs(activeNotifs) do
 			if v == n then table.remove(activeNotifs, i) break end
 		end
