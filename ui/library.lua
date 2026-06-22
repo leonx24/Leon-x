@@ -198,7 +198,9 @@ function Library:CreateWindow(cfg)
 		Size = size;
 		Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2);
 		BackgroundTransparency = 1;
-		BorderSizePixel = 0; ClipsDescendants = true; Parent = sg;
+		BorderSizePixel = 0; ClipsDescendants = true;
+		Active = true;
+		Parent = sg;
 	})
 
 	-- ── Background layer (solid bg, tagged for theme) ──
@@ -221,15 +223,6 @@ function Library:CreateWindow(cfg)
 	}), "glow")
 	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = glowFrame })
 
-	-- Ambient pulse animation
-	task.spawn(function()
-		while glowFrame and glowFrame.Parent do
-			tw(glowFrame, 3, { BackgroundTransparency = 0.95 }, Enum.EasingStyle.Sine)
-			task.wait(3)
-			tw(glowFrame, 3, { BackgroundTransparency = 0.98 }, Enum.EasingStyle.Sine)
-			task.wait(3)
-		end
-	end)
 
 	-- ── Noir vignette (subtle darkening at edges) ──
 	-- Top vignette
@@ -295,23 +288,6 @@ function Library:CreateWindow(cfg)
 		Parent = sidebarBg;
 	})
 
-	-- Accent glow line on right edge of sidebar
-	local sidebarGlow = tagBg(mk("Frame", {
-		Size = UDim2.new(0, 2, 1, 0); Position = UDim2.new(1, -2, 0, 0);
-		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.6;
-		BorderSizePixel = 0; ZIndex = 7; Parent = sidebarBg;
-	}), "accent")
-
-	-- Animated glow pulse on sidebar edge
-	task.spawn(function()
-		while sidebarGlow and sidebarGlow.Parent do
-			tw(sidebarGlow, 2.5, { BackgroundTransparency = 0.3 }, Enum.EasingStyle.Sine)
-			task.wait(2.5)
-			tw(sidebarGlow, 2.5, { BackgroundTransparency = 0.7 }, Enum.EasingStyle.Sine)
-			task.wait(2.5)
-		end
-	end)
-
 	-- Sidebar border line (subtle)
 	tagBg(mk("Frame", {
 		Size = UDim2.new(0, 1, 1, 0); Position = UDim2.new(1, 0, 0, 0);
@@ -319,23 +295,13 @@ function Library:CreateWindow(cfg)
 	}), "border")
 
 	-- ── Logo area ──
-	-- Logo accent dot (pulsing circle before text)
+	-- Logo accent dot (static circle before text)
 	local logoDot = tagBg(mk("Frame", {
 		Size = UDim2.fromOffset(8, 8); Position = UDim2.fromOffset(16, 22);
 		BackgroundColor3 = theme.Accent; BorderSizePixel = 0;
 		ZIndex = 7; Parent = sidebarBg;
 	}), "accent")
 	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = logoDot })
-
-	-- Dot pulse
-	task.spawn(function()
-		while logoDot and logoDot.Parent do
-			tw(logoDot, 1, { Size = UDim2.fromOffset(10, 10) }, Enum.EasingStyle.Back)
-			task.wait(1)
-			tw(logoDot, 1, { Size = UDim2.fromOffset(8, 8) }, Enum.EasingStyle.Quint)
-			task.wait(1)
-		end
-	end)
 
 	-- Logo text
 	local logo = tagText(mk("TextLabel", {
@@ -714,7 +680,7 @@ function Library:CreateWindow(cfg)
 	local welcomeFrame = mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
 		BackgroundTransparency = 0; BorderSizePixel = 0;
-		ZIndex = 50; Parent = main;
+		ZIndex = 50; Active = false; Parent = main;
 	})
 	tagBg(welcomeFrame, "bg")
 
@@ -919,12 +885,13 @@ function Library:CreateWindow(cfg)
 		pad.PaddingLeft = UDim.new(0, 18)
 		pad.Parent = btn
 
-		-- Accent indicator bar (left side)
+		-- Accent indicator bar (left side, bolder)
 		local indicator = tagBg(mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 24); Position = UDim2.new(0, 2, 0.5, -12);
+			Size = UDim2.new(0, 4, 0, 32); Position = UDim2.new(0, 0, 0.5, -16);
 			BackgroundColor3 = win._theme.Accent; BorderSizePixel = 0;
 			Visible = false; ZIndex = 8; Parent = btn;
 		}), "accent")
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
 		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = indicator })
 
 		-- Feature count badge (right side, shows how many items in this tab)
