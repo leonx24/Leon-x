@@ -453,6 +453,7 @@ else
     local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
     local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
     local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
+    local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
 if AntiAFK then AntiAFK:Enable() end
 if PerfStats then PerfStats:Enable() end
 
@@ -489,11 +490,15 @@ MovTab:Section({ Title = "Flight" })
 -- Creating UI components
 
 -- Fly toggle
-local _flyData = { Title = "Fly", Value = false, Tooltip = "Free flight with adjustable speed", Callback = function(v)
-    if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
-    N("Fly", v and "Enabled" or "Disabled")
-end }
-local _flyData = { Title = "Fly", Value = false, Tooltip = "Free flight mode", Callback = function(v)
+local flyToggle = MovTab:Toggle({
+    Title    = "Fly",
+    Value    = false,
+    Tooltip  = "Free flight with adjustable speed",
+    Callback = function(v)
+        if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
+        N("Fly", v and "Enabled" or "Disabled")
+    end
+})
 ConfigMgr:Register("Fly", flyToggle)
 local flySpeedSlider = MovTab:Slider({
     Title    = "Fly Speed",
