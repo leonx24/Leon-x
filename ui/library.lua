@@ -778,7 +778,7 @@ function Library:CreateWindow(cfg)
 	tagBg(vPill, "accent")
 	tagText(mk("TextLabel", {
 		Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1;
-		Text = "v1.6"; Font = Enum.Font.GothamBold; TextSize = 11;
+		Text = "v2.0"; Font = Enum.Font.GothamBold; TextSize = 11;
 		TextColor3 = theme.Text; ZIndex = 53; Parent = vPill;
 	}), "text")
 
