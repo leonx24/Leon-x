@@ -729,6 +729,9 @@ function Library:CreateWindow(cfg)
 	-- ══════════════════════════════════════════════════════════════
 	-- WELCOME SCREEN
 	-- ══════════════════════════════════════════════════════════════
+	local gameName = cfg.GameName or nil
+	local isGameMode = cfg.GameMode or false
+
 	local welcomeFrame = mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
 		BackgroundTransparency = 0; BorderSizePixel = 0;
@@ -783,20 +786,23 @@ function Library:CreateWindow(cfg)
 	}), "text")
 
 	-- Tagline
+	local taglineText = isGameMode and ("Welcome to " .. gameName .. "\nSpecialized features for this game.") or "Welcome to Leon X\nA powerful, modular framework for any game."
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -48, 0, 40); Position = UDim2.fromOffset(24, 98);
 		BackgroundTransparency = 1;
-		Text = "Welcome to " .. game.Name .. "\nA powerful, modular framework for any game.";
+		Text = taglineText;
 		Font = Enum.Font.Gotham; TextSize = 12; TextColor3 = theme.TextSub;
 		TextWrapped = true; ZIndex = 52; Parent = welcomeCard;
 	}), "textsub")
 
 	-- Info table
+	local platformText = isGameMode and ("Game Mode: " .. gameName) or "Universal Mode"
+	local categoriesText = isGameMode and "Auto Farm · Auto Sell · Auto Steal" or "Movement · Combat · Visual · Auto"
 	local infoData = {
 		{"Author",      "leonx24"},
-		{"Platform",    "Roblox (Universal)"},
+		{"Mode",        platformText},
 		{"Features",    "30+ Modules"},
-		{"Categories",  "Movement · Combat · Visual · Auto"},
+		{"Categories",  categoriesText},
 		{"Executor",    "Any modern executor"},
 		{"Config",      "Auto-save & load"},
 		{"Mobile",      "Full touch support"},

@@ -1,6 +1,6 @@
 -- Leon X | main.lua
 -- Noir UI version with splash screen + floating open button
-print("[LeonX] ████ MAIN.LUA VERSION: NOIR-2025-06-20 ████")
+-- Leon X Main Script
 
 -- ═══════════════════════════════════════════════════════════════════════════
 -- EARLY SETUP (line 1 — before ANY HTTP or game interaction)
@@ -257,15 +257,11 @@ local function load(p)
         loadErrors[#loadErrors + 1] = p .. ": " .. tostring(result)
         return nil
     end
-    print("[LeonX] OK: " .. tostring(p))
+    -- Load successful
     return result
 end
 
-print("[LeonX] Loading library...")
-print("[LeonX] VERSION MARKER: NOIR-UI-2024-TITLE-FIELD")
-local Library = load("ui/library.lua")
 if not Library then warn("[LeonX] CRITICAL: UI library failed"); return end
-print("[LeonX] Library loaded OK")
 setSplashProgress(0.05)
 
 -- AntiDetect loads FIRST — DISABLED for testing (v7.3 script destroyer may trigger Adonis absence detection)
@@ -307,8 +303,6 @@ local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgre
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
 
-print("[LeonX] Module loads done. Errors: " .. #loadErrors)
-for i, e in ipairs(loadErrors) do print("[LeonX] Error " .. i .. ": " .. e) end
 
 -- Dummy stub for any module that failed to load
 local DUMMY = {
@@ -361,39 +355,21 @@ AutoClicker    = safe(AutoClicker)
 MacroRec       = safe(MacroRec)
 AntiVoid       = safe(AntiVoid)
 GamepassSpoof  = safe(GamepassSpoof)
-print("[LeonX] All modules guarded")
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
-print("[LeonX] Current PlaceId: " .. tostring(game.PlaceId))
-
 local GAME_MODULES = {}
 local gagModule = load("modules/games/growagarden2.lua")
 if gagModule and gagModule.PlaceIds then
-    print("[LeonX] Grow a Garden 2 module loaded successfully")
-    print("[LeonX] Module PlaceIds: " .. table.concat(gagModule.PlaceIds, ", "))
     GAME_MODULES[#GAME_MODULES + 1] = gagModule
-else
-    warn("[LeonX] Failed to load growagarden2.lua or invalid module")
 end
 -- add more game modules here
 
 local ActiveGameModule = nil
-print("[LeonX] Starting game module matching...")
-print("[LeonX] game.PlaceId type: " .. type(game.PlaceId) .. ", value: [" .. tostring(game.PlaceId) .. "]")
-
 for _, gm in ipairs(GAME_MODULES) do
     if gm and gm.PlaceIds then
-        print("[LeonX] Checking module: " .. tostring(gm.Name))
         for _, pid in ipairs(gm.PlaceIds) do
-            print("[LeonX]   Comparing pid: [" .. tostring(pid) .. "] (type: " .. type(pid) .. ")")
-            print("[LeonX]   vs game.PlaceId: [" .. tostring(game.PlaceId) .. "] (type: " .. type(game.PlaceId) .. ")")
-            local pidStr = tostring(pid)
-            local gamePlaceIdStr = tostring(game.PlaceId)
-            print("[LeonX]   String comparison: " .. tostring(pidStr == gamePlaceIdStr))
-
-            if pidStr == gamePlaceIdStr then
+            if tostring(pid) == tostring(game.PlaceId) then
                 ActiveGameModule = gm
-                print("[LeonX] ✓ Game detected: " .. tostring(gm.Name))
                 break
             end
         end
@@ -402,11 +378,10 @@ for _, gm in ipairs(GAME_MODULES) do
 end
 
 if not ActiveGameModule then
-    print("[LeonX] No game-specific module matched, using Universal mode")
+    -- Universal mode
 end
 
-if Waypoint then Waypoint:Init() else warn("[LeonX] Waypoint nil, skipping Init") end
-print("[LeonX] Creating window...")
+if Waypoint then Waypoint:Init() end
 
 -- ── Determine window title based on game mode ─────────────────────────────────
 local windowTitle = "Leon X v"..CURRENT_VERSION
@@ -425,6 +400,8 @@ local Window = Library:CreateWindow({
     Size       = UDim2.new(0, 640, 0, 560),
     ToggleKey  = Enum.KeyCode.U,
     Theme      = "Default",
+    GameName   = ActiveGameModule and ActiveGameModule.Name or nil,
+    GameMode   = ActiveGameModule ~= nil,
 })
 
 -- Notification helper
@@ -436,26 +413,17 @@ local function N(title, state, duration)
     })
 end
 
-print("[LeonX] Window created, initializing ConfigMgr...")
-if ConfigMgr then
-    ConfigMgr:Init(Window)
-    ConfigMgr._notify = function(title, msg)
-        N(title, msg)
-    end
-    print("[LeonX] ConfigMgr initialized")
-else
-    warn("[LeonX] ConfigMgr is nil, skipping")
-end
 
 -- ── Tabs ──────────────────────────────────────────────────────────────────────
 setSplashProgress(0.96)
 
 -- Anti-AFK: always active on ALL maps
-if AntiAFK then AntiAFK:Enable() else warn("[LeonX] AntiAFK nil") end
-
--- PerfStats HUD: always active on ALL maps (draggable)
-if PerfStats then PerfStats:Enable() else warn("[LeonX] PerfStats nil") end
-print("[LeonX] Creating tabs...")
+if ConfigMgr then
+    ConfigMgr:Init(Window)
+    ConfigMgr._notify = function(title, msg)
+        N(title, msg)
+    end
+end
 
 if ActiveGameModule then
     -- ══ GAME MODE: game tab + player sidebar ══════════════════════════════
@@ -485,8 +453,8 @@ else
     local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
     local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
     local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
-    local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
-    print("[LeonX] 8 tabs created")
+if AntiAFK then AntiAFK:Enable() end
+if PerfStats then PerfStats:Enable() end
 
 -- ── Macro Recorder UI ────────────────────────────────────────────────────────
 -- Keybind variables (used by InputBegan handlers below)
@@ -518,16 +486,14 @@ end
 -- MOVEMENT TAB
 -- ══════════════════════════════════════════════════════════════════════════════
 MovTab:Section({ Title = "Flight" })
-print("[LeonX] Creating components...")
+-- Creating UI components
 
-print("[LeonX] MAIN.LUA DEBUG: about to create Fly toggle with Title=Fly")
+-- Fly toggle
 local _flyData = { Title = "Fly", Value = false, Tooltip = "Free flight with adjustable speed", Callback = function(v)
     if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
     N("Fly", v and "Enabled" or "Disabled")
 end }
-print("[LeonX] MAIN.LUA DEBUG: _flyData.Title = " .. tostring(_flyData.Title))
-local flyToggle = MovTab:Toggle(_flyData)
-print("[LeonX] MAIN.LUA DEBUG: flyToggle created, .Name = " .. tostring(flyToggle and flyToggle.Name))
+local _flyData = { Title = "Fly", Value = false, Tooltip = "Free flight mode", Callback = function(v)
 ConfigMgr:Register("Fly", flyToggle)
 local flySpeedSlider = MovTab:Slider({
     Title    = "Fly Speed",
@@ -2282,11 +2248,9 @@ task.spawn(function()
 end)
 
 -- Debug: component count per tab
-print("[LeonX] ── Component Debug ──")
-print("[LeonX] Total components in _allComps: " .. tostring(#Window._allComps))
-print("[LeonX] Total tabs in Window._tabs: " .. tostring(#Window._tabs))
+-- Debug info removed
 for i, t in ipairs(Window._tabs) do
-    print("[LeonX]   Tab[" .. i .. "] = '" .. tostring(t.Name) .. "'")
+    -- Tab debug removed
 end
 local tabCounts = {}
 local nilCount = 0
@@ -2300,12 +2264,12 @@ for idx, entry in ipairs(Window._allComps) do
     end
 end
 for tName, count in pairs(tabCounts) do
-    print("[LeonX]   " .. tName .. ": " .. count .. " components")
+    -- Component count debug removed
 end
 if nilCount > 0 then
-    print("[LeonX]   nil/unnamed: " .. nilCount .. " components")
+    -- Nil count debug removed
 end
-print("[LeonX] ── End Component Debug ──")
+-- End debug info
 end
 
 -- Smooth splash exit
@@ -2349,5 +2313,4 @@ task.delay(3, function()
     end
 end)
 
-print("[LeonX] Script complete! UI should be fully loaded.")
 
