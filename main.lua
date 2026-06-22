@@ -379,9 +379,9 @@ end
 
 local ActiveGameModule = nil
 for _, gm in ipairs(GAME_MODULES) do
-    if gm and gm.PlaceIds then -- extra check for PlaceIds
+    if gm and gm.PlaceIds then
         for _, pid in ipairs(gm.PlaceIds) do
-            if pid == game.PlaceId then
+            if tostring(pid) == tostring(game.PlaceId) then
                 ActiveGameModule = gm
                 print("[LeonX] ✓ Game detected: " .. tostring(gm.Name))
                 break
