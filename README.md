@@ -6,7 +6,7 @@
 
 *A powerful, modular script framework for Roblox games*
 
-![Version](https://img.shields.io/badge/version-1.6-blue)
+![Version](https://img.shields.io/badge/version-2.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Roblox-red)
 ![Language](https://img.shields.io/badge/language-Lua-purple)
 
