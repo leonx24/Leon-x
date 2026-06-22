@@ -395,10 +395,13 @@ else
 end
 
 -- ── Window ────────────────────────────────────────────────────────────────────
+local _vp     = workspace.CurrentCamera.ViewportSize
+local _winW   = isMobile and math.min(640, math.floor(_vp.X * 0.96)) or 640
+local _winH   = isMobile and math.min(560, math.floor(_vp.Y * 0.88)) or 560
 local Window = Library:CreateWindow({
     Title      = windowTitle,
     Author     = windowAuthor,
-    Size       = UDim2.new(0, 640, 0, 560),
+    Size       = UDim2.new(0, _winW, 0, _winH),
     ToggleKey  = Enum.KeyCode.U,
     Theme      = "Default",
     GameName   = ActiveGameModule and ActiveGameModule.Name or nil,
