@@ -390,7 +390,7 @@ function Library:CreateWindow(cfg)
 	-- Version label under logo
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -34, 0, 14); Position = UDim2.fromOffset(30, 32);
-		BackgroundTransparency = 1; Text = "v1.6";
+		BackgroundTransparency = 1; Text = "v2.0";
 		Font = Enum.Font.Gotham; TextSize = 10;
 		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 7; Parent = sidebarBg;

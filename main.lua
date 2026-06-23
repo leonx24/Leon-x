@@ -386,7 +386,7 @@ if Waypoint then Waypoint:Init() end
 
 -- ── Determine window title based on game mode ─────────────────────────────────
 local windowTitle = "Leon X v"..CURRENT_VERSION
-local windowAuthor = "by leonx24"
+local windowAuthor = "by leon"
 if ActiveGameModule then
     windowTitle = "Leon X v"..CURRENT_VERSION.." | "..ActiveGameModule.Name
     windowAuthor = "Game Mode: "..ActiveGameModule.Name

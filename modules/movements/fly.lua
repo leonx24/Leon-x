@@ -15,11 +15,68 @@ local RunService = game:GetService("RunService")
 local lp         = Players.LocalPlayer
 
 local bv, bg, conn
-local MobileControls = nil
 local pendingSpawn = nil
 
 -- detect platform
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+
+-- ── Mobile vertical input via on-screen buttons ───────────────────────────
+-- Two small buttons (▲ naik / ▼ turun) di kanan layar saat fly aktif
+local verticalInput = 0   -- -1, 0, or 1
+local flyGui        = nil
+
+local function buildFlyButtons()
+    if flyGui then return end
+    local gui2 = Instance.new("ScreenGui")
+    gui2.Name           = "LeonFlyButtons"
+    gui2.ResetOnSpawn   = false
+    gui2.DisplayOrder   = 998
+    gui2.IgnoreGuiInset = true
+    gui2.Parent         = lp:WaitForChild("PlayerGui")
+    flyGui = gui2
+
+    local function mkBtn(icon, anchorY, callback)
+        local btn = Instance.new("TextButton")
+        btn.Size                  = UDim2.new(0, 56, 0, 56)
+        btn.AnchorPoint           = Vector2.new(1, anchorY)
+        btn.Position              = UDim2.new(1, -12, anchorY == 0 and 0.42 or 0.58, 0)
+        btn.BackgroundColor3      = Color3.fromRGB(255,255,255)
+        btn.BackgroundTransparency = 0.55
+        btn.Text                  = icon
+        btn.TextSize              = 26
+        btn.Font                  = Enum.Font.GothamBold
+        btn.TextColor3            = Color3.new(1,1,1)
+        btn.AutoButtonColor       = false
+        btn.BorderSizePixel       = 0
+        btn.ZIndex                = 10
+        btn.Parent                = gui2
+        local c = Instance.new("UICorner")
+        c.CornerRadius = UDim.new(1,0); c.Parent = btn
+
+        btn.InputBegan:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Touch then
+                callback(1)
+            end
+        end)
+        btn.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.Touch then
+                callback(0)
+            end
+        end)
+        return btn
+    end
+
+    mkBtn("▲", 0,   function(v) verticalInput =  v end)
+    mkBtn("▼", 1,   function(v) verticalInput = -v end)
+end
+
+local function destroyFlyButtons()
+    if flyGui then
+        pcall(function() flyGui:Destroy() end)
+        flyGui = nil
+    end
+    verticalInput = 0
+end
 
 function Fly:Enable()
     -- Error handling: safely get character
@@ -56,20 +113,8 @@ function Fly:Enable()
     -- Ensure speed is valid (prevent 0 speed from freezing character)
     if not self.Speed or self.Speed < 10 then self.Speed = 60 end
 
-    -- Load mobile controls on mobile devices
-    if isMobile and not MobileControls then
-        local ok, mc = pcall(function()
-            return loadstring(game:HttpGet("https://raw.githubusercontent.com/leonx24/Leon-x/main/ui/mobilecontrols.lua"))()
-        end)
-        if ok then
-            MobileControls = mc
-        end
-    end
-
-    -- Enable mobile controls
-    if MobileControls then
-        pcall(function() MobileControls:Enable() end)
-    end
+    -- Build on-screen up/down buttons for mobile
+    if isMobile then buildFlyButtons() end
 
     -- Error handling: safely disable auto rotate
     pcall(function() hum.AutoRotate = false end)
@@ -133,12 +178,9 @@ function Fly:Enable()
                     dir = dir + flat * dot_f + right * dot_r
                 end
 
-                -- naik/turun mobile: Virtual buttons (improved UX)
-                if MobileControls then
-                    local vertInput = MobileControls:GetVerticalInput()
-                    if vertInput ~= 0 then
-                        dir = dir + Vector3.new(0, vertInput * 0.8, 0)
-                    end
+                -- naik/turun mobile: tombol ▲ ▼ di kanan layar
+                if verticalInput ~= 0 then
+                    dir = dir + Vector3.new(0, verticalInput, 0)
                 end
             else
                 -- ── PC: keyboard ──────────────────────────────────────────────────
@@ -193,10 +235,8 @@ function Fly:Disable()
         pendingSpawn = nil
     end
 
-    -- Disable mobile controls
-    if MobileControls then
-        pcall(function() MobileControls:Disable() end)
-    end
+    -- Destroy mobile fly buttons
+    if isMobile then destroyFlyButtons() end
 
     -- Error handling: safely restore auto rotate
     pcall(function()
