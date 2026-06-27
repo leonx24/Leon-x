@@ -904,9 +904,11 @@ function Library:CreateWindow(cfg)
 	-- ══════════════════════════════════════════════════════════════
 	-- TABS — interactive with count badges + staggered reveal
 	-- ══════════════════════════════════════════════════════════════
-	local tabList = mk("Frame", {
-		Size = UDim2.new(1, 0, 1, -60); Position = UDim2.fromOffset(0, 60);
+	local tabList = mk("ScrollingFrame", {
+		Size = UDim2.new(1, 0, 1, -80); Position = UDim2.fromOffset(0, 75);
 		BackgroundTransparency = 1; ZIndex = 6; Parent = sidebarBg;
+		ScrollBarThickness = 0; CanvasSize = UDim2.fromOffset(0, 0);
+		ClipsDescendants = true; Active = true;
 	})
 
 	-- Tab count label at top of sidebar
@@ -1029,8 +1031,9 @@ function Library:CreateWindow(cfg)
 		win._tabs[#win._tabs + 1] = tab
 		if idx == 1 then setActive(true) end
 
-		-- Update tab count label
+		-- Update tab count label & scroll container size
 		tabCountLabel.Text = tostring(#win._tabs) .. " tabs"
+		tabList.CanvasSize = UDim2.fromOffset(0, #win._tabs * 42)
 
 		local function wrap(fn)
 			return function(selfOrData, maybeData)
