@@ -431,8 +431,9 @@ end
 
 if ActiveGameModule then
     -- ══ GAME MODE: game tab + player sidebar ══════════════════════════════
-    local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "gamepad-2" })
-    local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
+    local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "🎮" })
+    local PlayerTab = Window:Tab({ Title = "Player", Icon = "👤" })
+    if PerfStats then PerfStats:Enable() end
     ActiveGameModule:Init()
     ActiveGameModule:WireUI(GameTab, {
         Fly          = Fly,
@@ -445,6 +446,7 @@ if ActiveGameModule then
         Rejoin       = Rejoin,
         ServerHop    = ServerHop,
         ConfigMgr    = ConfigMgr,
+        PerfStats    = PerfStats,
         N            = N,
     })
     N("Game Detected", ActiveGameModule.Name)

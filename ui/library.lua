@@ -930,22 +930,23 @@ function Library:CreateWindow(cfg)
 		local btn = mk("TextButton", {
 			Size = UDim2.new(1, -10, 0, 38);
 			Position = UDim2.fromOffset(-SIDEBAR_W, (idx - 1) * 42);
+			BackgroundTransparency = 1; Text = ""; -- Empty text, use custom label to avoid padding bugs
+			AutoButtonColor = false; ZIndex = 7; Parent = tabList;
+		}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
+
+		local textLabel = tagText(mk("TextLabel", {
+			Size = UDim2.new(1, -38, 1, 0); Position = UDim2.fromOffset(18, 0);
 			BackgroundTransparency = 1; Text = tabDisplayName;
 			Font = Enum.Font.GothamBold; TextSize = 13;
-			TextColor3 = win._theme.TextSub; AutoButtonColor = false;
-			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 7; Parent = tabList;
-		}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
-		tagText(btn, "textsub")
+			TextColor3 = win._theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left;
+			ZIndex = 8; Parent = btn;
+		}), "textsub")
 
 		-- Staggered slide-in animation
 		task.delay(idx * 0.06, function()
 			tw(btn, 0.35, { Position = UDim2.fromOffset(5, (idx - 1) * 42) },
 				Enum.EasingStyle.Back, Enum.EasingDirection.Out)
 		end)
-
-		local pad = Instance.new("UIPadding")
-		pad.PaddingLeft = UDim.new(0, 18)
-		pad.Parent = btn
 
 		-- Full highlight fill indicator (replaces left vertical bar)
 		local indicator = tagBg(mk("Frame", {
@@ -973,9 +974,11 @@ function Library:CreateWindow(cfg)
 			indicator.Visible = active
 			if active then
 				tw(indicator, 0.15, { BackgroundTransparency = 0.85 })
+				tw(textLabel, 0.15, { TextColor3 = win._theme.Text })
 				tw(btn, 0.15, {
-					TextColor3 = win._theme.Text,
-					BackgroundTransparency = 1,
+					BackgroundColor3 = win._theme.Surface,
+					BackgroundTransparency = 0.85,
+					Position = UDim2.fromOffset(5, (idx - 1) * 42),
 				})
 				-- Glow on badge when active
 				countBadge.BackgroundColor3 = win._theme.Accent
@@ -983,9 +986,10 @@ function Library:CreateWindow(cfg)
 				countBadge.TextColor3 = win._theme.Accent
 			else
 				tw(indicator, 0.15, { BackgroundTransparency = 1 })
+				tw(textLabel, 0.15, { TextColor3 = win._theme.TextSub })
 				tw(btn, 0.15, {
-					TextColor3 = win._theme.TextSub,
 					BackgroundTransparency = 1,
+					Position = UDim2.fromOffset(5, (idx - 1) * 42),
 				})
 				countBadge.BackgroundColor3 = theme.Elevated
 				countBadge.BackgroundTransparency = 0.3

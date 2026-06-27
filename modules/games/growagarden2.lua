@@ -1278,6 +1278,7 @@ function GAG:WireUI(tab, extras)
     extras = extras or {}
     local Fly   = extras.Fly
     local Speed = extras.Speed
+    local PerfStats = extras.PerfStats
 
     -- ══ FARMING ═══════════════════════════════════════════════════════════
     tab:Section({ Title = "Farming" })
@@ -1510,6 +1511,17 @@ function GAG:WireUI(tab, extras)
         end
     })
 
+    tab:Toggle({
+        Title    = "Performance HUD",
+        Flag     = "GAG_PerfHUD",
+        Default  = true,
+        Callback = function(v)
+            if PerfStats then
+                if v then PerfStats:Enable() else PerfStats:Disable() end
+            end
+        end
+    })
+
     -- ══ PLAYER SIDEBAR ═══════════════════════════════════════════════════
     local pTab = extras.PlayerTab or tab
 
@@ -1692,7 +1704,7 @@ function GAG:WireUI(tab, extras)
     local Window = extras.Window
     
     if ConfigMgr and Window then
-        local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+        local SettingsTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
         
         SettingsTab:Section({ Title = "Config" })
         
