@@ -1666,7 +1666,11 @@ function Keybind(tab, data)
 		end
 	end)
 	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Keybind"; Callback = data.Callback }
-	function api:Set(v) cur = tostring(v); kbtn.Text = cur end
+	function api:Set(v)
+		cur = tostring(v)
+		kbtn.Text = cur
+		if self.Callback then pcall(self.Callback, cur) end
+	end
 	function api:Get() return cur end
 	reg(data, api)
 	attachTooltip(api, data.Tooltip)
@@ -1715,7 +1719,11 @@ function Input(tab, data)
 	tb.Focused:Connect(function() stroke.Color = theme.AccentDim end)
 	tb.FocusLost:Connect(function() stroke.Color = theme.Border end)
 
-	function api:Set(v) self.Value = tostring(v or ""); tb.Text = self.Value end
+	function api:Set(v)
+		self.Value = tostring(v or "")
+		tb.Text = self.Value
+		if self.Callback then pcall(self.Callback, self.Value) end
+	end
 	function api:Get() return tb.Text end
 	reg(data, api)
 	attachTooltip(api, data.Tooltip)
