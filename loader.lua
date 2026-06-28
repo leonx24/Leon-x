@@ -6,7 +6,6 @@ if not userKey or userKey == "" then
     return
 end
 
-
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -19,10 +18,11 @@ elseif ext and ext.gethwid then
     hwid = ext.gethwid()
 end
 
-local botIP = "IP_BOT_ANDA"
-local botPort = "3000" -- Ganti port jika berbeda
-local url = string.format("http://%s:%s/api/validate-key?key=%s&roblox_id=%s&hwid=%s", 
-    botIP, botPort, HttpService:UrlEncode(userKey), HttpService:UrlEncode(robloxId), HttpService:UrlEncode(hwid))
+local botDomain = "https://elbot-production.up.railway.app"
+
+
+local url = string.format("%s/api/validate-key?key=%s&roblox_id=%s&hwid=%s", 
+    botDomain, HttpService:UrlEncode(userKey), HttpService:UrlEncode(robloxId), HttpService:UrlEncode(hwid))
 
 local success, response = pcall(function()
     return game:HttpGet(url)
@@ -32,6 +32,7 @@ if not success then
     localPlayer:Kick("Gagal terhubung ke server verifikasi LeonX Hub!")
     return
 end
+
 
 local data
 local parseSuccess, parseErr = pcall(function()
@@ -43,9 +44,12 @@ if not parseSuccess or not data then
     return
 end
 
+
 if not data.valid then
     localPlayer:Kick("Verifikasi Gagal: " .. tostring(data.error or "Key tidak valid!"))
     return
 end
 
+
 print("Verifikasi Berhasil: " .. tostring(data.message))
+
