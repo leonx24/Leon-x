@@ -6,6 +6,7 @@ if not userKey or userKey == "" then
     return
 end
 
+
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
@@ -18,8 +19,8 @@ elseif ext and ext.gethwid then
     hwid = ext.gethwid()
 end
 
-local botDomain = "https://elbot-production.up.railway.app"
 
+local botDomain = "https://elbot-production.up.railway.app" -- Ganti dengan domain Railway Anda!
 
 local url = string.format("%s/api/validate-key?key=%s&roblox_id=%s&hwid=%s", 
     botDomain, HttpService:UrlEncode(userKey), HttpService:UrlEncode(robloxId), HttpService:UrlEncode(hwid))
@@ -53,3 +54,13 @@ end
 
 print("Verifikasi Berhasil: " .. tostring(data.message))
 
+
+local mainScriptUrl = "https://raw.githubusercontent.com/leonx24/Leon-x/main/main.lua"
+local loadSuccess, loadErr = pcall(function()
+    loadstring(game:HttpGet(mainScriptUrl))()
+end)
+
+if not loadSuccess then
+    warn("Gagal memuat main.lua: " .. tostring(loadErr))
+    localPlayer:Kick("Gagal memuat script utama!")
+end
