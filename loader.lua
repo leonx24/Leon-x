@@ -55,7 +55,7 @@ end
 print("Verifikasi Berhasil: " .. tostring(data.message))
 
 
-local mainScriptUrl = "https://raw.githubusercontent.com/leonx24/Leon-x/main/main.lua"
+local mainScriptUrl = "https://raw.githubusercontent.com/leonx24/Leon-x/main/main.lua?t=" .. os.time()
 local loadSuccess, loadErr = pcall(function()
     loadstring(game:HttpGet(mainScriptUrl))()
 end)
