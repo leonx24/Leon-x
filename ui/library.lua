@@ -1,6 +1,6 @@
 -- ╔══════════════════════════════════════════════════════════════════╗
--- ║  Leon X  |  Noir UI Library v4                                 ║
--- ║  "Cinematic darkness — where light is earned, not given."      ║
+-- ║  Leon X  |  Noir UI Library v4                                   ║
+-- ║  "Cinematic darkness — where light is earned, not given."        ║
 -- ╚══════════════════════════════════════════════════════════════════╝
 
 print("[LeonX-LIB] ████ NOIR-UI-V4 ████")
