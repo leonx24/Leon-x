@@ -1,4 +1,3 @@
-
 local userKey = _G.Key
 
 if not userKey or userKey == "" then
@@ -6,12 +5,12 @@ if not userKey or userKey == "" then
     return
 end
 
-
 local HttpService = game:GetService("HttpService")
 local Players = game:GetService("Players")
 local localPlayer = Players.LocalPlayer
 local robloxId = tostring(localPlayer.UserId)
 
+-- Mendapatkan Hardware ID perangkat (HWID)
 local hwid = "unknown"
 if gethwid then
     hwid = gethwid()
@@ -19,48 +18,29 @@ elseif ext and ext.gethwid then
     hwid = ext.gethwid()
 end
 
+-- Memanggil file load.php di website Anda
+local webUrl = string.format(
+    "https://leonthings.my.id/load.php?key=%s&roblox_id=%s&hwid=%s",
+    HttpService:UrlEncode(userKey), 
+    HttpService:UrlEncode(robloxId), 
+    HttpService:UrlEncode(hwid)
+)
 
-local botDomain = "https://elbot-production.up.railway.app" -- Ganti dengan domain Railway Anda!
-
-local url = string.format("%s/api/validate-key?key=%s&roblox_id=%s&hwid=%s", 
-    botDomain, HttpService:UrlEncode(userKey), HttpService:UrlEncode(robloxId), HttpService:UrlEncode(hwid))
-
+-- Melakukan HTTP Request ke website Anda
 local success, response = pcall(function()
-    return game:HttpGet(url)
+    return game:HttpGet(webUrl)
 end)
 
 if not success then
-    localPlayer:Kick("Gagal terhubung ke server verifikasi LeonX Hub!")
+    localPlayer:Kick("Gagal terhubung ke server verifikasi LeonThings!")
     return
 end
 
-
-local data
-local parseSuccess, parseErr = pcall(function()
-    data = HttpService:JSONDecode(response)
-end)
-
-if not parseSuccess or not data then
-    localPlayer:Kick("Gagal memproses respon verifikasi!")
-    return
-end
-
-
-if not data.valid then
-    localPlayer:Kick("Verifikasi Gagal: " .. tostring(data.error or "Key tidak valid!"))
-    return
-end
-
-
-print("Verifikasi Berhasil: " .. tostring(data.message))
-
-
-local mainScriptUrl = "https://raw.githubusercontent.com/leonx24/Leon-x/main/main.lua?t=" .. os.time()
+-- Menjalankan script utama yang dikirimkan oleh website jika verifikasi lolos
 local loadSuccess, loadErr = pcall(function()
-    loadstring(game:HttpGet(mainScriptUrl))()
+    loadstring(response)()
 end)
 
 if not loadSuccess then
-    warn("Gagal memuat main.lua: " .. tostring(loadErr))
-    localPlayer:Kick("Gagal memuat script utama!")
+    warn("Gagal memuat script utama: " .. tostring(loadErr))
 end
