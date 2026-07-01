@@ -246,66 +246,87 @@ local function getGearNames()
 end
 
 -- ── Auto Plant Seeds ──────────────────────────────────────────────────────────
-local function findEmptyDirtNodes(plot)
-    local emptyNodes = {}
-    if not plot then return emptyNodes end
+local function findEmptyPlantingSpots(plot)
+    local spots = {}
+    if not plot then return spots end
 
-    -- Dig up parts that act as dirt grids/placement nodes
-    local dirtFolder = plot:FindFirstChild("Dirt") or plot:FindFirstChild("PlacementGrid") or plot
-    local plantsFolder = plot:FindFirstChild("Plants")
-    
-    -- Gather all dirt parts
-    local dirtParts = {}
-    pcall(function()
-        for _, child in ipairs(dirtFolder:GetDescendants()) do
-            if child:IsA("BasePart") and (child.Name:lower():find("dirt") or child.Name:lower():find("node") or child.Name:lower():find("grid")) then
-                table.insert(dirtParts, child)
-            end
+    local visual = plot:FindFirstChild("Visual")
+    if not visual then return spots end
+
+    local columns = {}
+    for _, child in ipairs(visual:GetChildren()) do
+        if child:IsA("BasePart") and child.Name:find("PlantAreaColumn") then
+            table.insert(columns, child)
         end
-    end)
-
-    if #dirtParts == 0 then
-        -- Try visual plot boundaries/parts if folder is missing
-        pcall(function()
-            local visual = plot:FindFirstChild("Visual")
-            if visual then
-                for _, child in ipairs(visual:GetDescendants()) do
-                    if child:IsA("BasePart") and child.Name:lower():find("dirt") then
-                        table.insert(dirtParts, child)
-                    end
-                end
-            end
-        end)
     end
 
-    -- Find parts with active crops to filter out occupied dirt
+    -- Fallback to GardenZonePart if column parts are missing
+    if #columns == 0 then
+        local zone = visual:FindFirstChild("GardenZonePart")
+        if zone and zone:IsA("BasePart") then
+            table.insert(columns, zone)
+        end
+    end
+
+    -- Find occupied positions in plot's Plants folder
     local occupiedPositions = {}
+    local plantsFolder = plot:FindFirstChild("Plants")
     if plantsFolder then
         for _, plant in ipairs(plantsFolder:GetChildren()) do
             if plant:IsA("Model") then
-                local primary = plant.PrimaryPart or plant:FindFirstChildWhichIsA("BasePart")
-                if primary then
-                    table.insert(occupiedPositions, primary.Position)
+                local pos
+                local base = plant:FindFirstChild("Base") or plant.PrimaryPart or plant:FindFirstChildWhichIsA("BasePart")
+                if base then
+                    pos = base.Position
+                else
+                    pcall(function() pos = plant:GetPivot().Position end)
+                end
+                if pos then
+                    table.insert(occupiedPositions, pos)
                 end
             end
         end
     end
 
-    -- If a dirt part has no plant close to it, it is empty
-    for _, dirt in ipairs(dirtParts) do
-        local isOccupied = false
-        for _, occupiedPos in ipairs(occupiedPositions) do
-            if (dirt.Position - occupiedPos).Magnitude < 4 then
-                isOccupied = true
-                break
+    -- Generate a grid of points on each column part
+    local gridSpacing = 4.5 -- studs between plants
+    for _, col in ipairs(columns) do
+        local size = col.Size
+        local cf = col.CFrame
+        
+        -- Start grid generation
+        local startX = -size.X/2 + 2
+        local endX = size.X/2 - 2
+        local startZ = -size.Z/2 + 2
+        local endZ = size.Z/2 - 2
+        
+        -- Loop with gridSpacing step
+        for x = startX, endX, gridSpacing do
+            for z = startZ, endZ, gridSpacing do
+                -- Convert local coordinate on column to world position
+                local worldPos = cf:PointToWorldSpace(Vector3.new(x, size.Y/2, z))
+                
+                -- Check if this worldPos is too close to any existing crop
+                local isOccupied = false
+                for _, occupiedPos in ipairs(occupiedPositions) do
+                    local dist = (Vector3.new(worldPos.X, 0, worldPos.Z) - Vector3.new(occupiedPos.X, 0, occupiedPos.Z)).Magnitude
+                    if dist < 3.8 then
+                        isOccupied = true
+                        break
+                    end
+                end
+                
+                if not isOccupied then
+                    table.insert(spots, {
+                        Position = worldPos,
+                        Part = col
+                    })
+                end
             end
-        end
-        if not isOccupied then
-            table.insert(emptyNodes, dirt)
         end
     end
 
-    return emptyNodes
+    return spots
 end
 
 local function startAutoPlant()
@@ -326,14 +347,14 @@ local function startAutoPlant()
             local plot = getOwnerPlot()
             if not plot then return end
 
-            local emptyNodes = findEmptyDirtNodes(plot)
-            if #emptyNodes == 0 then return end
+            local emptySpots = findEmptyPlantingSpots(plot)
+            if #emptySpots == 0 then return end
 
             if net and net.Plant and net.Plant.PlantSeed then
-                -- Plant on the first empty dirt node found
-                local targetDirt = emptyNodes[1]
-                if targetDirt then
-                    local pos = targetDirt.Position
+                -- Plant on the first empty spot found
+                local targetSpot = emptySpots[1]
+                if targetSpot then
+                    local pos = targetSpot.Position
                     local seedTool = lp.Character:FindFirstChild(GAG.SelectedPlantSeed) 
                         or lp.Backpack:FindFirstChild(GAG.SelectedPlantSeed)
                     
@@ -2146,7 +2167,7 @@ function GAG:WireUI(tab, extras)
         SettingsTab:Section({ Title = "About" })
         SettingsTab:Paragraph({
             Title   = "Leon X - Grow a Garden 2",
-            Content = "v2.2 • by leonx24"
+            Content = "v2.3 • by leonx24"
         })
     end
 end
