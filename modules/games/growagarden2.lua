@@ -334,11 +334,21 @@ local function startAutoPlant()
                 local targetDirt = emptyNodes[1]
                 if targetDirt then
                     local pos = targetDirt.Position
-                    task.spawn(function()
-                        pcall(function()
-                            net.Plant.PlantSeed:Fire(pos, GAG.SelectedPlantSeed, targetDirt)
+                    local seedTool = lp.Character:FindFirstChild(GAG.SelectedPlantSeed) 
+                        or lp.Backpack:FindFirstChild(GAG.SelectedPlantSeed)
+                    
+                    if seedTool then
+                        task.spawn(function()
+                            pcall(function()
+                                net.Plant.PlantSeed:Fire(pos, GAG.SelectedPlantSeed, seedTool)
+                            end)
                         end)
-                    end)
+                    else
+                        -- Auto buy seed if missing and enabled
+                        if GAG.AutoBuySeed and net.SeedShop and net.SeedShop.PurchaseSeed then
+                            pcall(function() net.SeedShop.PurchaseSeed:Fire(GAG.SelectedPlantSeed) end)
+                        end
+                    end
                 end
             end
         end)
@@ -522,7 +532,7 @@ local function verifyOwnPlot(plot)
     if plot.Name:find(lp.Name, 1, true) then return true end
     if plot.Name:find(lp.DisplayName, 1, true) then return true end
     if plot.Name:find(tostring(lp.UserId), 1, true) then return true end
-    local uid = plot:GetAttribute("UserId")
+    local uid = plot:GetAttribute("OwnerUserId") or plot:GetAttribute("UserId")
     if uid and tonumber(uid) == lp.UserId then return true end
     -- Check Owner attribute (some games use this)
     local owner = plot:GetAttribute("Owner") or plot:GetAttribute("owner")
@@ -551,23 +561,22 @@ local function getOwnerPlot()
             return plot
         end
     end
-    -- Check UserId attribute
+    -- Check OwnerUserId / UserId attribute
     for _, plot in ipairs(gardens:GetChildren()) do
-        local uid = plot:GetAttribute("UserId")
+        local uid = plot:GetAttribute("OwnerUserId") or plot:GetAttribute("UserId")
         if uid and tonumber(uid) == lp.UserId then
             cachedOwnerPlot = plot
             return plot
         end
     end
-    -- Debug: print available plot names to help diagnose
-    pcall(function()
-        local names = {}
-        for _, plot in ipairs(gardens:GetChildren()) do
-            names[#names + 1] = plot.Name
+    -- Check Owner attribute
+    for _, plot in ipairs(gardens:GetChildren()) do
+        local owner = plot:GetAttribute("Owner") or plot:GetAttribute("owner")
+        if owner and tostring(owner) == lp.Name then
+            cachedOwnerPlot = plot
+            return plot
         end
-        print("[Leon X] GAG: Could not find owner plot by name/UserId. Available plots: " .. table.concat(names, ", "))
-        print("[Leon X] GAG: Player Name=" .. lp.Name .. ", DisplayName=" .. lp.DisplayName .. ", UserId=" .. lp.UserId)
-    end)
+    end
     -- Fallback: closest plot (only reliable when standing at own garden)
     local hrp = getHRP()
     if not hrp then return nil end
@@ -2137,7 +2146,7 @@ function GAG:WireUI(tab, extras)
         SettingsTab:Section({ Title = "About" })
         SettingsTab:Paragraph({
             Title   = "Leon X - Grow a Garden 2",
-            Content = "v2.1 • by leonx24"
+            Content = "v2.2 • by leonx24"
         })
     end
 end
