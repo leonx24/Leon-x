@@ -1569,16 +1569,20 @@ function GAG:Disable()
 end
 
 -- ── Wire UI ─────────────────────────────────────────────────────────────────
-function GAG:WireUI(tab, extras)
+function GAG:WireUI(Window, extras)
     extras = extras or {}
     local Fly   = extras.Fly
     local Speed = extras.Speed
     local PerfStats = extras.PerfStats
 
-    -- ══ FARMING ═══════════════════════════════════════════════════════════
-    tab:Section({ Title = "Farming" })
+    local FarmTab = Window:Tab({ Title = "Farming", Icon = "🍀" })
+    local ShopTab = Window:Tab({ Title = "Shop", Icon = "🛒" })
+    local UtilTab = Window:Tab({ Title = "Utility", Icon = "🛠️" })
 
-    tab:Toggle({
+    -- ══ FARMING ═══════════════════════════════════════════════════════════
+    FarmTab:Section({ Title = "Farming" })
+
+    FarmTab:Toggle({
         Title    = "Auto Collect + Sell",
         Flag     = "GAG_AutoCollectAndSell",
         Default  = false,
@@ -1593,7 +1597,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    FarmTab:Toggle({
         Title    = "Auto Collect Only",
         Flag     = "GAG_AutoCollect",
         Default  = false,
@@ -1608,7 +1612,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    FarmTab:Toggle({
         Title    = "Auto Sell Only",
         Flag     = "GAG_AutoSell",
         Default  = false,
@@ -1623,7 +1627,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    FarmTab:Toggle({
         Title    = "Auto Seed Event (Rainbow/Gold)",
         Flag     = "GAG_AutoSeedEvent",
         Default  = false,
@@ -1639,7 +1643,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Dropdown({
+    FarmTab:Dropdown({
         Title    = "Auto Plant Seed Type",
         Flag     = "GAG_SelectedPlantSeed",
         Default  = "(none)",
@@ -1651,7 +1655,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    FarmTab:Toggle({
         Title    = "Auto Plant Seeds",
         Flag     = "GAG_AutoPlant",
         Default  = false,
@@ -1667,9 +1671,9 @@ function GAG:WireUI(tab, extras)
     })
 
     -- ══ SHOP ═══════════════════════════════════════════════════════════════
-    tab:Section({ Title = "Shop" })
+    ShopTab:Section({ Title = "Shop" })
 
-    tab:Dropdown({
+    ShopTab:Dropdown({
         Title    = "Select Seeds (Multi)",
         Flag     = "GAG_SelectedSeeds",
         Default  = {},
@@ -1681,7 +1685,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    ShopTab:Toggle({
         Title    = "Auto Buy Selected Seeds",
         Flag     = "GAG_AutoBuySeed",
         Default  = false,
@@ -1696,7 +1700,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    ShopTab:Toggle({
         Title    = "Auto Buy ALL Seeds",
         Flag     = "GAG_AutoBuyAll",
         Default  = false,
@@ -1711,7 +1715,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Dropdown({
+    ShopTab:Dropdown({
         Title    = "Select Gear (Multi)",
         Flag     = "GAG_SelectedGear",
         Default  = {},
@@ -1723,7 +1727,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    ShopTab:Toggle({
         Title    = "Auto Buy Selected Gear",
         Flag     = "GAG_AutoBuyGear",
         Default  = false,
@@ -1738,7 +1742,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Dropdown({
+    ShopTab:Dropdown({
         Title    = "Select Crates (Multi)",
         Flag     = "GAG_SelectedCrates",
         Default  = {},
@@ -1750,7 +1754,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    ShopTab:Toggle({
         Title    = "Auto Buy Selected Crates",
         Flag     = "GAG_AutoBuyCrate",
         Default  = false,
@@ -1765,7 +1769,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    ShopTab:Toggle({
         Title    = "Auto Open Crates",
         Flag     = "GAG_AutoOpenCrates",
         Default  = false,
@@ -1781,9 +1785,9 @@ function GAG:WireUI(tab, extras)
     })
 
     -- ══ PVP / STEAL ══════════════════════════════════════════════════════
-    tab:Section({ Title = "PvP / Steal" })
+    UtilTab:Section({ Title = "PvP / Steal" })
 
-    tab:Toggle({
+    UtilTab:Toggle({
         Title    = "Auto Steal (Other Gardens)",
         Flag     = "GAG_AutoSteal",
         Default  = false,
@@ -1798,7 +1802,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    UtilTab:Toggle({
         Title    = "Auto Fling (Push Players)",
         Flag     = "GAG_AutoFling",
         Default  = false,
@@ -1813,7 +1817,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Slider({
+    UtilTab:Slider({
         Title    = "Fling Radius",
         Flag     = "GAG_FlingRadius",
         Value    = { Min = 5, Max = 50, Default = 20 },
@@ -1821,7 +1825,7 @@ function GAG:WireUI(tab, extras)
         Callback = function(v) GAG.FlingRadius = v end
     })
 
-    tab:Toggle({
+    UtilTab:Toggle({
         Title    = "Anti Fling",
         Flag     = "GAG_AntiFling",
         Default  = false,
@@ -1835,7 +1839,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    UtilTab:Toggle({
         Title    = "Shovel Fling (Hit to Fling)",
         Flag     = "GAG_ShovelFling",
         Default  = false,
@@ -1850,7 +1854,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Slider({
+    UtilTab:Slider({
         Title    = "Shovel Fling Power",
         Flag     = "GAG_ShovelPower",
         Value    = { Min = 100, Max = 1000, Default = 500 },
@@ -1859,9 +1863,9 @@ function GAG:WireUI(tab, extras)
     })
 
     -- ══ VISUAL ═══════════════════════════════════════════════════════════
-    tab:Section({ Title = "Visual" })
+    UtilTab:Section({ Title = "Visual" })
 
-    tab:Toggle({
+    UtilTab:Toggle({
         Title    = "Plant ESP (Labels + Info)",
         Flag     = "GAG_PriceESP",
         Default  = false,
@@ -1875,7 +1879,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Toggle({
+    UtilTab:Toggle({
         Title    = "Performance HUD",
         Flag     = "GAG_PerfHUD",
         Default  = true,
@@ -1887,7 +1891,7 @@ function GAG:WireUI(tab, extras)
     })
 
     -- ══ PLAYER SIDEBAR ═══════════════════════════════════════════════════
-    local pTab = extras.PlayerTab or tab
+    local pTab = extras.PlayerTab or FarmTab
 
     if Speed then
         pTab:Section({ Title = "Movement" })
@@ -2000,9 +2004,9 @@ function GAG:WireUI(tab, extras)
     end
 
     -- ══ UTILITY ══════════════════════════════════════════════════════════
-    tab:Section({ Title = "Utility" })
+    UtilTab:Section({ Title = "Utility" })
 
-    tab:Button({
+    UtilTab:Button({
         Title    = "Cobalt Remote Spy",
         Flag     = "GAG_CobaltSpy",
         Callback = function()
@@ -2022,7 +2026,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Button({
+    UtilTab:Button({
         Title    = "Rejoin Server",
         Flag     = "GAG_Rejoin",
         Callback = function()
@@ -2040,7 +2044,7 @@ function GAG:WireUI(tab, extras)
         end
     })
 
-    tab:Button({
+    UtilTab:Button({
         Title    = "Server Hop",
         Flag     = "GAG_ServerHop",
         Callback = function()
@@ -2085,7 +2089,6 @@ function GAG:WireUI(tab, extras)
 
     -- ══ SETTINGS SIDEBAR ═════════════════════════════════════════════════
     local ConfigMgr = extras.ConfigMgr
-    local Window = extras.Window
     
     if ConfigMgr and Window then
         local SettingsTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
@@ -2183,7 +2186,7 @@ function GAG:WireUI(tab, extras)
         SettingsTab:Section({ Title = "About" })
         SettingsTab:Paragraph({
             Title   = "Leon X - Grow a Garden 2",
-            Content = "v2.4 • by leonx24"
+            Content = "v2.5 • by leonx24"
         })
     end
 end

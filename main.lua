@@ -430,12 +430,11 @@ if ConfigMgr then
 end
 
 if ActiveGameModule then
-    -- ══ GAME MODE: game tab + player sidebar ══════════════════════════════
-    local GameTab = Window:Tab({ Title = ActiveGameModule.Name, Icon = "🎮" })
+    -- ══ GAME MODE: Let the module wire its own tabs! ═════════════════════
     local PlayerTab = Window:Tab({ Title = "Player", Icon = "👤" })
     if PerfStats then PerfStats:Enable() end
     ActiveGameModule:Init()
-    ActiveGameModule:WireUI(GameTab, {
+    ActiveGameModule:WireUI(Window, {
         Fly          = Fly,
         Speed        = Speed,
         Window       = Window,
