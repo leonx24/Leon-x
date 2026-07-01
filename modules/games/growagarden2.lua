@@ -294,11 +294,14 @@ local function findEmptyPlantingSpots(plot)
         local size = col.Size
         local cf = col.CFrame
         
-        -- Start grid generation
-        local startX = -size.X/2 + 2
-        local endX = size.X/2 - 2
-        local startZ = -size.Z/2 + 2
-        local endZ = size.Z/2 - 2
+        -- Start grid generation (safe boundaries)
+        local startX = -size.X/2 + 0.5
+        local endX = size.X/2 - 0.5
+        if startX > endX then startX, endX = 0, 0 end
+        
+        local startZ = -size.Z/2 + 0.5
+        local endZ = size.Z/2 - 0.5
+        if startZ > endZ then startZ, endZ = 0, 0 end
         
         -- Loop with gridSpacing step
         for x = startX, endX, gridSpacing do
@@ -345,9 +348,14 @@ local function startAutoPlant()
 
         pcall(function()
             local plot = getOwnerPlot()
-            if not plot then return end
+            if not plot then
+                print("[Leon X AutoPlant] Plot not found!")
+                return
+            end
 
             local emptySpots = findEmptyPlantingSpots(plot)
+            print("[Leon X AutoPlant] Plot=" .. tostring(plot.Name) .. ", Empty Spots=" .. #emptySpots .. ", Selected=" .. tostring(GAG.SelectedPlantSeed))
+
             if #emptySpots == 0 then return end
 
             if net and net.Plant and net.Plant.PlantSeed then
@@ -358,19 +366,27 @@ local function startAutoPlant()
                     local seedTool = lp.Character:FindFirstChild(GAG.SelectedPlantSeed) 
                         or lp.Backpack:FindFirstChild(GAG.SelectedPlantSeed)
                     
+                    print("[Leon X AutoPlant] Target Pos=" .. tostring(pos) .. ", Tool Found=" .. tostring(seedTool ~= nil))
+
                     if seedTool then
                         task.spawn(function()
-                            pcall(function()
+                            local ok, err = pcall(function()
                                 net.Plant.PlantSeed:Fire(pos, GAG.SelectedPlantSeed, seedTool)
                             end)
+                            if not ok then
+                                print("[Leon X AutoPlant] Remote Error: " .. tostring(err))
+                            end
                         end)
                     else
                         -- Auto buy seed if missing and enabled
                         if GAG.AutoBuySeed and net.SeedShop and net.SeedShop.PurchaseSeed then
+                            print("[Leon X AutoPlant] Tool missing, auto-buying: " .. GAG.SelectedPlantSeed)
                             pcall(function() net.SeedShop.PurchaseSeed:Fire(GAG.SelectedPlantSeed) end)
                         end
                     end
                 end
+            else
+                print("[Leon X AutoPlant] net.Plant.PlantSeed remote is missing!")
             end
         end)
     end)
@@ -2167,7 +2183,7 @@ function GAG:WireUI(tab, extras)
         SettingsTab:Section({ Title = "About" })
         SettingsTab:Paragraph({
             Title   = "Leon X - Grow a Garden 2",
-            Content = "v2.3 • by leonx24"
+            Content = "v2.4 • by leonx24"
         })
     end
 end
