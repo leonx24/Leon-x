@@ -33,6 +33,8 @@ GAG.AutoFling     = false
 GAG.FlingRadius   = 20
 GAG.ShovelFling   = false
 GAG.ShovelPower   = 500
+GAG.AutoPlant         = false
+GAG.SelectedPlantSeed = ""
 
 local connections = {}
 local net = nil -- Networking module (loaded in Init)
@@ -243,6 +245,106 @@ local function getGearNames()
     return gearNames
 end
 
+-- ── Auto Plant Seeds ──────────────────────────────────────────────────────────
+local function findEmptyDirtNodes(plot)
+    local emptyNodes = {}
+    if not plot then return emptyNodes end
+
+    -- Dig up parts that act as dirt grids/placement nodes
+    local dirtFolder = plot:FindFirstChild("Dirt") or plot:FindFirstChild("PlacementGrid") or plot
+    local plantsFolder = plot:FindFirstChild("Plants")
+    
+    -- Gather all dirt parts
+    local dirtParts = {}
+    pcall(function()
+        for _, child in ipairs(dirtFolder:GetDescendants()) do
+            if child:IsA("BasePart") and (child.Name:lower():find("dirt") or child.Name:lower():find("node") or child.Name:lower():find("grid")) then
+                table.insert(dirtParts, child)
+            end
+        end
+    end)
+
+    if #dirtParts == 0 then
+        -- Try visual plot boundaries/parts if folder is missing
+        pcall(function()
+            local visual = plot:FindFirstChild("Visual")
+            if visual then
+                for _, child in ipairs(visual:GetDescendants()) do
+                    if child:IsA("BasePart") and child.Name:lower():find("dirt") then
+                        table.insert(dirtParts, child)
+                    end
+                end
+            end
+        end)
+    end
+
+    -- Find parts with active crops to filter out occupied dirt
+    local occupiedPositions = {}
+    if plantsFolder then
+        for _, plant in ipairs(plantsFolder:GetChildren()) do
+            if plant:IsA("Model") then
+                local primary = plant.PrimaryPart or plant:FindFirstChildWhichIsA("BasePart")
+                if primary then
+                    table.insert(occupiedPositions, primary.Position)
+                end
+            end
+        end
+    end
+
+    -- If a dirt part has no plant close to it, it is empty
+    for _, dirt in ipairs(dirtParts) do
+        local isOccupied = false
+        for _, occupiedPos in ipairs(occupiedPositions) do
+            if (dirt.Position - occupiedPos).Magnitude < 4 then
+                isOccupied = true
+                break
+            end
+        end
+        if not isOccupied then
+            table.insert(emptyNodes, dirt)
+        end
+    end
+
+    return emptyNodes
+end
+
+local function startAutoPlant()
+    disconnect("autoplant")
+
+    local actionTimer = 0
+    local PLANT_INTERVAL = 1
+
+    connections.autoplant = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoPlant then return end
+        if not GAG.SelectedPlantSeed or GAG.SelectedPlantSeed == "" or GAG.SelectedPlantSeed == "(none)" then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < PLANT_INTERVAL then return end
+        actionTimer = 0
+
+        pcall(function()
+            local plot = getOwnerPlot()
+            if not plot then return end
+
+            local emptyNodes = findEmptyDirtNodes(plot)
+            if #emptyNodes == 0 then return end
+
+            if net and net.Plant and net.Plant.PlantSeed then
+                -- Plant on the first empty dirt node found
+                local targetDirt = emptyNodes[1]
+                if targetDirt then
+                    local pos = targetDirt.Position
+                    task.spawn(function()
+                        pcall(function()
+                            net.Plant.PlantSeed:Fire(pos, GAG.SelectedPlantSeed, targetDirt)
+                        end)
+                    end)
+                end
+            end
+        end)
+    end)
+end
+
 -- Buy selected gears (multi-select support)
 local function startAutoBuyGear()
     disconnect("buygear")
@@ -326,25 +428,69 @@ local function startAutoBuyCrate()
     end)
 end
 
-local function openAllCrates()
+local function getCratesFromReplicas()
+    local crates = {}
     pcall(function()
-        local function checkAndOpen(item)
-            if item:IsA("Tool") and (item.Name:lower():find("crate") or item.Name:lower():find("box")) then
-                if net and net.Crate and net.Crate.OpenCrate then
-                    net.Crate.OpenCrate:Fire(item)
+        local ReplicaShared = game.ReplicatedStorage:FindFirstChild("ReplicaShared")
+        if ReplicaShared then
+            local replicaMod = require(ReplicaShared)
+            local testData = replicaMod.Test and replicaMod.Test()
+            local replicas = testData and testData.Replicas
+            if replicas then
+                for _, replica in pairs(replicas) do
+                    if replica.Data then
+                        local c = replica.Data.Crates or replica.Data.crates
+                        if c and type(c) == "table" then
+                            for k, v in pairs(c) do
+                                if type(v) == "number" and v > 0 then
+                                    crates[k] = (crates[k] or 0) + v
+                                elseif type(k) == "number" and type(v) == "string" then
+                                    crates[v] = (crates[v] or 0) + 1
+                                end
+                            end
+                        end
+                    end
                 end
             end
         end
+    end)
+    return crates
+end
+
+local function openAllCrates()
+    pcall(function()
         local bp = lp:FindFirstChild("Backpack")
+        local char = lp.Character
+        if not char then return end
+
+        local function checkAndOpen(item)
+            if item:IsA("Tool") and (item.Name:lower():find("crate") or item.Name:lower():find("box")) then
+                -- Method 1: Use game remotes (try multiple parameter styles in background)
+                if net and net.Crate and net.Crate.OpenCrate then
+                    pcall(function() net.Crate.OpenCrate:Fire(item) end)
+                    pcall(function() net.Crate.OpenCrate:Fire(item.Name) end)
+                    pcall(function() net.Crate.OpenCrate:Fire() end)
+                end
+            end
+        end
+
+        -- Scan Tools
         if bp then
             for _, item in ipairs(bp:GetChildren()) do
                 checkAndOpen(item)
             end
         end
-        local char = lp.Character
-        if char then
-            for _, item in ipairs(char:GetChildren()) do
-                checkAndOpen(item)
+        for _, item in ipairs(char:GetChildren()) do
+            checkAndOpen(item)
+        end
+
+        -- Method 3: Use Replica data (crates stored as data)
+        local replicaCrates = getCratesFromReplicas()
+        for crateName, count in pairs(replicaCrates) do
+            if count > 0 then
+                if net and net.Crate and net.Crate.OpenCrate then
+                    pcall(function() net.Crate.OpenCrate:Fire(crateName) end)
+                end
             end
         end
     end)
@@ -363,7 +509,7 @@ local function startAutoOpenCrates()
         if actionTimer < OPEN_INTERVAL then return end
         actionTimer = 0
 
-        openAllCrates()
+        task.spawn(openAllCrates)
     end)
 end
 
@@ -1370,6 +1516,7 @@ function GAG:Disable()
     self.ShovelFling   = false
     self.AutoBuyCrate      = false
     self.AutoOpenCrates    = false
+    self.AutoPlant         = false
     stopPriceESP()
     stopShovelFling()
     disconnectAll()
@@ -1442,6 +1589,33 @@ function GAG:WireUI(tab, extras)
             else
                 disconnect("seedevent")
                 disconnect("seedwatcher")
+            end
+        end
+    })
+
+    tab:Dropdown({
+        Title    = "Auto Plant Seed Type",
+        Flag     = "GAG_SelectedPlantSeed",
+        Default  = "(none)",
+        Values   = seedNames,
+        Multi    = false,
+        SearchBarEnabled = true,
+        Callback = function(v)
+            GAG.SelectedPlantSeed = v
+        end
+    })
+
+    tab:Toggle({
+        Title    = "Auto Plant Seeds",
+        Flag     = "GAG_AutoPlant",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoPlant = v
+            if v then
+                GAG.Enabled = true
+                startAutoPlant()
+            else
+                disconnect("autoplant")
             end
         end
     })
@@ -1963,7 +2137,7 @@ function GAG:WireUI(tab, extras)
         SettingsTab:Section({ Title = "About" })
         SettingsTab:Paragraph({
             Title   = "Leon X - Grow a Garden 2",
-            Content = "v1.7 • by leonx24"
+            Content = "v2.1 • by leonx24"
         })
     end
 end
