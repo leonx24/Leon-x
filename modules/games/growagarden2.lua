@@ -25,6 +25,9 @@ GAG.SelectedSeed  = {} -- multi-select seeds to auto-buy
 GAG.PriceESP      = false
 GAG.AutoBuyGear   = false
 GAG.SelectedGear  = {} -- multi-select gears to auto-buy
+GAG.AutoBuyCrate      = false
+GAG.SelectedCrates    = {}
+GAG.AutoOpenCrates    = false
 GAG.AutoSteal     = false
 GAG.AutoFling     = false
 GAG.FlingRadius   = 20
@@ -265,6 +268,102 @@ local function startAutoBuyGear()
                 if gearIndex > #GAG.SelectedGear then gearIndex = 1 end
             end
         end
+    end)
+end
+
+-- ── Crate / Prop Auto-Buy & Auto-Open ─────────────────────────────────────────
+local crateNames = {}
+
+local function getCrateNames()
+    crateNames = {}
+    pcall(function()
+        local assets = ReplicatedStorage:FindFirstChild("Assets")
+        if assets then
+            local folders = {"Crates", "Crate"}
+            for _, folderName in ipairs(folders) do
+                local folder = assets:FindFirstChild(folderName)
+                if folder then
+                    for _, item in ipairs(folder:GetChildren()) do
+                        table.insert(crateNames, item.Name)
+                    end
+                end
+            end
+        end
+    end)
+    if #crateNames == 0 then
+        crateNames = {
+            "Common Crate", "Uncommon Crate", "Rare Crate", 
+            "Epic Crate", "Legendary Crate", "Mythic Crate",
+            "Utility Crate", "Defense Crate", "Structure Crate",
+        }
+    end
+    return crateNames
+end
+
+local function startAutoBuyCrate()
+    disconnect("buycrate")
+
+    local actionTimer = 0
+    local BUY_INTERVAL = 1
+    local crateIndex = 1
+
+    connections.buycrate = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoBuyCrate then return end
+        if not GAG.SelectedCrates or #GAG.SelectedCrates == 0 then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < BUY_INTERVAL then return end
+        actionTimer = 0
+
+        if net and net.CrateShop and net.CrateShop.PurchaseCrate then
+            local crate = GAG.SelectedCrates[crateIndex]
+            if crate then
+                pcall(function() net.CrateShop.PurchaseCrate:Fire(crate) end)
+                crateIndex = crateIndex + 1
+                if crateIndex > #GAG.SelectedCrates then crateIndex = 1 end
+            end
+        end
+    end)
+end
+
+local function openAllCrates()
+    pcall(function()
+        local function checkAndOpen(item)
+            if item:IsA("Tool") and (item.Name:lower():find("crate") or item.Name:lower():find("box")) then
+                if net and net.Crate and net.Crate.OpenCrate then
+                    net.Crate.OpenCrate:Fire(item)
+                end
+            end
+        end
+        local bp = lp:FindFirstChild("Backpack")
+        if bp then
+            for _, item in ipairs(bp:GetChildren()) do
+                checkAndOpen(item)
+            end
+        end
+        local char = lp.Character
+        if char then
+            for _, item in ipairs(char:GetChildren()) do
+                checkAndOpen(item)
+            end
+        end
+    end)
+end
+
+local function startAutoOpenCrates()
+    disconnect("opencrates")
+
+    local actionTimer = 0
+    local OPEN_INTERVAL = 1
+
+    connections.opencrates = RunService.Heartbeat:Connect(function(dt)
+        if not GAG.Enabled or not GAG.AutoOpenCrates then return end
+
+        actionTimer = actionTimer + dt
+        if actionTimer < OPEN_INTERVAL then return end
+        actionTimer = 0
+
+        openAllCrates()
     end)
 end
 
@@ -1249,7 +1348,8 @@ function GAG:Init()
     -- Pre-load seed and gear names
     pcall(function() getSeedNames() end)
     pcall(function() getGearNames() end)
-    print("[Leon X] GAG Seeds found: " .. #seedNames .. ", Gear found: " .. #gearNames)
+    pcall(function() getCrateNames() end)
+    print("[Leon X] GAG Seeds found: " .. #seedNames .. ", Gear found: " .. #gearNames .. ", Crates found: " .. #crateNames)
 end
 
 function GAG:Enable()
@@ -1268,6 +1368,8 @@ function GAG:Disable()
     self.AutoSteal     = false
     self.AutoFling     = false
     self.ShovelFling   = false
+    self.AutoBuyCrate      = false
+    self.AutoOpenCrates    = false
     stopPriceESP()
     stopShovelFling()
     disconnectAll()
@@ -1412,6 +1514,48 @@ function GAG:WireUI(tab, extras)
                 startAutoBuyGear()
             else
                 disconnect("buygear")
+            end
+        end
+    })
+
+    tab:Dropdown({
+        Title    = "Select Crates (Multi)",
+        Flag     = "GAG_SelectedCrates",
+        Default  = {},
+        Values   = crateNames,
+        Multi    = true,
+        SearchBarEnabled = true,
+        Callback = function(v)
+            GAG.SelectedCrates = type(v) == "table" and v or {v}
+        end
+    })
+
+    tab:Toggle({
+        Title    = "Auto Buy Selected Crates",
+        Flag     = "GAG_AutoBuyCrate",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoBuyCrate = v
+            if v then
+                GAG.Enabled = true
+                startAutoBuyCrate()
+            else
+                disconnect("buycrate")
+            end
+        end
+    })
+
+    tab:Toggle({
+        Title    = "Auto Open Crates",
+        Flag     = "GAG_AutoOpenCrates",
+        Default  = false,
+        Callback = function(v)
+            GAG.AutoOpenCrates = v
+            if v then
+                GAG.Enabled = true
+                startAutoOpenCrates()
+            else
+                disconnect("opencrates")
             end
         end
     })
@@ -1639,6 +1783,26 @@ function GAG:WireUI(tab, extras)
     tab:Section({ Title = "Utility" })
 
     tab:Button({
+        Title    = "Cobalt Remote Spy",
+        Flag     = "GAG_CobaltSpy",
+        Callback = function()
+            if extras.N then extras.N("Cobalt Spy", "Loading Cobalt Remote Spy...", 3) end
+            task.spawn(function()
+                local success, err = pcall(function()
+                    loadstring(game:HttpGet("https://github.com/notpoiu/cobalt/releases/latest/download/Cobalt.luau"))()
+                end)
+                if not success then
+                    if extras.N then
+                        extras.N("Cobalt Spy Error", tostring(err), 5)
+                    else
+                        warn("[Leon X] Failed to load Cobalt: " .. tostring(err))
+                    end
+                end
+            end)
+        end
+    })
+
+    tab:Button({
         Title    = "Rejoin Server",
         Flag     = "GAG_Rejoin",
         Callback = function()
@@ -1799,7 +1963,7 @@ function GAG:WireUI(tab, extras)
         SettingsTab:Section({ Title = "About" })
         SettingsTab:Paragraph({
             Title   = "Leon X - Grow a Garden 2",
-            Content = "v1.5 • by leonx24"
+            Content = "v1.7 • by leonx24"
         })
     end
 end
