@@ -19,17 +19,28 @@ pcall(function()
     end
 end)
 
-local function cleanupGui(guiParent)
-    if not guiParent then return end
-    for _, name in ipairs({"LeonXSplash", "LeonXNoir", "LeonXNotif"}) do
-        local old = guiParent:FindFirstChild(name)
-        if old then
-            pcall(function() old:Destroy() end)
+pcall(function()
+    local players = game:GetService("Players")
+    local lp = players and players.LocalPlayer
+    local playerGui = lp and lp:FindFirstChild("PlayerGui")
+    
+    local function cleanupGui(guiParent)
+        if not guiParent then return end
+        for _, name in ipairs({"LeonXSplash", "LeonXNoir", "LeonXNotif"}) do
+            local old = guiParent:FindFirstChild(name)
+            if old then
+                pcall(function() old:Destroy() end)
+            end
         end
     end
-end
-cleanupGui(game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui"))
-cleanupGui(game:GetService("CoreGui"))
+    
+    cleanupGui(playerGui)
+    
+    local coreGui = game:GetService("CoreGui")
+    if coreGui then
+        cleanupGui(coreGui)
+    end
+end)
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
