@@ -12,6 +12,24 @@ _G._LeonX_AllowTeleport = function(allow)
     _G._LeonX_AllowTeleportActive = allow and true or false
 end
 
+-- Destroy old GUI instances to prevent duplicates and stuck screens when re-executing
+pcall(function()
+    if _G.LeonX_Cleanup then
+        _G.LeonX_Cleanup()
+    end
+end)
+
+local function cleanupGui(guiParent)
+    if not guiParent then return end
+    for _, name in ipairs({"LeonXSplash", "LeonXNoir", "LeonXNotif"}) do
+        local old = guiParent:FindFirstChild(name)
+        if old then
+            pcall(function() old:Destroy() end)
+        end
+    end
+end
+cleanupGui(game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui"))
+cleanupGui(game:GetService("CoreGui"))
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
@@ -383,6 +401,23 @@ if not ActiveGameModule then
 end
 
 if Waypoint then Waypoint:Init() end
+
+_G.LeonX_Cleanup = function()
+    pcall(function()
+        if ActiveGameModule and ActiveGameModule.Disable then
+            ActiveGameModule:Disable()
+        end
+    end)
+    pcall(function() if Fly and Fly.Disable then Fly:Disable() end end)
+    pcall(function() if Speed and Speed.Disable then Speed:Disable() end end)
+    pcall(function() if FreeCam and FreeCam.Disable then FreeCam:Disable() end end)
+    pcall(function() if ESP and ESP.Disable then ESP:Disable() end end)
+    pcall(function() if Tracer and Tracer.Disable then Tracer:Disable() end end)
+    pcall(function() if FullBright and FullBright.Disable then FullBright:Disable() end end)
+    pcall(function() if RemoveFog and RemoveFog.Disable then RemoveFog:Disable() end end)
+    pcall(function() if AntiAFK and AntiAFK.Disable then AntiAFK:Disable() end end)
+    pcall(function() if AutoClicker and AutoClicker.Disable then AutoClicker:Disable() end end)
+end
 
 -- ── Determine window title based on game mode ─────────────────────────────────
 local windowTitle = "Leon X v"..CURRENT_VERSION
