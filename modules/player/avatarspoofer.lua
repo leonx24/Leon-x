@@ -157,8 +157,12 @@ local KORBLOX_R15 = {
     { partName = "RightFoot",     meshId = "rbxassetid://11159418511", size = Vector3.new(0.899, 0.450, 0.899) },
 }
 
--- Korblox R6 mesh ID (the classic single-piece right leg mesh)
-local KORBLOX_R6_MESH = "rbxassetid://139539996"
+-- Korblox R6 mesh and texture IDs (community-verified working IDs)
+local KORBLOX_R6_MESH    = "rbxassetid://101851696"
+local KORBLOX_R6_TEXTURE = "rbxassetid://101851254"
+
+local OriginalLegColor = nil
+local OriginalLegMaterial = nil
 
 local function applyKorbloxLeg(char, enabled)
     if not char then return end
@@ -169,10 +173,9 @@ local function applyKorbloxLeg(char, enabled)
         if old then old:Destroy() end
     end)
     pcall(function()
-        local oldMesh = nil
         local rightLeg = char:FindFirstChild("Right Leg")
         if rightLeg then
-            oldMesh = rightLeg:FindFirstChild("_KorbloxMesh")
+            local oldMesh = rightLeg:FindFirstChild("_KorbloxMesh")
             if oldMesh then oldMesh:Destroy() end
         end
     end)
@@ -192,9 +195,17 @@ local function applyKorbloxLeg(char, enabled)
             pcall(function()
                 local leg = char:FindFirstChild("Right Leg")
                 if leg then
-                    -- Remove the SpecialMesh we added
                     local sm = leg:FindFirstChild("_KorbloxMesh")
                     if sm then sm:Destroy() end
+                    -- Restore original color/material
+                    if OriginalLegColor then
+                        leg.Color = OriginalLegColor
+                        OriginalLegColor = nil
+                    end
+                    if OriginalLegMaterial then
+                        leg.Material = OriginalLegMaterial
+                        OriginalLegMaterial = nil
+                    end
                 end
             end)
         end
@@ -241,17 +252,28 @@ local function applyKorbloxLeg(char, enabled)
             end
         end)
     else
-        -- R6: Simply insert a SpecialMesh into the "Right Leg" part
+        -- R6: Insert a SpecialMesh with the verified Korblox mesh + texture
         pcall(function()
             local rightLeg = char:FindFirstChild("Right Leg")
             if rightLeg then
-                -- Remove any existing SpecialMesh (some shirts/packages add them)
-                local existingMesh = rightLeg:FindFirstChildOfClass("SpecialMesh")
+                -- Save original appearance for revert
+                if not OriginalLegColor then
+                    OriginalLegColor = rightLeg.Color
+                    OriginalLegMaterial = rightLeg.Material
+                end
+                
+                -- Remove any existing SpecialMesh to prevent layering
+                for _, child in ipairs(rightLeg:GetChildren()) do
+                    if safeIsA(child, "SpecialMesh") or safeIsA(child, "CharacterMesh") then
+                        pcall(function() child:Destroy() end)
+                    end
+                end
                 
                 local mesh = Instance.new("SpecialMesh")
                 mesh.Name = "_KorbloxMesh"
                 mesh.MeshType = Enum.MeshType.FileMesh
                 mesh.MeshId = KORBLOX_R6_MESH
+                mesh.TextureId = KORBLOX_R6_TEXTURE
                 mesh.Scale = Vector3.new(1, 1, 1)
                 mesh.Parent = rightLeg
                 
@@ -349,6 +371,23 @@ local function loadAssetObjects(assetId)
     return nil
 end
 
+-- Strip animations, scripts, and other non-visual junk from an asset to prevent errors
+local function stripNonVisual(obj)
+    pcall(function()
+        for _, desc in ipairs(obj:GetDescendants()) do
+            local shouldRemove = false
+            pcall(function()
+                shouldRemove = desc:IsA("Animation") or desc:IsA("AnimationController") 
+                    or desc:IsA("Animator") or desc:IsA("Script") 
+                    or desc:IsA("LocalScript") or desc:IsA("ModuleScript")
+            end)
+            if shouldRemove then
+                pcall(function() desc:Destroy() end)
+            end
+        end
+    end)
+end
+
 local function findAccessoryInObjects(objects)
     for _, obj in ipairs(objects) do
         -- Direct accessory
@@ -410,6 +449,9 @@ local function wearAccessoryLocal(accessoryId)
         if acc then
             -- Detach from container if needed
             pcall(function() acc.Parent = nil end)
+            
+            -- Strip animations/scripts to prevent console errors
+            stripNonVisual(acc)
             
             -- Try official AddAccessory first
             local addOk = false
