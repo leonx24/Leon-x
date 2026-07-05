@@ -332,6 +332,7 @@ local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0
 local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
+local AvatarSpoof = load("modules/player/avatarspoofer.lua");      setSplashProgress(0.96)
 
 
 -- Dummy stub for any module that failed to load
@@ -385,6 +386,7 @@ AutoClicker    = safe(AutoClicker)
 MacroRec       = safe(MacroRec)
 AntiVoid       = safe(AntiVoid)
 GamepassSpoof  = safe(GamepassSpoof)
+AvatarSpoof    = safe(AvatarSpoof)
 
 -- ── Game-specific modules ────────────────────────────────────────────────────
 local GAME_MODULES = {}
@@ -1545,6 +1547,69 @@ PlayerTab:Button({
     end
 })
 
+PlayerTab:Section({ Title = "Avatar Customizer" })
+
+local avatarCustomizerToggle = PlayerTab:Toggle({
+    Title    = "Avatar Customizer",
+    Tooltip  = "Enable local and replicated avatar modifications (Headless, Korblox)",
+    Value    = false,
+    Callback = function(v)
+        if v then AvatarSpoof:Enable() else AvatarSpoof:Disable() end
+        N("Avatar Customizer", v and "Customizer Enabled" or "Customizer Disabled")
+    end
+})
+ConfigMgr:Register("AvatarCustomizer", avatarCustomizerToggle)
+
+local headlessToggle = PlayerTab:Toggle({
+    Title    = "Headless Head",
+    Tooltip  = "Make your head and face invisible (local/replicated if supported)",
+    Value    = false,
+    Callback = function(v)
+        AvatarSpoof:SetHeadless(v)
+        N("Headless Head", v and "Headless ON" or "Headless OFF")
+    end
+})
+ConfigMgr:Register("AvatarHeadless", headlessToggle)
+
+local korbloxToggle = PlayerTab:Toggle({
+    Title    = "Korblox Leg",
+    Tooltip  = "Replace your right leg with Korblox leg (local/replicated if supported)",
+    Value    = false,
+    Callback = function(v)
+        AvatarSpoof:SetKorbloxLeg(v)
+        N("Korblox Leg", v and "Korblox leg ON" or "Korblox leg OFF")
+    end
+})
+ConfigMgr:Register("AvatarKorblox", korbloxToggle)
+
+local accessoryIdInput = PlayerTab:Input({
+    Title       = "Accessory ID",
+    Placeholder = "Enter Catalog Asset ID...",
+    Value       = "",
+    Callback    = function(text)
+        AvatarSpoof.CustomAccessoryId = text
+    end
+})
+ConfigMgr:Register("AvatarAccessoryId", accessoryIdInput)
+
+PlayerTab:Button({
+    Title    = "Wear Accessory",
+    Tooltip  = "Wear the custom accessory ID on your character",
+    Callback = function()
+        if not AvatarSpoof.Enabled then
+            N("Avatar Customizer", "Enable Avatar Customizer first!")
+            return
+        end
+        local id = AvatarSpoof.CustomAccessoryId
+        if id and id ~= "" then
+            AvatarSpoof:WearAccessory(id)
+            N("Avatar Customizer", "Equipped accessory: " .. id)
+        else
+            N("Avatar Customizer", "Please enter a valid Accessory ID first!")
+        end
+    end
+})
+
 PlayerTab:Section({ Title = "Info" })
 PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
 PlayerTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
@@ -2119,6 +2184,7 @@ UIS.InputBegan:Connect(function(i, gp)
     pcall(function() if AntiFling.Enabled then antiFlingToggle:Set(false); AntiFling:Disable() end end)
     pcall(function() if AntiVoid.Enabled then antiVoidToggle:Set(false); AntiVoid:Disable() end end)
     pcall(function() if GamepassSpoof.Enabled then gpSpoofToggle:Set(false); GamepassSpoof:Disable() end end)
+    pcall(function() if AvatarSpoof.Enabled then avatarCustomizerToggle:Set(false); AvatarSpoof:Disable() end end)
 
     -- Disable auto modules
     pcall(function() if AutoClicker.Enabled then autoClickerToggle:Set(false); AutoClicker:Disable() end end)
@@ -2274,6 +2340,7 @@ task.delay(1.5, function()
         if antiFlingToggle.Value == true then AntiFling:Enable() end
         if antiVoidToggle.Value == true then AntiVoid:Enable() end
         if gpSpoofToggle.Value == true then GamepassSpoof:Enable() end
+        if avatarCustomizerToggle.Value == true then AvatarSpoof:Enable() end
         if hitboxToggle.Value == true then HitboxExp:Enable() end
         if ikToggle.Value == true then InstantKill:Enable() end
 

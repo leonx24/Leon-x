@@ -555,23 +555,52 @@ local function decorateButton(btn, text, zIndex, palette)
     btn.Selectable = true
     btn.AutoButtonColor = false
     btn.ZIndex = zIndex
-    btn.BackgroundColor3 = colors.IDLE
-    btn.BackgroundTransparency = 0.1
-    trySet(btn, "Interactable", true)
-    if btn:IsA("ImageButton") then
+    
+    if safeIsA(btn, "ImageButton") then
         btn.ImageColor3 = colors.IDLE
+    else
+        btn.BackgroundColor3 = colors.IDLE
+    end
+    btn.BackgroundTransparency = 0.15
+    trySet(btn, "Interactable", true)
+
+    for _, desc in ipairs(safeGetDescendants(btn)) do
+        if safeIsA(desc, "LocalScript") or safeIsA(desc, "Script") or safeIsA(desc, "ModuleScript") then
+            desc:Destroy()
+        end
     end
 
-    for _, desc in ipairs(btn:GetDescendants()) do
-        if desc:IsA("LocalScript") or desc:IsA("Script") or desc:IsA("ModuleScript") then
-            desc:Destroy()
-        elseif desc:IsA("GuiObject") then
-            desc.ZIndex = math.max(desc.ZIndex, btn.ZIndex)
+    -- Find the main text label to display our button text
+    local mainLabel = nil
+    local maxArea = 0
+    for _, desc in ipairs(safeGetDescendants(btn)) do
+        if safeIsA(desc, "TextLabel") then
+            local size = desc.AbsoluteSize
+            local area = size.X * size.Y
+            if area > maxArea then
+                maxArea = area
+                mainLabel = desc
+            end
+        end
+    end
+
+    for _, desc in ipairs(safeGetDescendants(btn)) do
+        if safeIsA(desc, "GuiObject") then
+            desc.ZIndex = math.max(desc.ZIndex, btn.ZIndex + 1)
             desc.Active = true
             trySet(desc, "Interactable", true)
-            if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-                desc.Text = text
-                desc.TextTransparency = 0
+            
+            if safeIsA(desc, "TextLabel") then
+                if desc == mainLabel or not mainLabel then
+                    desc.Text = text
+                    desc.TextTransparency = 0
+                    desc.Visible = true
+                    mainLabel = desc
+                else
+                    desc.Visible = false
+                end
+            elseif safeIsA(desc, "ImageLabel") then
+                desc.Visible = false
             end
         end
     end
@@ -708,6 +737,18 @@ local function isButton(obj)
         return false
     end
 
+    -- Size check: real button should be reasonably sized
+    local size
+    pcall(function() size = obj.AbsoluteSize end)
+    if size then
+        if size.Y > 80 or size.X > 320 then
+            return false -- Too large, probably a panel/container
+        end
+        if size.Y < 15 or size.X < 30 then
+            return false -- Too small, probably a minor icon or label
+        end
+    end
+
     -- standard buttons
     if safeIsA(obj, "ImageButton") or safeIsA(obj, "TextButton") then
         return true
@@ -718,7 +759,20 @@ local function isButton(obj)
     local active = false
     if isCanvas then
         pcall(function() active = obj.Active end)
+        
+        -- Ignore containers that contain actual buttons inside them
+        local hasInnerButton = false
+        pcall(function()
+            for _, child in ipairs(obj:GetDescendants()) do
+                if child:IsA("ImageButton") or child:IsA("TextButton") then
+                    hasInnerButton = true
+                    break
+                end
+            end
+        end)
+        if hasInnerButton then return false end
     end
+    
     if isCanvas and active then
         if name:find("button") or name:find("action") or name:find("btn") or name:find("confirm") or name:find("buy") then
             return true
@@ -728,7 +782,7 @@ local function isButton(obj)
         if label then
             local text = ""
             pcall(function() text = label.Text end)
-            if #text > 0 and #text < 20 then
+            if #text > 0 and #text < 25 then
                 return true
             end
         end
