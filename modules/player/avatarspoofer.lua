@@ -207,34 +207,18 @@ local function applyKorbloxLeg(char, enabled)
                 table.clear(OriginalLegState)
             end
         else
-            -- R6 Rig Character
-            local rightLeg = char:FindFirstChild("Right Leg")
-            if not rightLeg then return end
-            
+            -- R6 Rig Character: use CharacterMesh (completely native and doesn't require welding or transparency hacks)
             if enabled then
-                rightLeg.Transparency = 1
-                
-                -- Spawn local Korblox mesh model and weld it
-                local existing = char:FindFirstChild("KorbloxLegLocal")
+                local existing = char:FindFirstChild("KorbloxMeshLocal")
                 if not existing then
-                    local leg = Instance.new("MeshPart")
-                    leg.Name = "KorbloxLegLocal"
-                    leg.MeshId = "rbxassetid://139628042"
-                    leg.Size = Vector3.new(1.1, 2.1, 1.1)
-                    leg.CanCollide = false
-                    leg.Massless = true
-                    leg.Parent = char
-                    
-                    local weld = Instance.new("Weld")
-                    weld.Name = "KorbloxWeld"
-                    weld.Part0 = rightLeg
-                    weld.Part1 = leg
-                    weld.C0 = CFrame.new(0, 0.05, 0)
-                    weld.Parent = leg
+                    local cm = Instance.new("CharacterMesh")
+                    cm.Name = "KorbloxMeshLocal"
+                    cm.BodyPart = Enum.BodyPart.RightLeg
+                    cm.MeshId = 139616035 -- The raw Korblox R6 Right Leg Mesh ID
+                    cm.Parent = char
                 end
             else
-                rightLeg.Transparency = 0
-                local existing = char:FindFirstChild("KorbloxLegLocal")
+                local existing = char:FindFirstChild("KorbloxMeshLocal")
                 if existing then
                     existing:Destroy()
                 end
