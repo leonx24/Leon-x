@@ -145,21 +145,16 @@ end
 
 -- ═══════════════════════════════════════════════════════════════
 -- KORBLOX LEG
--- R15: Create brand new MeshPart instances with Korblox meshes
---      and weld them over the (hidden) original leg parts.
--- R6:  Insert a SpecialMesh into the existing "Right Leg" Part.
+-- Both R15 and R6 use Part + SpecialMesh (FileMesh) approach.
+-- Instance.new("MeshPart") does NOT render custom MeshId on client,
+-- so we use a regular Part with a SpecialMesh child instead.
+-- R15: Hide all 3 right leg parts, place one Korblox mesh welded to RightUpperLeg
+-- R6:  Insert SpecialMesh directly into the existing "Right Leg" Part.
 -- ═══════════════════════════════════════════════════════════════
 
--- Korblox Deathspeaker R15 mesh asset IDs (raw content delivery mesh IDs)
-local KORBLOX_R15 = {
-    { partName = "RightUpperLeg", meshId = "rbxassetid://11159400833", size = Vector3.new(0.899, 1.413, 0.899) },
-    { partName = "RightLowerLeg", meshId = "rbxassetid://11159410489", size = Vector3.new(0.899, 1.493, 0.899) },
-    { partName = "RightFoot",     meshId = "rbxassetid://11159418511", size = Vector3.new(0.899, 0.450, 0.899) },
-}
-
--- Korblox R6 mesh and texture IDs (community-verified working IDs)
-local KORBLOX_R6_MESH    = "rbxassetid://101851696"
-local KORBLOX_R6_TEXTURE = "rbxassetid://101851254"
+-- Korblox R6/R15 mesh and texture IDs (community-verified working IDs)
+local KORBLOX_MESH    = "rbxassetid://101851696"
+local KORBLOX_TEXTURE = "rbxassetid://101851254"
 
 local OriginalLegColor = nil
 local OriginalLegMaterial = nil
@@ -181,13 +176,13 @@ local function applyKorbloxLeg(char, enabled)
     end)
     
     local isR15 = char:FindFirstChild("RightUpperLeg") ~= nil
+    local R15_PARTS = {"RightUpperLeg", "RightLowerLeg", "RightFoot"}
     
     if not enabled then
-        -- Restore transparency of real parts
         if isR15 then
-            for _, info in ipairs(KORBLOX_R15) do
+            for _, name in ipairs(R15_PARTS) do
                 pcall(function()
-                    local part = char:FindFirstChild(info.partName)
+                    local part = char:FindFirstChild(name)
                     if part then part.Transparency = 0 end
                 end)
             end
@@ -197,7 +192,6 @@ local function applyKorbloxLeg(char, enabled)
                 if leg then
                     local sm = leg:FindFirstChild("_KorbloxMesh")
                     if sm then sm:Destroy() end
-                    -- Restore original color/material
                     if OriginalLegColor then
                         leg.Color = OriginalLegColor
                         OriginalLegColor = nil
@@ -215,48 +209,49 @@ local function applyKorbloxLeg(char, enabled)
     -- ENABLED
     if isR15 then
         pcall(function()
-            local container = Instance.new("Model")
-            container.Name = "_KorbloxOverlay"
-            container.Parent = char
-            
-            for _, info in ipairs(KORBLOX_R15) do
-                local realPart = char:FindFirstChild(info.partName)
-                if realPart then
-                    -- Hide the original part
-                    realPart.Transparency = 1
-                    
-                    -- Create a brand new MeshPart overlay
-                    local overlay = Instance.new("MeshPart")
-                    overlay.Name = info.partName .. "_Korblox"
-                    overlay.Size = info.size or realPart.Size
-                    overlay.MeshId = info.meshId
-                    overlay.TextureID = "" -- Korblox is untextured (black/dark)
-                    overlay.Color = Color3.fromRGB(17, 17, 17) -- Dark Korblox color
-                    overlay.Material = Enum.Material.SmoothPlastic
-                    overlay.CanCollide = false
-                    overlay.CanTouch = false
-                    overlay.CanQuery = false
-                    overlay.Massless = true
-                    overlay.Anchored = false
-                    overlay.Parent = container
-                    
-                    -- Weld to the real part
-                    local weld = Instance.new("WeldConstraint")
-                    weld.Part0 = realPart
-                    weld.Part1 = overlay
-                    weld.Parent = overlay
-                    
-                    -- Position exactly on top of the real part
-                    overlay.CFrame = realPart.CFrame
-                end
+            -- Hide all 3 right leg R15 parts
+            for _, name in ipairs(R15_PARTS) do
+                local part = char:FindFirstChild(name)
+                if part then part.Transparency = 1 end
             end
+            
+            -- Create a single Korblox leg overlay using Part + SpecialMesh
+            local upperLeg = char:FindFirstChild("RightUpperLeg")
+            if not upperLeg then return end
+            
+            local overlay = Instance.new("Part")
+            overlay.Name = "_KorbloxOverlay"
+            overlay.Size = Vector3.new(1, 3, 1)
+            overlay.Color = Color3.fromRGB(17, 17, 17)
+            overlay.Material = Enum.Material.SmoothPlastic
+            overlay.CanCollide = false
+            overlay.CanTouch = false
+            overlay.CanQuery = false
+            overlay.Massless = true
+            overlay.Anchored = false
+            overlay.Transparency = 0
+            overlay.Parent = char
+            
+            -- Add Korblox mesh (same mesh as R6, works as single piece)
+            local mesh = Instance.new("SpecialMesh")
+            mesh.MeshType = Enum.MeshType.FileMesh
+            mesh.MeshId = KORBLOX_MESH
+            mesh.TextureId = KORBLOX_TEXTURE
+            mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
+            mesh.Parent = overlay
+            
+            -- Weld to the upper leg (positioned to cover all 3 parts)
+            overlay.CFrame = upperLeg.CFrame * CFrame.new(0, -0.5, 0)
+            local weld = Instance.new("WeldConstraint")
+            weld.Part0 = upperLeg
+            weld.Part1 = overlay
+            weld.Parent = overlay
         end)
     else
-        -- R6: Insert a SpecialMesh with the verified Korblox mesh + texture
+        -- R6: Insert SpecialMesh directly into the "Right Leg" Part
         pcall(function()
             local rightLeg = char:FindFirstChild("Right Leg")
             if rightLeg then
-                -- Save original appearance for revert
                 if not OriginalLegColor then
                     OriginalLegColor = rightLeg.Color
                     OriginalLegMaterial = rightLeg.Material
@@ -272,12 +267,11 @@ local function applyKorbloxLeg(char, enabled)
                 local mesh = Instance.new("SpecialMesh")
                 mesh.Name = "_KorbloxMesh"
                 mesh.MeshType = Enum.MeshType.FileMesh
-                mesh.MeshId = KORBLOX_R6_MESH
-                mesh.TextureId = KORBLOX_R6_TEXTURE
+                mesh.MeshId = KORBLOX_MESH
+                mesh.TextureId = KORBLOX_TEXTURE
                 mesh.Scale = Vector3.new(1, 1, 1)
                 mesh.Parent = rightLeg
                 
-                -- Make the leg dark like Korblox
                 rightLeg.Color = Color3.fromRGB(17, 17, 17)
                 rightLeg.Material = Enum.Material.SmoothPlastic
             end
@@ -453,20 +447,25 @@ local function wearAccessoryLocal(accessoryId)
             -- Strip animations/scripts to prevent console errors
             stripNonVisual(acc)
             
-            -- Try official AddAccessory first
-            local addOk = false
-            pcall(function()
-                humanoid:AddAccessory(acc)
-                addOk = true
-            end)
+            -- ALWAYS use manual welding — Humanoid:AddAccessory silently fails on client
+            manualWeldAccessory(acc, char)
             
-            -- If AddAccessory didn't attach properly, weld manually
-            if not addOk or not acc.Parent then
-                manualWeldAccessory(acc, char)
+            -- Verify it attached
+            if acc.Parent == char then
+                table.insert(EquippedLocalAccessories, acc)
+                print("[Leon X] AvatarSpoofer: Equipped accessory " .. tostring(accessoryId))
+            else
+                -- Last resort: try AddAccessory
+                pcall(function()
+                    humanoid:AddAccessory(acc)
+                end)
+                if acc.Parent then
+                    table.insert(EquippedLocalAccessories, acc)
+                    print("[Leon X] AvatarSpoofer: Equipped accessory (via AddAccessory) " .. tostring(accessoryId))
+                else
+                    warn("[Leon X] AvatarSpoofer: Accessory loaded but failed to attach " .. tostring(accessoryId))
+                end
             end
-            
-            table.insert(EquippedLocalAccessories, acc)
-            print("[Leon X] AvatarSpoofer: Equipped accessory " .. tostring(accessoryId))
         else
             warn("[Leon X] AvatarSpoofer: No Accessory found inside asset " .. tostring(accessoryId))
         end
