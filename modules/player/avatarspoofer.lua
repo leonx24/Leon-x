@@ -39,11 +39,19 @@ local function safeCall(fn, ...)
     return ok, res
 end
 
+local function safeIsA(obj, className)
+    local ok, res = pcall(function() return obj:IsA(className) end)
+    return ok and res
+end
+
 -- Scan ReplicatedStorage for any RemoteEvent that looks like a catalog wearer/customizer
 local function findAvatarRemotes()
     local remotes = {}
-    for _, desc in ipairs(ReplicatedStorage:GetDescendants()) do
-        if desc:IsA("RemoteEvent") or desc:IsA("RemoteFunction") then
+    local descendants = {}
+    pcall(function() descendants = ReplicatedStorage:GetDescendants() end)
+    
+    for _, desc in ipairs(descendants) do
+        if safeIsA(desc, "RemoteEvent") or safeIsA(desc, "RemoteFunction") then
             local name = desc.Name:lower()
             -- Match keywords commonly used in customizer remotes in hangout/mountain games
             if name:find("accessory") or name:find("wear") or name:find("equip") or name:find("avatar") or name:find("catalog") or name:find("headless") or name:find("korblox") then
