@@ -120,6 +120,21 @@ local function toggleRobloxMenu()
     end)
 end
 
+local function safeIsA(obj, className)
+    local ok, res = pcall(function() return obj:IsA(className) end)
+    return ok and res
+end
+
+local function safeGetParent(obj)
+    local ok, parent = pcall(function() return obj.Parent end)
+    return ok and parent or nil
+end
+
+local function safeGetDescendants(obj)
+    local ok, descs = pcall(function() return obj:GetDescendants() end)
+    return ok and descs or {}
+end
+
 local function trySet(obj, prop, value)
     pcall(function()
         obj[prop] = value
@@ -127,24 +142,39 @@ local function trySet(obj, prop, value)
 end
 
 local function tweenColor(target, color)
-    if not target or not target.Parent then return end
+    if not target or not safeGetParent(target) then return end
 
     local props = {}
-    if target:IsA("GuiObject") then
+    local isGui = safeIsA(target, "GuiObject")
+    local isImg = safeIsA(target, "ImageButton") or safeIsA(target, "ImageLabel")
+
+    if isGui then
         props.BackgroundColor3 = color
     end
-    if target:IsA("ImageButton") or target:IsA("ImageLabel") then
+    if isImg then
         props.ImageColor3 = color
     end
     if next(props) then
-        TweenService:Create(target, TWEEN_SPEED, props):Play()
+        local success = pcall(function()
+            TweenService:Create(target, TWEEN_SPEED, props):Play()
+        end)
+        if not success then
+            pcall(function()
+                if isGui then
+                    target.BackgroundColor3 = color
+                end
+                if isImg then
+                    target.ImageColor3 = color
+                end
+            end)
+        end
     end
 end
 
 local function applyVisualState(root, color)
     tweenColor(root, color)
-    for _, desc in ipairs(root:GetDescendants()) do
-        if desc:IsA("ImageLabel") or desc:IsA("ImageButton") or desc:IsA("Frame") then
+    for _, desc in ipairs(safeGetDescendants(root)) do
+        if safeIsA(desc, "ImageLabel") or safeIsA(desc, "ImageButton") or safeIsA(desc, "Frame") then
             tweenColor(desc, color)
         end
     end
@@ -659,31 +689,48 @@ end
 
 -- Check if a GUI object behaves as a clickable button in Roblox React
 local function isButton(obj)
-    if not obj:IsA("GuiObject") then return false end
+    if not safeIsA(obj, "GuiObject") then return false end
     if obj.Name == "FreeButton" or obj.Name == "CopyButton" or obj.Name == "AutoButton" then return false end
-    if obj:FindFirstAncestor("FreeButton") or obj:FindFirstAncestor("CopyButton") or obj:FindFirstAncestor("AutoButton") then return false end
+    
+    local ok, isAncestor = pcall(function()
+        return obj:FindFirstAncestor("FreeButton") or obj:FindFirstAncestor("CopyButton") or obj:FindFirstAncestor("AutoButton")
+    end)
+    if ok and isAncestor then return false end
 
     -- Exclude close, back, and dismiss buttons so we don't attach to top-right close elements
     local name = obj.Name:lower()
-    local path = obj:GetFullName():lower()
+    local path
+    local okPath = pcall(function() path = obj:GetFullName():lower() end)
+    if not okPath or not path then path = "" end
+    
     if name:find("close") or name:find("back") or name:find("dismiss") or name:find("cancel")
        or path:find("close") or path:find("back") or path:find("dismiss") or path:find("cancel") then
         return false
     end
 
     -- standard buttons
-    if obj:IsA("ImageButton") or obj:IsA("TextButton") then
+    if safeIsA(obj, "ImageButton") or safeIsA(obj, "TextButton") then
         return true
     end
 
     -- CanvasGroup or Frame acting as button (common in React/Foundation UI)
-    if (obj:IsA("CanvasGroup") or obj:IsA("Frame")) and obj.Active then
+    local isCanvas = safeIsA(obj, "CanvasGroup") or safeIsA(obj, "Frame")
+    local active = false
+    if isCanvas then
+        pcall(function() active = obj.Active end)
+    end
+    if isCanvas and active then
         if name:find("button") or name:find("action") or name:find("btn") or name:find("confirm") or name:find("buy") then
             return true
         end
-        local label = obj:FindFirstChildOfClass("TextLabel")
-        if label and #label.Text > 0 and #label.Text < 20 then
-            return true
+        local label = nil
+        pcall(function() label = obj:FindFirstChildOfClass("TextLabel") end)
+        if label then
+            local text = ""
+            pcall(function() text = label.Text end)
+            if #text > 0 and #text < 20 then
+                return true
+            end
         end
     end
 
@@ -691,8 +738,13 @@ local function isButton(obj)
 end
 
 local function findTemplateButton(root)
-    for _, desc in ipairs(root:GetDescendants()) do
-        if desc:IsA("GuiObject") and desc.Visible and isButton(desc) then
+    for _, desc in ipairs(safeGetDescendants(root)) do
+        local visible = false
+        local isGui = safeIsA(desc, "GuiObject")
+        if isGui then
+            pcall(function() visible = desc.Visible end)
+        end
+        if isGui and visible and isButton(desc) then
             return desc
         end
     end
