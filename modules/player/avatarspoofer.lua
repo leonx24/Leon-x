@@ -248,22 +248,36 @@ local function wearAccessoryLocal(accessoryId)
             return game:GetObjects("rbxassetid://" .. tostring(accessoryId))
         end)
         
-        if success and objects and objects[1] then
-            local asset = objects[1]
-            local toEquip = nil
-            
-            if asset:IsA("Accessory") then
-                toEquip = asset
-            elseif asset:IsA("Model") then
-                toEquip = asset:FindFirstChildWhichIsA("Accessory")
-            end
-            
-            if toEquip then
-                -- Track to allow dynamic deletion on disable
-                table.insert(EquippedLocalAccessories, toEquip)
-                humanoid:AddAccessory(toEquip)
-            else
-                asset:Destroy()
+        if success and objects and type(objects) == "table" then
+            for _, obj in ipairs(objects) do
+                local acc = nil
+                if safeIsA(obj, "Accessory") then
+                    acc = obj
+                else
+                    pcall(function()
+                        acc = obj:FindFirstChildWhichIsA("Accessory")
+                    end)
+                    if not acc then
+                        pcall(function()
+                            for _, desc in ipairs(obj:GetDescendants()) do
+                                if safeIsA(desc, "Accessory") then
+                                    acc = desc
+                                    break
+                                end
+                            end
+                        end)
+                    end
+                end
+                
+                if acc then
+                    -- Extract the accessory so it isn't destroyed when we clean up the wrapper object
+                    pcall(function() acc.Parent = nil end)
+                    table.insert(EquippedLocalAccessories, acc)
+                    pcall(function() humanoid:AddAccessory(acc) end)
+                end
+                
+                -- Destroy the wrapper/loaded object container safely
+                pcall(function() obj:Destroy() end)
             end
         else
             warn("[Leon X] AvatarSpoofer: Failed to load accessory ID " .. tostring(accessoryId))
