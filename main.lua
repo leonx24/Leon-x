@@ -1502,7 +1502,7 @@ PlayerTab:Section({ Title = "Exploit" })
 
 local gpSpoofToggle = PlayerTab:Toggle({
     Title    = "Gamepass Spoof",
-    Tooltip = "Spoof gamepass ownership",
+    Tooltip  = "Spoof gamepass ownership and hook UserOwnsGamePassAsync",
     Value    = false,
     Callback = function(v)
         if v then GamepassSpoof:Enable() else GamepassSpoof:Disable() end
@@ -1510,6 +1510,40 @@ local gpSpoofToggle = PlayerTab:Toggle({
     end
 })
 ConfigMgr:Register("GamepassSpoof", gpSpoofToggle)
+
+local gpInstantToggle = PlayerTab:Toggle({
+    Title    = "Instant Purchase",
+    Tooltip  = "Automatically auto-complete purchase prompts instantly",
+    Value    = false,
+    Callback = function(v)
+        GamepassSpoof.InstantPurchase = v
+        N("Instant Purchase", v and "Auto-confirm ON" or "Auto-confirm OFF")
+    end
+})
+ConfigMgr:Register("GamepassInstant", gpInstantToggle)
+
+local gpInjectToggle = PlayerTab:Toggle({
+    Title    = "Inject Prompt Buttons",
+    Tooltip  = "Inject Free/Copy/Auto buttons into Roblox purchase prompts",
+    Value    = false,
+    Callback = function(v)
+        GamepassSpoof.InjectButtons = v
+        N("Prompt Buttons", v and "Injections active" or "Injections inactive")
+    end
+})
+ConfigMgr:Register("GamepassInjectButtons", gpInjectToggle)
+
+PlayerTab:Button({
+    Title    = "⚡ Auto Mass Purchase",
+    Tooltip  = "Simulate purchase success for all game gamepasses and products",
+    Callback = function()
+        if not GamepassSpoof.Enabled then
+            N("Mass Purchase", "Enable Gamepass Spoof first!")
+            return
+        end
+        GamepassSpoof:PerformAutoMassPurchase(N)
+    end
+})
 
 PlayerTab:Section({ Title = "Info" })
 PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
