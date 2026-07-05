@@ -46,7 +46,7 @@ local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
 local CURRENT_VERSION = "1.3"
 pcall(function()
-    CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time()):match("^%s*(.-)%s*$")
+    CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time(), true):match("^%s*(.-)%s*$")
 end)
 
 local Players      = game:GetService("Players")
@@ -275,7 +275,7 @@ local cacheBust = "?t="..os.time()
 local loadErrors = {}
 local function load(p)
     local ok, result = pcall(function()
-        local src = game:HttpGet(BASE..p..cacheBust)
+        local src = game:HttpGet(BASE..p..cacheBust, true)
         if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
         local fn, err = loadstring(src)
         if not fn then error("loadstring failed: "..tostring(err)) end

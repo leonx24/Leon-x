@@ -156,73 +156,95 @@ local function applyKorbloxLeg(char, enabled)
     
     pcall(function()
         local isR15 = char:FindFirstChild("RightUpperLeg") ~= nil
+        local realParts = {}
+        
         if isR15 then
-            local upper = char:FindFirstChild("RightUpperLeg")
-            local lower = char:FindFirstChild("RightLowerLeg")
-            local foot = char:FindFirstChild("RightFoot")
+            realParts = {
+                Upper = char:FindFirstChild("RightUpperLeg"),
+                Lower = char:FindFirstChild("RightLowerLeg"),
+                Foot = char:FindFirstChild("RightFoot")
+            }
+        else
+            realParts = {
+                Leg = char:FindFirstChild("Right Leg")
+            }
+        end
+        
+        -- Reset transparency of real parts first
+        for _, part in pairs(realParts) do
+            if part then
+                part.Transparency = enabled and 1 or 0
+            end
+        end
+
+        -- Handle cleaning up old cloned parts
+        local old = char:FindFirstChild("RightLegLocal")
+        if old then old:Destroy() end
+
+        if not enabled then
+            return
+        end
+
+        -- Load the Korblox Right Leg asset (Asset ID: 139607718)
+        local success, objects = pcall(function()
+            return game:GetObjects("rbxassetid://139607718")
+        end)
+        
+        if success and objects and type(objects) == "table" then
+            local container = Instance.new("Model")
+            container.Name = "RightLegLocal"
+            container.Parent = char
             
-            if enabled then
-                -- Store original mesh IDs
-                if upper and not OriginalLegState.UpperMesh then
-                    OriginalLegState.UpperMesh = upper.MeshId
-                    OriginalLegState.UpperTexture = upper.TextureID
-                end
-                if lower and not OriginalLegState.LowerMesh then
-                    OriginalLegState.LowerMesh = lower.MeshId
-                    OriginalLegState.LowerTexture = lower.TextureID
-                end
-                if foot and not OriginalLegState.FootMesh then
-                    OriginalLegState.FootMesh = foot.MeshId
-                    OriginalLegState.FootTexture = foot.TextureID
+            for _, obj in ipairs(objects) do
+                local function traverse(item)
+                    if safeIsA(item, "MeshPart") or safeIsA(item, "Part") then
+                        local clone = item:Clone()
+                        clone.CanCollide = false
+                        clone.Massless = true
+                        clone.Parent = container
+                        
+                        -- Apply default texture/color to match the leg
+                        pcall(function() clone.TextureID = "" end)
+                        
+                        local target = nil
+                        if isR15 then
+                            local itemName = clone.Name:lower()
+                            if itemName:find("upper") then
+                                target = realParts.Upper
+                            elseif itemName:find("lower") then
+                                target = realParts.Lower
+                            elseif itemName:find("foot") then
+                                target = realParts.Foot
+                            end
+                        else
+                            local itemName = clone.Name:lower()
+                            if itemName == "right leg" or itemName == "rightleg" or itemName == "meshpart" or itemName == "part" then
+                                target = realParts.Leg
+                            end
+                        end
+                        
+                        if target then
+                            local weld = Instance.new("Weld")
+                            weld.Name = clone.Name .. "Weld"
+                            weld.Part0 = target
+                            weld.Part1 = clone
+                            weld.C0 = CFrame.new(0, 0, 0)
+                            weld.Parent = clone
+                        else
+                            clone:Destroy()
+                        end
+                    end
+                    
+                    for _, child in ipairs(item:GetChildren()) do
+                        traverse(child)
+                    end
                 end
                 
-                -- Swap to Korblox R15 meshes
-                if upper then
-                    upper.MeshId = "rbxassetid://9029193798"
-                    upper.TextureID = ""
-                end
-                if lower then
-                    lower.MeshId = "rbxassetid://9029194200"
-                    lower.TextureID = ""
-                end
-                if foot then
-                    foot.MeshId = "rbxassetid://9029194553"
-                    foot.TextureID = ""
-                end
-            else
-                -- Revert to original meshes
-                if upper and OriginalLegState.UpperMesh then
-                    upper.MeshId = OriginalLegState.UpperMesh
-                    upper.TextureID = OriginalLegState.UpperTexture
-                end
-                if lower and OriginalLegState.LowerMesh then
-                    lower.MeshId = OriginalLegState.LowerMesh
-                    lower.TextureID = OriginalLegState.LowerTexture
-                end
-                if foot and OriginalLegState.FootMesh then
-                    foot.MeshId = OriginalLegState.FootMesh
-                    foot.TextureID = OriginalLegState.FootTexture
-                end
-                
-                table.clear(OriginalLegState)
+                traverse(obj)
+                pcall(function() obj:Destroy() end)
             end
         else
-            -- R6 Rig Character: use CharacterMesh (completely native and doesn't require welding or transparency hacks)
-            if enabled then
-                local existing = char:FindFirstChild("KorbloxMeshLocal")
-                if not existing then
-                    local cm = Instance.new("CharacterMesh")
-                    cm.Name = "KorbloxMeshLocal"
-                    cm.BodyPart = Enum.BodyPart.RightLeg
-                    cm.MeshId = 139616035 -- The raw Korblox R6 Right Leg Mesh ID
-                    cm.Parent = char
-                end
-            else
-                local existing = char:FindFirstChild("KorbloxMeshLocal")
-                if existing then
-                    existing:Destroy()
-                end
-            end
+            warn("[Leon X] AvatarSpoofer: Failed to fetch Korblox Right Leg mesh assets locally")
         end
     end)
 end
