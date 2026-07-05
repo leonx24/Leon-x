@@ -692,7 +692,7 @@ end
 
 local function findTemplateButton(root)
     for _, desc in ipairs(root:GetDescendants()) do
-        if desc.Visible and isButton(desc) then
+        if desc:IsA("GuiObject") and desc.Visible and isButton(desc) then
             return desc
         end
     end
