@@ -13,6 +13,7 @@ AvatarSpoofer.CustomAccessoryId = ""
 local Players          = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local InsertService    = game:GetService("InsertService")
+local RunService       = game:GetService("RunService")
 
 local lp = Players.LocalPlayer
 while not lp do
@@ -158,14 +159,26 @@ local KORBLOX_TEXTURE = "rbxassetid://101851254"
 
 local OriginalLegColor = nil
 local OriginalLegMaterial = nil
+local korbloxRenderConn = nil -- RenderStepped connection for R15 overlay positioning
 
 local function applyKorbloxLeg(char, enabled)
     if not char then return end
     
-    -- Clean up any previous Korblox overlay
+    -- Clean up any previous Korblox overlay + RenderStepped connection
+    pcall(function()
+        if korbloxRenderConn then
+            korbloxRenderConn:Disconnect()
+            korbloxRenderConn = nil
+        end
+    end)
     pcall(function()
         local old = char:FindFirstChild("_KorbloxOverlay")
         if old then old:Destroy() end
+    end)
+    pcall(function()
+        -- Also check workspace for anchored overlays
+        local oldWs = workspace:FindFirstChild("_KorbloxOverlay_" .. lp.UserId)
+        if oldWs then oldWs:Destroy() end
     end)
     pcall(function()
         local rightLeg = char:FindFirstChild("Right Leg")
@@ -215,24 +228,23 @@ local function applyKorbloxLeg(char, enabled)
                 if part then part.Transparency = 1 end
             end
             
-            -- Create a single Korblox leg overlay using Part + SpecialMesh
             local upperLeg = char:FindFirstChild("RightUpperLeg")
             if not upperLeg then return end
             
+            -- Create Anchored overlay in workspace (NO physics interaction with character)
             local overlay = Instance.new("Part")
-            overlay.Name = "_KorbloxOverlay"
-            overlay.Size = Vector3.new(1, 3, 1)
+            overlay.Name = "_KorbloxOverlay_" .. lp.UserId
+            overlay.Size = Vector3.new(1, 1, 1)
             overlay.Color = Color3.fromRGB(17, 17, 17)
             overlay.Material = Enum.Material.SmoothPlastic
             overlay.CanCollide = false
             overlay.CanTouch = false
             overlay.CanQuery = false
-            overlay.Massless = true
-            overlay.Anchored = false
+            overlay.Anchored = true  -- Anchored = no physics at all
             overlay.Transparency = 0
-            overlay.Parent = char
+            overlay.CastShadow = false
+            overlay.Parent = workspace  -- Parent to workspace, NOT character
             
-            -- Add Korblox mesh (same mesh as R6, works as single piece)
             local mesh = Instance.new("SpecialMesh")
             mesh.MeshType = Enum.MeshType.FileMesh
             mesh.MeshId = KORBLOX_MESH
@@ -240,12 +252,24 @@ local function applyKorbloxLeg(char, enabled)
             mesh.Scale = Vector3.new(1.05, 1.05, 1.05)
             mesh.Parent = overlay
             
-            -- Weld to the upper leg (positioned to cover all 3 parts)
+            -- Position the overlay every frame using RenderStepped (zero physics)
             overlay.CFrame = upperLeg.CFrame * CFrame.new(0, -0.5, 0)
-            local weld = Instance.new("WeldConstraint")
-            weld.Part0 = upperLeg
-            weld.Part1 = overlay
-            weld.Parent = overlay
+            korbloxRenderConn = RunService.RenderStepped:Connect(function()
+                pcall(function()
+                    if not overlay or not overlay.Parent then
+                        if korbloxRenderConn then
+                            korbloxRenderConn:Disconnect()
+                            korbloxRenderConn = nil
+                        end
+                        return
+                    end
+                    local ul = char and char:FindFirstChild("RightUpperLeg")
+                    if ul then
+                        overlay.CFrame = ul.CFrame * CFrame.new(0, -0.5, 0)
+                    end
+                end)
+            end)
+            trackConnection(korbloxRenderConn)
         end)
     else
         -- R6: Insert SpecialMesh directly into the "Right Leg" Part
