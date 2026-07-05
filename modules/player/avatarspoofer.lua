@@ -12,7 +12,7 @@ AvatarSpoofer.CustomAccessoryId = ""
 
 local Players          = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local JointsService    = game:GetService("JointsService")
+local InsertService    = game:GetService("InsertService")
 
 local lp = Players.LocalPlayer
 while not lp do
@@ -23,20 +23,13 @@ end
 local Connections = {}
 local EquippedLocalAccessories = {}
 local OriginalHeadState = {}
-local OriginalLegState = {}
+local KorbloxContainer = nil -- R15: welded MeshParts container, R6: SpecialMesh override
 
 local function trackConnection(conn)
     if conn then
         table.insert(Connections, conn)
     end
     return conn
-end
-
--- Helper to safely call Roblox methods without yielding/errors
-local function safeCall(fn, ...)
-    local args = {...}
-    local ok, res = pcall(function() return fn(unpack(args)) end)
-    return ok, res
 end
 
 local function safeIsA(obj, className)
@@ -53,7 +46,6 @@ local function findAvatarRemotes()
     for _, desc in ipairs(descendants) do
         if safeIsA(desc, "RemoteEvent") or safeIsA(desc, "RemoteFunction") then
             local name = desc.Name:lower()
-            -- Match keywords commonly used in customizer remotes in hangout/mountain games
             if name:find("accessory") or name:find("wear") or name:find("equip") or name:find("avatar") or name:find("catalog") or name:find("headless") or name:find("korblox") then
                 table.insert(remotes, desc)
             end
@@ -62,59 +54,41 @@ local function findAvatarRemotes()
     return remotes
 end
 
--- Replicate wear event to server if custom catalog remotes exist in the game
+-- Try to replicate avatar customization to the server via game RemoteEvents
 local function tryServerReplicate(assetId, customType)
     local remotes = findAvatarRemotes()
-    local fired = false
+    if #remotes == 0 then return false end
     
     for _, remote in ipairs(remotes) do
         pcall(function()
-            if remote:IsA("RemoteEvent") then
-                -- Try typical payloads: (id), (type, id), (player, id), (type, name)
-                if customType == "Headless" then
-                    remote:FireServer(customType)
-                    remote:FireServer("headless")
-                    remote:FireServer(201307985) -- Headless Horseman bundle ID
-                elseif customType == "Korblox" then
-                    remote:FireServer(customType)
-                    remote:FireServer("korblox")
-                    remote:FireServer(139628042) -- Korblox leg package ID
-                else
+            if safeIsA(remote, "RemoteEvent") then
+                if customType == "Accessory" and assetId then
                     remote:FireServer(assetId)
-                    remote:FireServer("Accessory", assetId)
-                    remote:FireServer(tostring(assetId))
+                    remote:FireServer("Wear", assetId)
+                    remote:FireServer({Type = "Accessory", Id = assetId})
+                elseif customType == "Headless" then
+                    remote:FireServer("Headless")
+                    remote:FireServer({Type = "Headless"})
+                elseif customType == "Korblox" then
+                    remote:FireServer("Korblox")
+                    remote:FireServer({Type = "Korblox"})
                 end
-                fired = true
-            elseif remote:IsA("RemoteFunction") then
-                task.spawn(function()
-                    if customType == "Headless" then
-                        remote:InvokeServer("headless")
-                        remote:InvokeServer(201307985)
-                    elseif customType == "Korblox" then
-                        remote:InvokeServer("korblox")
-                        remote:InvokeServer(139628042)
-                    else
-                        remote:InvokeServer(assetId)
-                        remote:InvokeServer("Accessory", assetId)
-                    end
-                end)
-                fired = true
             end
         end)
     end
-    
-    return fired
+    return true
 end
 
--- Apply local Headless head (Transparency = 1, hide face)
+-- Apply headless (transparent head + hide face decal)
 local function applyHeadless(char, enabled)
     if not char then return end
-    local head = char:WaitForChild("Head", 2)
-    if not head then return end
     
     pcall(function()
+        local head = char:FindFirstChild("Head")
+        if not head then return end
+        
         if enabled then
-            -- Store original state if not stored
+            -- Store original state
             if not OriginalHeadState.Transparency then
                 OriginalHeadState.Transparency = head.Transparency
             end
@@ -128,11 +102,20 @@ local function applyHeadless(char, enabled)
                 end
                 face.Enabled = false
             end
+            
+            -- Also hide any MeshPart head (R15 uses MeshPart heads sometimes)
+            for _, child in ipairs(char:GetChildren()) do
+                if child.Name == "Head" and safeIsA(child, "MeshPart") then
+                    if not OriginalHeadState.MeshTransparency then
+                        OriginalHeadState.MeshTransparency = child.Transparency
+                    end
+                    child.Transparency = 1
+                end
+            end
         else
-            -- Restore original state
+            -- Revert
             if OriginalHeadState.Transparency then
                 head.Transparency = OriginalHeadState.Transparency
-                OriginalHeadState.Transparency = nil
             else
                 head.Transparency = 0
             end
@@ -146,152 +129,311 @@ local function applyHeadless(char, enabled)
             elseif face then
                 face.Enabled = true
             end
+            
+            if OriginalHeadState.MeshTransparency then
+                for _, child in ipairs(char:GetChildren()) do
+                    if child.Name == "Head" and safeIsA(child, "MeshPart") then
+                        child.Transparency = OriginalHeadState.MeshTransparency
+                    end
+                end
+            end
+            
+            table.clear(OriginalHeadState)
         end
     end)
 end
 
--- Apply local Korblox Right Leg mesh (swaps R15 mesh properties, or welds custom R6 mesh part)
+-- ═══════════════════════════════════════════════════════════════
+-- KORBLOX LEG
+-- R15: Create brand new MeshPart instances with Korblox meshes
+--      and weld them over the (hidden) original leg parts.
+-- R6:  Insert a SpecialMesh into the existing "Right Leg" Part.
+-- ═══════════════════════════════════════════════════════════════
+
+-- Korblox Deathspeaker R15 mesh asset IDs (raw content delivery mesh IDs)
+local KORBLOX_R15 = {
+    { partName = "RightUpperLeg", meshId = "rbxassetid://11159400833", size = Vector3.new(0.899, 1.413, 0.899) },
+    { partName = "RightLowerLeg", meshId = "rbxassetid://11159410489", size = Vector3.new(0.899, 1.493, 0.899) },
+    { partName = "RightFoot",     meshId = "rbxassetid://11159418511", size = Vector3.new(0.899, 0.450, 0.899) },
+}
+
+-- Korblox R6 mesh ID (the classic single-piece right leg mesh)
+local KORBLOX_R6_MESH = "rbxassetid://139539996"
+
 local function applyKorbloxLeg(char, enabled)
     if not char then return end
     
+    -- Clean up any previous Korblox overlay
     pcall(function()
-        local isR15 = char:FindFirstChild("RightUpperLeg") ~= nil
-        local realParts = {}
-        
-        if isR15 then
-            realParts = {
-                Upper = char:FindFirstChild("RightUpperLeg"),
-                Lower = char:FindFirstChild("RightLowerLeg"),
-                Foot = char:FindFirstChild("RightFoot")
-            }
-        else
-            realParts = {
-                Leg = char:FindFirstChild("Right Leg")
-            }
-        end
-        
-        -- Reset transparency of real parts first
-        for _, part in pairs(realParts) do
-            if part then
-                part.Transparency = enabled and 1 or 0
-            end
-        end
-
-        -- Handle cleaning up old cloned parts
-        local old = char:FindFirstChild("RightLegLocal")
+        local old = char:FindFirstChild("_KorbloxOverlay")
         if old then old:Destroy() end
-
-        if not enabled then
-            return
+    end)
+    pcall(function()
+        local oldMesh = nil
+        local rightLeg = char:FindFirstChild("Right Leg")
+        if rightLeg then
+            oldMesh = rightLeg:FindFirstChild("_KorbloxMesh")
+            if oldMesh then oldMesh:Destroy() end
         end
-
-        -- Load the Korblox Right Leg asset (Asset ID: 139607718)
-        local success, objects = pcall(function()
-            return game:GetObjects("rbxassetid://139607718")
-        end)
-        
-        if success and objects and type(objects) == "table" then
+    end)
+    
+    local isR15 = char:FindFirstChild("RightUpperLeg") ~= nil
+    
+    if not enabled then
+        -- Restore transparency of real parts
+        if isR15 then
+            for _, info in ipairs(KORBLOX_R15) do
+                pcall(function()
+                    local part = char:FindFirstChild(info.partName)
+                    if part then part.Transparency = 0 end
+                end)
+            end
+        else
+            pcall(function()
+                local leg = char:FindFirstChild("Right Leg")
+                if leg then
+                    -- Remove the SpecialMesh we added
+                    local sm = leg:FindFirstChild("_KorbloxMesh")
+                    if sm then sm:Destroy() end
+                end
+            end)
+        end
+        return
+    end
+    
+    -- ENABLED
+    if isR15 then
+        pcall(function()
             local container = Instance.new("Model")
-            container.Name = "RightLegLocal"
+            container.Name = "_KorbloxOverlay"
             container.Parent = char
             
-            for _, obj in ipairs(objects) do
-                local function traverse(item)
-                    if safeIsA(item, "MeshPart") or safeIsA(item, "Part") then
-                        local clone = item:Clone()
-                        clone.CanCollide = false
-                        clone.Massless = true
-                        clone.Parent = container
-                        
-                        local target = nil
-                        if isR15 then
-                            local itemName = clone.Name:lower()
-                            if itemName:find("upper") then
-                                target = realParts.Upper
-                            elseif itemName:find("lower") then
-                                target = realParts.Lower
-                            elseif itemName:find("foot") then
-                                target = realParts.Foot
-                            end
-                        else
-                            local itemName = clone.Name:lower()
-                            if itemName == "right leg" or itemName == "rightleg" or itemName == "meshpart" or itemName == "part" then
-                                target = realParts.Leg
-                            end
-                        end
-                        
-                        if target then
-                            local weld = Instance.new("Weld")
-                            weld.Name = clone.Name .. "Weld"
-                            weld.Part0 = target
-                            weld.Part1 = clone
-                            weld.C0 = CFrame.new(0, 0, 0)
-                            weld.Parent = clone
-                        else
-                            clone:Destroy()
-                        end
-                    end
+            for _, info in ipairs(KORBLOX_R15) do
+                local realPart = char:FindFirstChild(info.partName)
+                if realPart then
+                    -- Hide the original part
+                    realPart.Transparency = 1
                     
-                    for _, child in ipairs(item:GetChildren()) do
-                        traverse(child)
+                    -- Create a brand new MeshPart overlay
+                    local overlay = Instance.new("MeshPart")
+                    overlay.Name = info.partName .. "_Korblox"
+                    overlay.Size = info.size or realPart.Size
+                    overlay.MeshId = info.meshId
+                    overlay.TextureID = "" -- Korblox is untextured (black/dark)
+                    overlay.Color = Color3.fromRGB(17, 17, 17) -- Dark Korblox color
+                    overlay.Material = Enum.Material.SmoothPlastic
+                    overlay.CanCollide = false
+                    overlay.CanTouch = false
+                    overlay.CanQuery = false
+                    overlay.Massless = true
+                    overlay.Anchored = false
+                    overlay.Parent = container
+                    
+                    -- Weld to the real part
+                    local weld = Instance.new("WeldConstraint")
+                    weld.Part0 = realPart
+                    weld.Part1 = overlay
+                    weld.Parent = overlay
+                    
+                    -- Position exactly on top of the real part
+                    overlay.CFrame = realPart.CFrame
+                end
+            end
+        end)
+    else
+        -- R6: Simply insert a SpecialMesh into the "Right Leg" part
+        pcall(function()
+            local rightLeg = char:FindFirstChild("Right Leg")
+            if rightLeg then
+                -- Remove any existing SpecialMesh (some shirts/packages add them)
+                local existingMesh = rightLeg:FindFirstChildOfClass("SpecialMesh")
+                
+                local mesh = Instance.new("SpecialMesh")
+                mesh.Name = "_KorbloxMesh"
+                mesh.MeshType = Enum.MeshType.FileMesh
+                mesh.MeshId = KORBLOX_R6_MESH
+                mesh.Scale = Vector3.new(1, 1, 1)
+                mesh.Parent = rightLeg
+                
+                -- Make the leg dark like Korblox
+                rightLeg.Color = Color3.fromRGB(17, 17, 17)
+                rightLeg.Material = Enum.Material.SmoothPlastic
+            end
+        end)
+    end
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- WEAR ACCESSORY
+-- Strategy: Try InsertService:LoadAsset first (works on many executors
+-- at elevated privilege). If that fails, fall back to game:GetObjects.
+-- If Humanoid:AddAccessory doesn't attach properly, manually weld
+-- the Handle to the character's Head.
+-- ═══════════════════════════════════════════════════════════════
+
+local function manualWeldAccessory(acc, char)
+    -- Humanoid:AddAccessory can fail on client. Manually weld Handle to Head.
+    pcall(function()
+        local handle = acc:FindFirstChild("Handle")
+        if not handle then return end
+        
+        local head = char:FindFirstChild("Head")
+        if not head then return end
+        
+        -- Read attachment info from the accessory
+        local accAttach = handle:FindFirstChildOfClass("Attachment")
+        local headAttach = nil
+        
+        if accAttach then
+            -- Find matching attachment on character
+            headAttach = head:FindFirstChild(accAttach.Name)
+            if not headAttach then
+                -- Search all character parts for the matching attachment
+                for _, part in ipairs(char:GetChildren()) do
+                    if safeIsA(part, "BasePart") then
+                        local a = part:FindFirstChild(accAttach.Name)
+                        if a and safeIsA(a, "Attachment") then
+                            headAttach = a
+                            head = part -- weld to this part instead
+                            break
+                        end
                     end
                 end
-                
-                traverse(obj)
-                pcall(function() obj:Destroy() end)
             end
+        end
+        
+        acc.Parent = char
+        handle.CanCollide = false
+        handle.Massless = true
+        handle.Anchored = false
+        
+        if headAttach and accAttach then
+            -- Use attachment-based positioning
+            local weld = Instance.new("Weld")
+            weld.Name = "AccessoryWeld"
+            weld.Part0 = head
+            weld.Part1 = handle
+            weld.C0 = headAttach.CFrame
+            weld.C1 = accAttach.CFrame
+            weld.Parent = handle
         else
-            warn("[Leon X] AvatarSpoofer: Failed to fetch Korblox Right Leg mesh assets locally")
+            -- Fallback: weld directly on top of head
+            local weld = Instance.new("Weld")
+            weld.Name = "AccessoryWeld"
+            weld.Part0 = head
+            weld.Part1 = handle
+            weld.C0 = CFrame.new(0, head.Size.Y / 2, 0) -- Top of head
+            weld.C1 = CFrame.new()
+            weld.Parent = handle
         end
     end)
 end
 
--- Wear a catalog accessory locally using game:GetObjects
+local function loadAssetObjects(assetId)
+    -- Method 1: InsertService:LoadAsset (works on many executors at high context level)
+    local ok1, model = pcall(function()
+        return InsertService:LoadAsset(assetId)
+    end)
+    if ok1 and model then
+        return {model}
+    end
+    
+    -- Method 2: game:GetObjects
+    local ok2, objects = pcall(function()
+        return game:GetObjects("rbxassetid://" .. tostring(assetId))
+    end)
+    if ok2 and objects and type(objects) == "table" and #objects > 0 then
+        return objects
+    end
+    
+    return nil
+end
+
+local function findAccessoryInObjects(objects)
+    for _, obj in ipairs(objects) do
+        -- Direct accessory
+        if safeIsA(obj, "Accessory") then
+            return obj, nil
+        end
+        -- Child accessory
+        local acc = nil
+        pcall(function() acc = obj:FindFirstChildWhichIsA("Accessory") end)
+        if acc then return acc, obj end
+        -- Deep search
+        pcall(function()
+            for _, desc in ipairs(obj:GetDescendants()) do
+                if safeIsA(desc, "Accessory") then
+                    acc = desc
+                    break
+                end
+            end
+        end)
+        if acc then return acc, obj end
+        -- If obj itself has a Handle (some assets are raw accessory-like models)
+        pcall(function()
+            local handle = obj:FindFirstChild("Handle")
+            if handle and safeIsA(handle, "BasePart") then
+                -- Wrap it in an Accessory
+                local wrapper = Instance.new("Accessory")
+                wrapper.Name = obj.Name
+                handle.Parent = wrapper
+                acc = wrapper
+            end
+        end)
+        if acc then return acc, obj end
+    end
+    return nil, nil
+end
+
 local function wearAccessoryLocal(accessoryId)
     local char = lp.Character
-    if not char then return end
+    if not char then
+        warn("[Leon X] AvatarSpoofer: No character found")
+        return
+    end
     local humanoid = char:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return end
+    if not humanoid then
+        warn("[Leon X] AvatarSpoofer: No humanoid found")
+        return
+    end
 
     task.spawn(function()
-        -- Load asset using game:GetObjects (standard for exploits, bypasses InsertService limits)
-        local success, objects = pcall(function()
-            return game:GetObjects("rbxassetid://" .. tostring(accessoryId))
-        end)
+        local objects = loadAssetObjects(accessoryId)
         
-        if success and objects and type(objects) == "table" then
-            for _, obj in ipairs(objects) do
-                local acc = nil
-                if safeIsA(obj, "Accessory") then
-                    acc = obj
-                else
-                    pcall(function()
-                        acc = obj:FindFirstChildWhichIsA("Accessory")
-                    end)
-                    if not acc then
-                        pcall(function()
-                            for _, desc in ipairs(obj:GetDescendants()) do
-                                if safeIsA(desc, "Accessory") then
-                                    acc = desc
-                                    break
-                                end
-                            end
-                        end)
-                    end
-                end
-                
-                if acc then
-                    -- Extract the accessory so it isn't destroyed when we clean up the wrapper object
-                    pcall(function() acc.Parent = nil end)
-                    table.insert(EquippedLocalAccessories, acc)
-                    pcall(function() humanoid:AddAccessory(acc) end)
-                end
-                
-                -- Destroy the wrapper/loaded object container safely
+        if not objects then
+            warn("[Leon X] AvatarSpoofer: Failed to load accessory ID " .. tostring(accessoryId) .. " — both InsertService and GetObjects failed")
+            return
+        end
+        
+        local acc, container = findAccessoryInObjects(objects)
+        
+        if acc then
+            -- Detach from container if needed
+            pcall(function() acc.Parent = nil end)
+            
+            -- Try official AddAccessory first
+            local addOk = false
+            pcall(function()
+                humanoid:AddAccessory(acc)
+                addOk = true
+            end)
+            
+            -- If AddAccessory didn't attach properly, weld manually
+            if not addOk or not acc.Parent then
+                manualWeldAccessory(acc, char)
+            end
+            
+            table.insert(EquippedLocalAccessories, acc)
+            print("[Leon X] AvatarSpoofer: Equipped accessory " .. tostring(accessoryId))
+        else
+            warn("[Leon X] AvatarSpoofer: No Accessory found inside asset " .. tostring(accessoryId))
+        end
+        
+        -- Clean up containers
+        for _, obj in ipairs(objects) do
+            if obj ~= acc then
                 pcall(function() obj:Destroy() end)
             end
-        else
-            warn("[Leon X] AvatarSpoofer: Failed to load accessory ID " .. tostring(accessoryId))
         end
     end)
 end
@@ -302,7 +444,7 @@ local function applyCustomizations(char)
     
     -- Ensure character is loaded
     char:WaitForChild("Humanoid", 5)
-    task.wait(0.2) -- Safe brief wait for textures/meshes to finalize loading
+    task.wait(0.5) -- Wait for meshes/textures to finish loading
     
     if AvatarSpoofer.Headless then
         applyHeadless(char, true)
@@ -347,7 +489,7 @@ function AvatarSpoofer:WearAccessory(accessoryId)
     if not self.Enabled then return end
     
     -- Replicate to server if possible
-    local replicated = tryServerReplicate(idNum, "Accessory")
+    tryServerReplicate(idNum, "Accessory")
     
     -- Always load locally so client sees it immediately
     wearAccessoryLocal(idNum)
