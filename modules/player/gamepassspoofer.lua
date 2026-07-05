@@ -58,6 +58,16 @@ local Connections = {}
 local HiddenOverlays = setmetatable({}, { __mode = "k" })
 local ProcessedOverlays = setmetatable({}, { __mode = "k" })
 
+-- Check if ScreenGui is a Roblox purchase/upsell prompt UI
+local function isPurchasePromptGui(gui)
+    if not gui:IsA("ScreenGui") then return false end
+    local name = gui.Name:lower()
+    if name == "foundationoverlay" or name == "purchasepromptapp" or name == "purchaseprompt" then
+        return true
+    end
+    return false
+end
+
 -- Check if executor supports required functions
 local function checkExecutorSupport()
     if not hookfunction then
@@ -82,7 +92,7 @@ local function toggleRobloxMenu()
     pcall(function()
         local foundOverlay = false
         for _, child in ipairs(CoreGui:GetChildren()) do
-            if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" and child.Enabled then
+            if isPurchasePromptGui(child) and child.Enabled then
                 local saf = child:FindFirstChild("SafeAreaFrame")
                 local portal = saf and saf:FindFirstChild("OverlayPortal")
                 local backdrop = portal and portal:FindFirstChild("Backdrop")
@@ -198,7 +208,7 @@ end
 
 local function restoreFoundationOverlayVisibility()
     for _, child in ipairs(CoreGui:GetDescendants()) do
-        if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
+        if isPurchasePromptGui(child) then
             pcall(function()
                 child.Enabled = true
             end)
@@ -647,22 +657,43 @@ local function processParentButtons(parent)
     end)
 end
 
+-- Check if a GUI object behaves as a clickable button in Roblox React
+local function isButton(obj)
+    if not obj:IsA("GuiObject") then return false end
+    if obj.Name == "FreeButton" or obj.Name == "CopyButton" or obj.Name == "AutoButton" then return false end
+    if obj:FindFirstAncestor("FreeButton") or obj:FindFirstAncestor("CopyButton") or obj:FindFirstAncestor("AutoButton") then return false end
+
+    -- Exclude close, back, and dismiss buttons so we don't attach to top-right close elements
+    local name = obj.Name:lower()
+    local path = obj:GetFullName():lower()
+    if name:find("close") or name:find("back") or name:find("dismiss") or name:find("cancel")
+       or path:find("close") or path:find("back") or path:find("dismiss") or path:find("cancel") then
+        return false
+    end
+
+    -- standard buttons
+    if obj:IsA("ImageButton") or obj:IsA("TextButton") then
+        return true
+    end
+
+    -- CanvasGroup or Frame acting as button (common in React/Foundation UI)
+    if (obj:IsA("CanvasGroup") or obj:IsA("Frame")) and obj.Active then
+        if name:find("button") or name:find("action") or name:find("btn") or name:find("confirm") or name:find("buy") then
+            return true
+        end
+        local label = obj:FindFirstChildOfClass("TextLabel")
+        if label and #label.Text > 0 and #label.Text < 20 then
+            return true
+        end
+    end
+
+    return false
+end
+
 local function findTemplateButton(root)
     for _, desc in ipairs(root:GetDescendants()) do
-        if (desc:IsA("ImageButton") or desc:IsA("TextButton")) 
-            and desc.Visible 
-            and desc.Name ~= "FreeButton" 
-            and desc.Name ~= "CopyButton" 
-            and desc.Name ~= "AutoButton" then
-            
-            local name = desc.Name:lower()
-            local path = desc:GetFullName():lower()
-            
-            -- Exclude close buttons, back buttons, and other utility buttons
-            if not name:find("close") and not name:find("back") and not name:find("dismiss")
-               and not path:find("close") and not path:find("back") and not path:find("dismiss") then
-                return desc
-            end
+        if desc.Visible and isButton(desc) then
+            return desc
         end
     end
     return nil
@@ -694,7 +725,7 @@ end
 
 local function scanAllFoundationOverlays()
     for _, child in ipairs(CoreGui:GetChildren()) do
-        if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
+        if isPurchasePromptGui(child) then
             scanAndInject(child)
         end
     end
@@ -719,7 +750,7 @@ local function startInstantStateWatcher()
                     scanAllFoundationOverlays()
                 end
                 for _, child in ipairs(CoreGui:GetDescendants()) do
-                    if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" then
+                    if isPurchasePromptGui(child) then
                         task.spawn(handleOverlay, child, true)
                     end
                 end
@@ -742,7 +773,7 @@ local function startOverlayRescanLoop()
 end
 
 handleOverlay = function(child, force)
-    if not GamepassSpoofer.Enabled or child.Name ~= "FoundationOverlay" then return end
+    if not GamepassSpoofer.Enabled or not isPurchasePromptGui(child) then return end
     local modeKey = GamepassSpoofer.InstantPurchase and "instant" or "buttons"
     if not force and ProcessedOverlays[child] == modeKey then return end
     ProcessedOverlays[child] = modeKey
