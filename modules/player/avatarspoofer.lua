@@ -203,9 +203,6 @@ local function applyKorbloxLeg(char, enabled)
                         clone.Massless = true
                         clone.Parent = container
                         
-                        -- Apply default texture/color to match the leg
-                        pcall(function() clone.TextureID = "" end)
-                        
                         local target = nil
                         if isR15 then
                             local itemName = clone.Name:lower()
