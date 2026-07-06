@@ -273,7 +273,7 @@ end)
 
 local cacheBust = "?t="..os.time()
 local loadErrors = {}
-local MAX_RETRIES = 3
+local MAX_RETRIES = 5
 local function load(p)
     for attempt = 1, MAX_RETRIES do
         local ok, result = pcall(function()
@@ -288,11 +288,11 @@ local function load(p)
             return fn()
         end)
         if ok then
-            task.wait(0.15) -- small delay between loads to avoid rate-limit
+            task.wait(0.5) -- delay between loads to stay under rate-limit
             return result
         end
         if attempt < MAX_RETRIES then
-            local delay = attempt * 2 -- 2s, 4s backoff
+            local delay = attempt * 5 -- 5s, 10s, 15s, 20s backoff
             warn("[LeonX] RETRY " .. attempt .. "/" .. MAX_RETRIES .. ": " .. tostring(p) .. " — " .. tostring(result) .. " (waiting " .. delay .. "s)")
             task.wait(delay)
             cacheBust = "?t="..os.time() -- refresh cache bust for retry
