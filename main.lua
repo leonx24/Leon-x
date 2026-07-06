@@ -1583,32 +1583,129 @@ local korbloxToggle = PlayerTab:Toggle({
 ConfigMgr:Register("AvatarKorblox", korbloxToggle)
 
 local accessoryIdInput = PlayerTab:Input({
-    Title       = "Accessory ID",
-    Placeholder = "Enter Catalog Asset ID...",
+    Title       = "Catalog ID",
+    Placeholder = "Enter Catalog Asset ID (e.g. 10159600649)",
     Value       = "",
+    Tooltip     = "Type a Roblox catalog accessory ID to add",
     Callback    = function(text)
         AvatarSpoof.CustomAccessoryId = text
     end
 })
-ConfigMgr:Register("AvatarAccessoryId", accessoryIdInput)
+
+-- Build initial dropdown list from saved accessories
+local savedAccList = AvatarSpoof:GetSavedAccessoryList()
+if #savedAccList == 0 then savedAccList = {"(no accessories saved)"} end
+local selectedSavedAcc = savedAccList[1]
+
+local savedAccDropdown = PlayerTab:Dropdown({
+    Title    = "Saved Accessories",
+    Values   = savedAccList,
+    Value    = savedAccList[1],
+    Tooltip  = "Select a saved accessory to wear or remove",
+    Callback = function(v)
+        selectedSavedAcc = v
+    end
+})
+
+-- Helper to refresh the dropdown after adding/removing
+local function refreshAccDropdown()
+    local list = AvatarSpoof:GetSavedAccessoryList()
+    if #list == 0 then list = {"(no accessories saved)"} end
+    savedAccDropdown:Refresh(list)
+    selectedSavedAcc = list[1]
+    savedAccDropdown:Select(list[1])
+end
 
 PlayerTab:Button({
-    Title    = "Wear Accessory",
-    Tooltip  = "Wear the custom accessory ID on your character",
+    Title    = "➕ Add Accessory",
+    Tooltip  = "Save the catalog ID and auto-equip it",
     Callback = function()
         if not AvatarSpoof.Enabled then
             N("Avatar Customizer", "Enable Avatar Customizer first!")
             return
         end
         local id = AvatarSpoof.CustomAccessoryId
-        if id and id ~= "" then
-            AvatarSpoof:WearAccessory(id)
-            N("Avatar Customizer", "Equipped accessory: " .. id)
+        if not id or id == "" then
+            N("Avatar Customizer", "Please enter a Catalog ID first!")
+            return
+        end
+        if not tonumber(id) then
+            N("Avatar Customizer", "Invalid ID — must be a number!")
+            return
+        end
+        local added = AvatarSpoof:AddSavedAccessory(id)
+        if added then
+            N("Avatar Customizer", "Added & equipped: " .. id)
+            refreshAccDropdown()
         else
-            N("Avatar Customizer", "Please enter a valid Accessory ID first!")
+            N("Avatar Customizer", "ID already saved: " .. id)
         end
     end
 })
+
+PlayerTab:Button({
+    Title    = "👕 Wear Selected",
+    Tooltip  = "Equip the accessory selected in the dropdown",
+    Callback = function()
+        if not AvatarSpoof.Enabled then
+            N("Avatar Customizer", "Enable Avatar Customizer first!")
+            return
+        end
+        if not selectedSavedAcc or selectedSavedAcc == "(no accessories saved)" then
+            N("Avatar Customizer", "No accessory selected!")
+            return
+        end
+        AvatarSpoof:WearAccessory(selectedSavedAcc)
+        N("Avatar Customizer", "Equipped: " .. selectedSavedAcc)
+    end
+})
+
+PlayerTab:Button({
+    Title    = "👔 Wear All Saved",
+    Tooltip  = "Equip all saved accessories at once",
+    Callback = function()
+        if not AvatarSpoof.Enabled then
+            N("Avatar Customizer", "Enable Avatar Customizer first!")
+            return
+        end
+        local list = AvatarSpoof:GetSavedAccessoryList()
+        if #list == 0 then
+            N("Avatar Customizer", "No saved accessories!")
+            return
+        end
+        AvatarSpoof:WearAllSaved()
+        N("Avatar Customizer", "Equipped all " .. #list .. " accessories")
+    end
+})
+
+PlayerTab:Button({
+    Title    = "🗑️ Remove Selected",
+    Tooltip  = "Unequip and delete the selected accessory from saved list",
+    Callback = function()
+        if not selectedSavedAcc or selectedSavedAcc == "(no accessories saved)" then
+            N("Avatar Customizer", "No accessory selected!")
+            return
+        end
+        local removed = AvatarSpoof:RemoveSavedAccessory(selectedSavedAcc)
+        if removed then
+            N("Avatar Customizer", "Removed: " .. selectedSavedAcc)
+            refreshAccDropdown()
+        else
+            N("Avatar Customizer", "Failed to remove!")
+        end
+    end
+})
+
+PlayerTab:Button({
+    Title    = "🧹 Remove All",
+    Tooltip  = "Unequip and clear all saved accessories",
+    Callback = function()
+        AvatarSpoof:ClearAllSaved()
+        N("Avatar Customizer", "All accessories removed & cleared")
+        refreshAccDropdown()
+    end
+})
+
 
 PlayerTab:Section({ Title = "Info" })
 PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })

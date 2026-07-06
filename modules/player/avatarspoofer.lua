@@ -1,5 +1,5 @@
 -- Leon X | AvatarSpoofer
--- Allows local & remote avatar customization (Headless, Korblox leg, Accessories)
+-- Allows local & remote avatar customization (Headless, Korblox leg, Multi-Accessories)
 
 local AvatarSpoofer = {}
 AvatarSpoofer.Name    = "AvatarSpoofer"
@@ -9,6 +9,7 @@ AvatarSpoofer.Enabled = false
 AvatarSpoofer.Headless          = false
 AvatarSpoofer.KorbloxLeg        = false
 AvatarSpoofer.CustomAccessoryId = ""
+AvatarSpoofer.SavedAccessories  = {} -- { {id="123", name="Accessory 123"}, ... }
 
 local Players          = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,10 +22,53 @@ while not lp do
     lp = Players.LocalPlayer
 end
 
+local HttpService = game:GetService("HttpService")
+
 local Connections = {}
-local EquippedLocalAccessories = {}
+local EquippedLocalAccessories = {} -- legacy flat list
+local EquippedAccessoryMap = {}     -- { ["12345"] = accessoryInstance, ... } for per-ID tracking
 local OriginalHeadState = {}
 local KorbloxContainer = nil -- R15: welded MeshParts container, R6: SpecialMesh override
+
+local SAVED_ACCESSORIES_PATH = "Leon X/accessories.json"
+
+-- ═══════════════════════════════════════════════════════════════
+-- PERSISTENCE (saved accessories to executor filesystem)
+-- ═══════════════════════════════════════════════════════════════
+
+local function ensureFolder()
+    pcall(function()
+        if not isfolder("Leon X") then
+            makefolder("Leon X")
+        end
+    end)
+end
+
+local function loadSavedAccessories()
+    local data = {}
+    pcall(function()
+        if isfile and isfile(SAVED_ACCESSORIES_PATH) then
+            local raw = readfile(SAVED_ACCESSORIES_PATH)
+            data = HttpService:JSONDecode(raw)
+        end
+    end)
+    if type(data) == "table" then
+        AvatarSpoofer.SavedAccessories = data
+    else
+        AvatarSpoofer.SavedAccessories = {}
+    end
+end
+
+local function saveSavedAccessories()
+    pcall(function()
+        ensureFolder()
+        local raw = HttpService:JSONEncode(AvatarSpoofer.SavedAccessories)
+        writefile(SAVED_ACCESSORIES_PATH, raw)
+    end)
+end
+
+-- Load on module init
+loadSavedAccessories()
 
 local function trackConnection(conn)
     if conn then
@@ -454,11 +498,22 @@ local function wearAccessoryLocal(accessoryId)
         return
     end
 
+    local idStr = tostring(accessoryId)
+
+    -- Remove existing instance of this same ID to avoid duplicates
+    pcall(function()
+        local existing = EquippedAccessoryMap[idStr]
+        if existing and existing.Parent then
+            existing:Destroy()
+        end
+        EquippedAccessoryMap[idStr] = nil
+    end)
+
     task.spawn(function()
         local objects = loadAssetObjects(accessoryId)
         
         if not objects then
-            warn("[Leon X] AvatarSpoofer: Failed to load accessory ID " .. tostring(accessoryId) .. " — both InsertService and GetObjects failed")
+            warn("[Leon X] AvatarSpoofer: Failed to load accessory ID " .. idStr .. " — both InsertService and GetObjects failed")
             return
         end
         
@@ -471,13 +526,17 @@ local function wearAccessoryLocal(accessoryId)
             -- Strip animations/scripts to prevent console errors
             stripNonVisual(acc)
             
+            -- Tag the accessory with its catalog ID for tracking
+            acc.Name = "_LeonX_Acc_" .. idStr
+            
             -- ALWAYS use manual welding — Humanoid:AddAccessory silently fails on client
             manualWeldAccessory(acc, char)
             
             -- Verify it attached
             if acc.Parent == char then
                 table.insert(EquippedLocalAccessories, acc)
-                print("[Leon X] AvatarSpoofer: Equipped accessory " .. tostring(accessoryId))
+                EquippedAccessoryMap[idStr] = acc
+                print("[Leon X] AvatarSpoofer: Equipped accessory " .. idStr)
             else
                 -- Last resort: try AddAccessory
                 pcall(function()
@@ -485,13 +544,14 @@ local function wearAccessoryLocal(accessoryId)
                 end)
                 if acc.Parent then
                     table.insert(EquippedLocalAccessories, acc)
-                    print("[Leon X] AvatarSpoofer: Equipped accessory (via AddAccessory) " .. tostring(accessoryId))
+                    EquippedAccessoryMap[idStr] = acc
+                    print("[Leon X] AvatarSpoofer: Equipped accessory (via AddAccessory) " .. idStr)
                 else
-                    warn("[Leon X] AvatarSpoofer: Accessory loaded but failed to attach " .. tostring(accessoryId))
+                    warn("[Leon X] AvatarSpoofer: Accessory loaded but failed to attach " .. idStr)
                 end
             end
         else
-            warn("[Leon X] AvatarSpoofer: No Accessory found inside asset " .. tostring(accessoryId))
+            warn("[Leon X] AvatarSpoofer: No Accessory found inside asset " .. idStr)
         end
         
         -- Clean up containers
@@ -516,6 +576,14 @@ local function applyCustomizations(char)
     end
     if AvatarSpoofer.KorbloxLeg then
         applyKorbloxLeg(char, true)
+    end
+    
+    -- Re-wear all saved accessories on respawn
+    for _, entry in ipairs(AvatarSpoofer.SavedAccessories) do
+        local idNum = tonumber(entry.id)
+        if idNum then
+            wearAccessoryLocal(idNum)
+        end
     end
 end
 
@@ -558,6 +626,149 @@ function AvatarSpoofer:WearAccessory(accessoryId)
     
     -- Always load locally so client sees it immediately
     wearAccessoryLocal(idNum)
+end
+
+-- ═══════════════════════════════════════════════════════════════
+-- MULTI-ACCESSORY MANAGEMENT
+-- ═══════════════════════════════════════════════════════════════
+
+function AvatarSpoofer:AddSavedAccessory(id)
+    if not id or id == "" then return false end
+    local idStr = tostring(id)
+    local idNum = tonumber(idStr)
+    if not idNum then return false end
+    
+    -- Check for duplicates
+    for _, entry in ipairs(self.SavedAccessories) do
+        if tostring(entry.id) == idStr then
+            return false -- already saved
+        end
+    end
+    
+    -- Add to saved list
+    local entry = { id = idStr, name = "Accessory " .. idStr }
+    table.insert(self.SavedAccessories, entry)
+    saveSavedAccessories()
+    
+    -- Auto-wear if enabled
+    if self.Enabled then
+        tryServerReplicate(idNum, "Accessory")
+        wearAccessoryLocal(idNum)
+    end
+    
+    return true
+end
+
+function AvatarSpoofer:RemoveSavedAccessory(id)
+    if not id or id == "" then return false end
+    local idStr = tostring(id)
+    
+    -- Remove from saved list
+    local found = false
+    for i = #self.SavedAccessories, 1, -1 do
+        if tostring(self.SavedAccessories[i].id) == idStr then
+            table.remove(self.SavedAccessories, i)
+            found = true
+            break
+        end
+    end
+    
+    if found then
+        saveSavedAccessories()
+    end
+    
+    -- Also remove the equipped instance
+    pcall(function()
+        local inst = EquippedAccessoryMap[idStr]
+        if inst and inst.Parent then
+            inst:Destroy()
+        end
+        EquippedAccessoryMap[idStr] = nil
+    end)
+    
+    -- Clean from legacy list too
+    for i = #EquippedLocalAccessories, 1, -1 do
+        pcall(function()
+            local acc = EquippedLocalAccessories[i]
+            if acc and acc.Name == "_LeonX_Acc_" .. idStr then
+                table.remove(EquippedLocalAccessories, i)
+            end
+        end)
+    end
+    
+    return found
+end
+
+function AvatarSpoofer:GetSavedAccessoryList()
+    local list = {}
+    for _, entry in ipairs(self.SavedAccessories) do
+        table.insert(list, tostring(entry.id))
+    end
+    return list
+end
+
+function AvatarSpoofer:WearAllSaved()
+    if not self.Enabled then return end
+    for _, entry in ipairs(self.SavedAccessories) do
+        local idNum = tonumber(entry.id)
+        if idNum then
+            tryServerReplicate(idNum, "Accessory")
+            wearAccessoryLocal(idNum)
+        end
+    end
+end
+
+function AvatarSpoofer:RemoveAccessoryById(id)
+    if not id or id == "" then return end
+    local idStr = tostring(id)
+    
+    pcall(function()
+        local inst = EquippedAccessoryMap[idStr]
+        if inst and inst.Parent then
+            inst:Destroy()
+        end
+        EquippedAccessoryMap[idStr] = nil
+    end)
+    
+    for i = #EquippedLocalAccessories, 1, -1 do
+        pcall(function()
+            local acc = EquippedLocalAccessories[i]
+            if acc and acc.Name == "_LeonX_Acc_" .. idStr then
+                table.remove(EquippedLocalAccessories, i)
+            end
+        end)
+    end
+end
+
+function AvatarSpoofer:RemoveAllAccessories()
+    -- Destroy all equipped custom accessories
+    for idStr, inst in pairs(EquippedAccessoryMap) do
+        pcall(function()
+            if inst and inst.Parent then
+                inst:Destroy()
+            end
+        end)
+    end
+    table.clear(EquippedAccessoryMap)
+    
+    for _, acc in ipairs(EquippedLocalAccessories) do
+        pcall(function()
+            if acc and acc.Parent then
+                acc:Destroy()
+            end
+        end)
+    end
+    table.clear(EquippedLocalAccessories)
+end
+
+function AvatarSpoofer:ClearAllSaved()
+    self:RemoveAllAccessories()
+    table.clear(self.SavedAccessories)
+    saveSavedAccessories()
+end
+
+function AvatarSpoofer:ReloadSaved()
+    loadSavedAccessories()
 end
 
 function AvatarSpoofer:Enable()
@@ -603,14 +814,7 @@ function AvatarSpoofer:Disable()
     end
 
     -- Destroy all custom accessories loaded locally during the session
-    for _, acc in ipairs(EquippedLocalAccessories) do
-        pcall(function()
-            if acc and acc.Parent then
-                acc:Destroy()
-            end
-        end)
-    end
-    table.clear(EquippedLocalAccessories)
+    self:RemoveAllAccessories()
 
     print("[Leon X] AvatarSpoofer: Disabled — custom styles removed")
 end
