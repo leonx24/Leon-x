@@ -273,21 +273,35 @@ end)
 
 local cacheBust = "?t="..os.time()
 local loadErrors = {}
+local MAX_RETRIES = 3
 local function load(p)
-    local ok, result = pcall(function()
-        local src = game:HttpGet(BASE..p..cacheBust, true)
-        if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
-        local fn, err = loadstring(src)
-        if not fn then error("loadstring failed: "..tostring(err)) end
-        return fn()
-    end)
-    if not ok then
-        warn("[LeonX] FAIL: " .. tostring(p) .. " — " .. tostring(result))
-        loadErrors[#loadErrors + 1] = p .. ": " .. tostring(result)
-        return nil
+    for attempt = 1, MAX_RETRIES do
+        local ok, result = pcall(function()
+            local src = game:HttpGet(BASE..p..cacheBust, true)
+            if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
+            -- Detect rate-limit or error pages before loadstring
+            if src:find("Too Many Requests") or src:find("^%s*<!") or src:find("^%s*<html") then
+                error("rate-limited (429 or HTML error page)")
+            end
+            local fn, err = loadstring(src)
+            if not fn then error("loadstring failed: "..tostring(err)) end
+            return fn()
+        end)
+        if ok then
+            task.wait(0.15) -- small delay between loads to avoid rate-limit
+            return result
+        end
+        if attempt < MAX_RETRIES then
+            local delay = attempt * 2 -- 2s, 4s backoff
+            warn("[LeonX] RETRY " .. attempt .. "/" .. MAX_RETRIES .. ": " .. tostring(p) .. " — " .. tostring(result) .. " (waiting " .. delay .. "s)")
+            task.wait(delay)
+            cacheBust = "?t="..os.time() -- refresh cache bust for retry
+        else
+            warn("[LeonX] FAIL: " .. tostring(p) .. " — " .. tostring(result))
+            loadErrors[#loadErrors + 1] = p .. ": " .. tostring(result)
+            return nil
+        end
     end
-    -- Load successful
-    return result
 end
 
 local Library = load("ui/library.lua")
