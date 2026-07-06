@@ -42,11 +42,11 @@ pcall(function()
     end
 end)
 
-local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
+local BASE = "https://cdn.jsdelivr.net/gh/leonx24/Leon-x@main/"
 
 local CURRENT_VERSION = "1.3"
 pcall(function()
-    CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..os.time(), true):match("^%s*(.-)%s*$")
+    CURRENT_VERSION = game:HttpGet(BASE.."version.txt", true):match("^%s*(.-)%s*$")
 end)
 
 local Players      = game:GetService("Players")
@@ -271,15 +271,13 @@ task.delay(60, function()
     pcall(function() if SplashGui and SplashGui.Parent then SplashGui:Destroy() end end)
 end)
 
-local cacheBust = "?t="..os.time()
 local loadErrors = {}
-local MAX_RETRIES = 5
+local MAX_RETRIES = 4
 local function load(p)
     for attempt = 1, MAX_RETRIES do
         local ok, result = pcall(function()
-            local src = game:HttpGet(BASE..p..cacheBust, true)
+            local src = game:HttpGet(BASE..p, true)
             if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
-            -- Detect rate-limit or error pages before loadstring
             if src:find("Too Many Requests") or src:find("^%s*<!") or src:find("^%s*<html") then
                 error("rate-limited (429 or HTML error page)")
             end
@@ -288,14 +286,12 @@ local function load(p)
             return fn()
         end)
         if ok then
-            task.wait(0.5) -- delay between loads to stay under rate-limit
             return result
         end
         if attempt < MAX_RETRIES then
-            local delay = attempt * 5 -- 5s, 10s, 15s, 20s backoff
+            local delay = attempt * 3
             warn("[LeonX] RETRY " .. attempt .. "/" .. MAX_RETRIES .. ": " .. tostring(p) .. " — " .. tostring(result) .. " (waiting " .. delay .. "s)")
             task.wait(delay)
-            cacheBust = "?t="..os.time() -- refresh cache bust for retry
         else
             warn("[LeonX] FAIL: " .. tostring(p) .. " — " .. tostring(result))
             loadErrors[#loadErrors + 1] = p .. ": " .. tostring(result)
