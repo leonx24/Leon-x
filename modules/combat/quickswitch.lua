@@ -18,13 +18,35 @@ QuickSwitch.SecondKey = "Q"
 local inputConnection = nil
 local isRunning = false
 
+local keyNameMap = {
+    ["0"] = "Zero",
+    ["1"] = "One",
+    ["2"] = "Two",
+    ["3"] = "Three",
+    ["4"] = "Four",
+    ["5"] = "Five",
+    ["6"] = "Six",
+    ["7"] = "Seven",
+    ["8"] = "Eight",
+    ["9"] = "Nine"
+}
+
 local function pressKey(keyName)
+    keyName = tostring(keyName)
+    if keyNameMap[keyName] then
+        keyName = keyNameMap[keyName]
+    elseif #keyName == 1 then
+        keyName = keyName:upper()
+    end
+    
     local keyCode = Enum.KeyCode[keyName]
     if not keyCode then return end
     pcall(function()
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+        VirtualInputManager:SetKeyDown(keyCode)
         task.wait(0.01)
         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+        VirtualInputManager:SetKeyUp(keyCode)
     end)
 end
 
@@ -62,12 +84,16 @@ function QuickSwitch:Enable()
     end
     
     inputConnection = UserInputService.InputBegan:Connect(function(input, gp)
-        if gp then return end
         if not self.Enabled then return end
         if UserInputService:GetFocusedTextBox() then return end
         
         -- Detect left click / shooting
         if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            -- Verify the cheat UI is not open/active to prevent triggering while configuring
+            local pgui = lp:FindFirstChildOfClass("PlayerGui")
+            local sg = pgui and pgui:FindFirstChild("LeonXNoir")
+            if sg and sg.Enabled then return end
+            
             task.spawn(runMacro)
         end
     end)
