@@ -339,6 +339,7 @@ local NoFallDmg   = load("modules/player/nofalldamage.lua"); setSplashProgress(0
 local InstantKill = load("modules/player/instantkill.lua");  setSplashProgress(0.88)
 local KillAura    = load("modules/combat/killaura.lua");     setSplashProgress(0.90)
 local AutoClicker = load("modules/auto/autoclicker.lua");    setSplashProgress(0.91)
+local QuickSwitch = load("modules/combat/quickswitch.lua");  setSplashProgress(0.92)
 local MacroRec    = load("modules/movements/macrorecorder.lua"); setSplashProgress(0.93)
 local AntiVoid    = load("modules/player/antivoid.lua");     setSplashProgress(0.94)
 local GamepassSpoof = load("modules/player/gamepassspoofer.lua"); setSplashProgress(0.95)
@@ -393,6 +394,7 @@ NoFallDmg      = safe(NoFallDmg)
 InstantKill    = safe(InstantKill)
 KillAura       = safe(KillAura)
 AutoClicker    = safe(AutoClicker)
+QuickSwitch    = safe(QuickSwitch)
 MacroRec       = safe(MacroRec)
 AntiVoid       = safe(AntiVoid)
 GamepassSpoof  = safe(GamepassSpoof)
@@ -1355,6 +1357,64 @@ CombatTab:Keybind({
     end
 })
 
+CombatTab:Section({ Title = "Quick Switch" })
+
+local quickSwitchToggle = CombatTab:Toggle({
+    Title    = "Quick Switch",
+    Tooltip  = "Auto switch to knife and back on shoot ('qq')",
+    Value    = false,
+    Callback = function(v)
+        if v then QuickSwitch:Enable() else QuickSwitch:Disable() end
+        N("Quick Switch", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("QuickSwitch", quickSwitchToggle)
+
+local qsShotDelaySlider = CombatTab:Slider({
+    Title    = "Shot Delay (ms)",
+    Tooltip  = "Delay after shooting before switching weapon (ms)",
+    Value    = { Min = 0, Max = 1000, Default = 50 },
+    Step     = 5,
+    Callback = function(v) QuickSwitch:SetDelayAfterShot(v) end
+})
+ConfigMgr:Register("QuickSwitchShotDelay", qsShotDelaySlider)
+
+local qsSwitchDelaySlider = CombatTab:Slider({
+    Title    = "Switch Delay (ms)",
+    Tooltip  = "Delay between switches (knife and weapon) (ms)",
+    Value    = { Min = 0, Max = 1000, Default = 50 },
+    Step     = 5,
+    Callback = function(v) QuickSwitch:SetDelayBetweenSwitches(v) end
+})
+ConfigMgr:Register("QuickSwitchSwitchDelay", qsSwitchDelaySlider)
+
+local qsModeDrop = CombatTab:Dropdown({
+    Title    = "Switch Type",
+    Tooltip  = "Weapon switch key combination",
+    Values   = {"Q-Q", "3-1", "Custom"},
+    Value    = "Q-Q",
+    Callback = function(v) QuickSwitch:SetSwitchType(v) end
+})
+ConfigMgr:Register("QuickSwitchType", qsModeDrop)
+
+local qsFirstKeyInput = CombatTab:Input({
+    Title       = "Custom First Key",
+    Tooltip     = "First key to press (e.g. Three or Q)",
+    Placeholder = "Three",
+    Value       = "Q",
+    Callback    = function(v) QuickSwitch:SetFirstKey(v) end
+})
+ConfigMgr:Register("QuickSwitchFirstKey", qsFirstKeyInput)
+
+local qsSecondKeyInput = CombatTab:Input({
+    Title       = "Custom Second Key",
+    Tooltip     = "Second key to press (e.g. One or Q)",
+    Placeholder = "One",
+    Value       = "Q",
+    Callback    = function(v) QuickSwitch:SetSecondKey(v) end
+})
+ConfigMgr:Register("QuickSwitchSecondKey", qsSecondKeyInput)
+
 CombatTab:Section({ Title = "Instant Kill" })
 
 local ikToggle = CombatTab:Toggle({
@@ -2232,10 +2292,10 @@ end)
 
 -- Hitbox Expander keybind (H)
 UIS.InputBegan:Connect(function(i, gp)
-    if gp or i.KeyCode ~= hitboxKey then return end
+    if i.KeyCode ~= hitboxKey then return end
+    if UIS:GetFocusedTextBox() then return end
     local s = not HitboxExp.Enabled
     hitboxToggle:Set(s)
-    if s then HitboxExp:Enable() else HitboxExp:Disable() end
 end)
 
 -- Waypoint Queue keybind (X) — start if idle, stop if running
@@ -2283,6 +2343,7 @@ UIS.InputBegan:Connect(function(i, gp)
     pcall(function() if KillAura.Enabled then killAuraToggle:Set(false); KillAura:Disable() end end)
     pcall(function() if HitboxExp.Enabled then hitboxToggle:Set(false); HitboxExp:Disable() end end)
     pcall(function() if InstantKill.Enabled then ikToggle:Set(false); InstantKill:Disable() end end)
+    pcall(function() if QuickSwitch.Enabled then quickSwitchToggle:Set(false); QuickSwitch:Disable() end end)
 
     -- Disable player modules
     pcall(function() if InfStamina.Enabled then infStaminaToggle:Set(false); InfStamina:Disable() end end)
@@ -2450,6 +2511,12 @@ task.delay(1.5, function()
         if avatarCustomizerToggle.Value == true then AvatarSpoof:Enable() end
         if hitboxToggle.Value == true then HitboxExp:Enable() end
         if ikToggle.Value == true then InstantKill:Enable() end
+        if quickSwitchToggle.Value == true then QuickSwitch:Enable() end
+        pcall(function() QuickSwitch:SetDelayAfterShot(qsShotDelaySlider.Value or 50) end)
+        pcall(function() QuickSwitch:SetDelayBetweenSwitches(qsSwitchDelaySlider.Value or 50) end)
+        pcall(function() QuickSwitch:SetSwitchType(qsModeDrop.Value or "Q-Q") end)
+        pcall(function() QuickSwitch:SetFirstKey(qsFirstKeyInput.Value or "Q") end)
+        pcall(function() QuickSwitch:SetSecondKey(qsSecondKeyInput.Value or "Q") end)
 
         -- 7b. Auto features
         if autoClickerToggle.Value == true then AutoClicker:Enable() end

@@ -15,8 +15,9 @@ local RunService  = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
 local lp          = Players.LocalPlayer
 
-local modifiedData = {}  -- [player] = { originalSize, originalTrans, originalCanCollide, originalMassless, hl, charConn }
+local modifiedData = {}  -- [player] = { originalSize, originalTrans, originalCanCollide, originalMassless, hl, charConn, healthConn }
 local playerConn   = nil
+local playerRemovingConn = nil
 local charConns    = {}
 local updateConn   = nil
 local updateTimer  = 0
@@ -51,6 +52,7 @@ local function restoreHitbox(player)
     end)
     pcall(function() if data.hl then data.hl:Destroy() end end)
     pcall(function() if data.charConn then data.charConn:Disconnect() end end)
+    pcall(function() if data.healthConn then data.healthConn:Disconnect() end end)
     modifiedData[player] = nil
 end
 
@@ -73,6 +75,7 @@ local function expandHitbox(player)
         if modifiedData[player] then
             pcall(function() if modifiedData[player].hl then modifiedData[player].hl:Destroy() end end)
             pcall(function() if modifiedData[player].charConn then modifiedData[player].charConn:Disconnect() end end)
+            pcall(function() if modifiedData[player].healthConn then modifiedData[player].healthConn:Disconnect() end end)
         else
             -- Only save original values on FIRST expand (not on re-expands)
             modifiedData[player] = {
@@ -109,6 +112,19 @@ local function expandHitbox(player)
             end
         end)
 
+        -- Auto-cleanup on player death
+        local healthConn
+        healthConn = hum.HealthChanged:Connect(function(health)
+            if health <= 0 then
+                restoreHitbox(player)
+            end
+        end)
+
+        if hum.Health <= 0 then
+            restoreHitbox(player)
+            return
+        end
+
         modifiedData[player] = {
             originalSize       = modifiedData[player].originalSize,
             originalTrans      = modifiedData[player].originalTrans,
@@ -116,6 +132,7 @@ local function expandHitbox(player)
             originalMassless   = modifiedData[player].originalMassless,
             hl                 = hl,
             charConn           = charConn,
+            healthConn         = healthConn,
         }
     end)
 end
@@ -124,7 +141,13 @@ local function updateAllHitboxes()
     if not HitboxExpander.Enabled then return end
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= lp and not isTeammate(player) then
-            expandHitbox(player)
+            local char = player.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.Health <= 0 then
+                restoreHitbox(player)
+            else
+                expandHitbox(player)
+            end
         end
     end
 end
@@ -134,6 +157,7 @@ function HitboxExpander:Enable()
     updateTimer = 0
 
     if playerConn then playerConn:Disconnect(); playerConn = nil end
+    if playerRemovingConn then playerRemovingConn:Disconnect(); playerRemovingConn = nil end
     for _, c in ipairs(charConns) do pcall(function() c:Disconnect() end) end
     charConns = {}
     if updateConn then updateConn:Disconnect(); updateConn = nil end
@@ -163,6 +187,11 @@ function HitboxExpander:Enable()
         end
     end)
 
+    -- Watch for players leaving
+    playerRemovingConn = Players.PlayerRemoving:Connect(function(player)
+        restoreHitbox(player)
+    end)
+
     -- Periodic re-check
     updateConn = RunService.Heartbeat:Connect(function(dt)
         if not self.Enabled then return end
@@ -183,6 +212,7 @@ function HitboxExpander:Disable()
     end
 
     if playerConn then playerConn:Disconnect(); playerConn = nil end
+    if playerRemovingConn then playerRemovingConn:Disconnect(); playerRemovingConn = nil end
     for _, c in ipairs(charConns) do pcall(function() c:Disconnect() end) end
     charConns = {}
     if updateConn then updateConn:Disconnect(); updateConn = nil end
