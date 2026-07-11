@@ -56,6 +56,7 @@ local TS      = game:GetService("TweenService")
 local UIS     = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local lp      = Players.LocalPlayer
+local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 local function mk(class, props, children)
 	local inst = Instance.new(class)
@@ -266,14 +267,22 @@ function Library:CreateWindow(cfg)
 	})
 
 	-- ── Main frame ──
+	local scale = isMobile and 0.8 or 1.0
 	local main = mk("Frame", {
 		Size = size;
-		Position = UDim2.new(0.5, -size.X.Offset/2, 0.5, -size.Y.Offset/2);
+		Position = UDim2.new(0.5, -(size.X.Offset * scale) / 2, 0.5, -(size.Y.Offset * scale) / 2);
 		BackgroundTransparency = 1;
 		BorderSizePixel = 0; ClipsDescendants = true;
 		Active = false; -- Don't block input, let children handle it
 		Parent = sg;
 	})
+
+	if isMobile then
+		mk("UIScale", {
+			Scale = scale;
+			Parent = main;
+		})
+	end
 
 	-- ── Background layer (glassmorphism bg, tagged for theme) ──
 	local bgFrame = tagBg(mk("Frame", {
@@ -542,7 +551,6 @@ function Library:CreateWindow(cfg)
 	-- ══════════════════════════════════════════════════════════════
 	-- FLOATING BUTTON
 	-- ══════════════════════════════════════════════════════════════
-	local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 	local floatGui = mk("ScreenGui", {
 		Name = "LeonXFloat"; ResetOnSpawn = false;
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
@@ -699,8 +707,9 @@ function Library:CreateWindow(cfg)
 	UIS.InputChanged:Connect(function(i)
 		if resizing and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
 			local d = i.Position - resizeStart
-			local newSizeX = math.max(400, resizeStartSize.X.Offset + d.X)
-			local newSizeY = math.max(300, resizeStartSize.Y.Offset + d.Y)
+			local currentScale = main:FindFirstChild("UIScale") and main.UIScale.Scale or 1.0
+			local newSizeX = math.max(400, resizeStartSize.X.Offset + (d.X / currentScale))
+			local newSizeY = math.max(300, resizeStartSize.Y.Offset + (d.Y / currentScale))
 			main.Size = UDim2.new(0, newSizeX, 0, newSizeY)
 		end
 	end)
