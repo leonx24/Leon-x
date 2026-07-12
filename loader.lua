@@ -1,21 +1,32 @@
 local secure_loadstring = (function()
     local reg = debug and debug.getregistry and debug.getregistry() or getreg and getreg()
+    local raw_loadstring
     if reg then
         for _, v in pairs(reg) do
             if type(v) == "function" and debug.info(v, "n") == "loadstring" then
-                return v
+                raw_loadstring = v
+                break
             end
         end
     end
-    local genv = getgenv and getgenv() or _G
-    if genv and genv.loadstring then
-        return genv.loadstring
+    if not raw_loadstring then
+        local genv = getgenv and getgenv() or _G
+        raw_loadstring = genv and genv.loadstring
     end
-    local fenv = getfenv and getfenv(0)
-    if fenv and fenv.loadstring then
-        return fenv.loadstring
+    if not raw_loadstring then
+        local fenv = getfenv and getfenv(0)
+        raw_loadstring = fenv and fenv.loadstring
     end
-    return loadstring
+    if not raw_loadstring then
+        raw_loadstring = loadstring
+    end
+    return function(src)
+        local fn, err = raw_loadstring(src)
+        if fn then
+            pcall(setfenv, fn, getfenv(2) or getgenv() or _G)
+        end
+        return fn, err
+    end
 end)()
 
 local userKey = _G.Key
