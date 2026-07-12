@@ -8,37 +8,6 @@
 -- AntiDetect module handles script destruction only (no function hooking)
 -- ═══════════════════════════════════════════════════════════════════════════
 
-local secure_loadstring = (function()
-    local reg = debug and debug.getregistry and debug.getregistry() or getreg and getreg()
-    local raw_loadstring
-    if reg then
-        for _, v in pairs(reg) do
-            if type(v) == "function" and debug.info(v, "n") == "loadstring" then
-                raw_loadstring = v
-                break
-            end
-        end
-    end
-    if not raw_loadstring then
-        local genv = getgenv and getgenv() or _G
-        raw_loadstring = genv and genv.loadstring
-    end
-    if not raw_loadstring then
-        local fenv = getfenv and getfenv(0)
-        raw_loadstring = fenv and fenv.loadstring
-    end
-    if not raw_loadstring then
-        raw_loadstring = loadstring
-    end
-    return function(src)
-        local fn, err = raw_loadstring(src)
-        if fn then
-            pcall(setfenv, fn, getfenv(2) or getgenv() or _G)
-        end
-        return fn, err
-    end
-end)()
-
 _G._LeonX_AllowTeleport = function(allow)
     _G._LeonX_AllowTeleportActive = allow and true or false
 end
@@ -312,7 +281,7 @@ local function load(p)
             if src:find("Too Many Requests") or src:find("^%s*<!") or src:find("^%s*<html") then
                 error("rate-limited (429 or HTML error page)")
             end
-            local fn, err = secure_loadstring(src)
+            local fn, err = loadstring(src)
             if not fn then error("loadstring failed: "..tostring(err)) end
             return fn()
         end)
