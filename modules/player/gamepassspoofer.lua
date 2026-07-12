@@ -306,6 +306,18 @@ local function buildPurchaseOperation(id)
     return ""
 end
 
+local BUTTON_GAP = 6
+
+local function getButtonHeight(btn)
+    local h = 38
+    pcall(function()
+        local abs = btn.AbsoluteSize
+        if abs and abs.Y > 10 then h = abs.Y end
+    end)
+    if h < 10 then h = 38 end
+    return h
+end
+
 local function settleButtonPosition(anchorBtn, btn, parent, offsetY)
     if not anchorBtn or not btn or not parent then return end
     local hasListLayout = parent:FindFirstChildOfClass("UIListLayout") ~= nil
@@ -314,15 +326,13 @@ local function settleButtonPosition(anchorBtn, btn, parent, offsetY)
         return
     end
 
-    btn.Position = anchorBtn.Position + UDim2.fromOffset(0, offsetY or 0)
-    task.defer(function()
+    local dy = offsetY or (getButtonHeight(anchorBtn) + BUTTON_GAP)
+    local function apply()
         if btn.Parent ~= parent or anchorBtn.Parent ~= parent then return end
-        btn.Position = anchorBtn.Position + UDim2.fromOffset(0, offsetY or 0)
-        task.defer(function()
-            if btn.Parent ~= parent or anchorBtn.Parent ~= parent then return end
-            btn.Position = anchorBtn.Position + UDim2.fromOffset(0, offsetY or 0)
-        end)
-    end)
+        btn.Position = anchorBtn.Position + UDim2.fromOffset(0, dy)
+    end
+    apply()
+    task.defer(apply)
 end
 
 local function settleFreeButtonPosition(originalBtn, freeBtn, parent)
@@ -333,15 +343,14 @@ local function settleFreeButtonPosition(originalBtn, freeBtn, parent)
         return
     end
 
-    freeBtn.Position = originalBtn.Position
-    task.defer(function()
+    -- Place BELOW original, not overlapping
+    local dy = getButtonHeight(originalBtn) + BUTTON_GAP
+    local function apply()
         if freeBtn.Parent ~= parent or originalBtn.Parent ~= parent then return end
-        freeBtn.Position = originalBtn.Position
-        task.defer(function()
-            if freeBtn.Parent ~= parent or originalBtn.Parent ~= parent then return end
-            freeBtn.Position = originalBtn.Position
-        end)
-    end)
+        freeBtn.Position = originalBtn.Position + UDim2.fromOffset(0, dy)
+    end
+    apply()
+    task.defer(apply)
 end
 
 local function getInjectedButtonsBaseOrder(parent)
@@ -399,12 +408,12 @@ local function layoutInjectedButtons(parent)
         settleFreeButtonPosition(template, freeBtn, parent)
     end
     if copyBtn and freeBtn then
-        settleButtonPosition(freeBtn, copyBtn, parent, 42)
+        settleButtonPosition(freeBtn, copyBtn, parent)
     end
     if autoBtn then
         local anchorBtn = copyBtn or freeBtn
         if anchorBtn then
-            settleButtonPosition(anchorBtn, autoBtn, parent, 42)
+            settleButtonPosition(anchorBtn, autoBtn, parent)
         end
     end
 end
@@ -555,22 +564,23 @@ local function decorateButton(btn, text, zIndex, palette)
     btn.Selectable = true
     btn.AutoButtonColor = false
     btn.ZIndex = zIndex
-    
-    if safeIsA(btn, "ImageButton") then
-        btn.ImageColor3 = colors.IDLE
-    else
-        btn.BackgroundColor3 = colors.IDLE
-    end
+
+    -- Apply color to both background and image (if ImageButton)
+    btn.BackgroundColor3 = colors.IDLE
     btn.BackgroundTransparency = 0.15
+    if safeIsA(btn, "ImageButton") then
+        btn.Image = ""  -- Remove template image so bg color shows
+    end
     trySet(btn, "Interactable", true)
 
+    -- Destroy scripts from clone
     for _, desc in ipairs(safeGetDescendants(btn)) do
         if safeIsA(desc, "LocalScript") or safeIsA(desc, "Script") or safeIsA(desc, "ModuleScript") then
             desc:Destroy()
         end
     end
 
-    -- Find the main text label to display our button text
+    -- Find the main text label to re-use, or create one as fallback
     local mainLabel = nil
     local maxArea = 0
     for _, desc in ipairs(safeGetDescendants(btn)) do
@@ -584,25 +594,41 @@ local function decorateButton(btn, text, zIndex, palette)
         end
     end
 
+    -- Style all descendants
     for _, desc in ipairs(safeGetDescendants(btn)) do
         if safeIsA(desc, "GuiObject") then
             desc.ZIndex = math.max(desc.ZIndex, btn.ZIndex + 1)
             desc.Active = true
             trySet(desc, "Interactable", true)
-            
+
             if safeIsA(desc, "TextLabel") then
-                if desc == mainLabel or not mainLabel then
+                if desc == mainLabel then
                     desc.Text = text
                     desc.TextTransparency = 0
+                    desc.TextColor3 = Color3.new(1, 1, 1)
                     desc.Visible = true
-                    mainLabel = desc
                 else
                     desc.Visible = false
                 end
             elseif safeIsA(desc, "ImageLabel") then
-                desc.Visible = false
+                -- Dim images instead of hiding them (preserves rounded corners / UI shapes)
+                desc.ImageTransparency = 0.85
             end
         end
+    end
+
+    -- Fallback: create a TextLabel if the template had none
+    if not mainLabel then
+        local lbl = Instance.new("TextLabel")
+        lbl.Name = "InjectedLabel"
+        lbl.Size = UDim2.fromScale(1, 1)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = text
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 16
+        lbl.TextColor3 = Color3.new(1, 1, 1)
+        lbl.ZIndex = btn.ZIndex + 2
+        lbl.Parent = btn
     end
 end
 
@@ -664,7 +690,7 @@ local function processParentButtons(parent)
                 local freeBtn = parent:FindFirstChild("FreeButton")
                 decorateButton(copyBtn, "Copy", freeBtn and freeBtn.ZIndex or ((templateBtn.ZIndex or 1) + 10), COPY_COLORS)
                 wireHover(copyBtn, COPY_COLORS)
-                settleButtonPosition(freeBtn, copyBtn, parent, 42)
+                settleButtonPosition(freeBtn, copyBtn, parent)
                 copyBtn.Activated:Connect(function()
                     local id = LastPrompt.Id
                     if not id then return end
@@ -694,7 +720,7 @@ local function processParentButtons(parent)
                 local anchorBtn = parent:FindFirstChild("CopyButton") or parent:FindFirstChild("FreeButton")
                 decorateButton(autoBtn, "Auto", (anchorBtn and anchorBtn.ZIndex) or ((templateBtn.ZIndex or 1) + 10), AUTO_COLORS)
                 wireHover(autoBtn, AUTO_COLORS)
-                settleButtonPosition(anchorBtn, autoBtn, parent, 42)
+                settleButtonPosition(anchorBtn, autoBtn, parent)
                 autoBtn.Activated:Connect(function()
                     toggleRobloxMenu()
                     if AutoLoopState.Running then

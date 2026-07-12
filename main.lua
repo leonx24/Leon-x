@@ -338,7 +338,7 @@ local InfJump     = load("modules/movements/infinitejump.lua"); setSplashProgres
 local Noclip      = load("modules/movements/noclip.lua");    setSplashProgress(0.26)
 local AntiRagdoll = load("modules/movements/antiragdoll.lua"); setSplashProgress(0.30)
 local Invisible   = load("modules/movements/invisible.lua"); setSplashProgress(0.34)
-local FreeCam     = load("modules/movements/freecam.lua");   setSplashProgress(0.38)
+local FreeCam     = load("modul es/movements/freecam.lua");   setSplashProgress(0.38)
 local ClickTP     = load("modules/movements/clickteleport.lua"); setSplashProgress(0.42)
 local WalkOnWater = load("modules/movements/walkonwater.lua");  setSplashProgress(0.44)
 local ESP         = load("modules/visuals/esp.lua");         setSplashProgress(0.46)
@@ -509,9 +509,17 @@ if ConfigMgr then
     end
 end
 
+-- ══ STANDARD TABS (Always Created) ═══════════════════════════════════
+local MovTab = Window:Tab({ Title = "Movement", Icon = "🏃" })
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "⚔️" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "🛡️" })
+local TeleTab = Window:Tab({ Title = "Teleport", Icon = "📍" })
+local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
+local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
+local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
+local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
+
 if ActiveGameModule then
-    -- ══ GAME MODE: Let the module wire its own tabs! ═════════════════════
-    local PlayerTab = Window:Tab({ Title = "Player", Icon = "👤" })
     if PerfStats then PerfStats:Enable() end
     ActiveGameModule:Init()
     ActiveGameModule:WireUI(Window, {
@@ -529,16 +537,8 @@ if ActiveGameModule then
         N            = N,
     })
     N("Game Detected", ActiveGameModule.Name)
-else
-    -- ══ UNIVERSAL MODE: all standard tabs ═══════════════════════════════════
-    local MovTab = Window:Tab({ Title = "Movement", Icon = "🏃" })
-    local CombatTab = Window:Tab({ Title = "Combat", Icon = "⚔️" })
-    local PlayerTab = Window:Tab({ Title = "Player", Icon = "🛡️" })
-    local TeleTab = Window:Tab({ Title = "Teleport", Icon = "📍" })
-    local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
-    local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
-    local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
-    local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
+end
+
 if AntiAFK then AntiAFK:Enable() end
 if PerfStats then PerfStats:Enable() end
 
@@ -1592,50 +1592,61 @@ ConfigMgr:Register("VoidThreshold", voidThreshSlider)
 
 PlayerTab:Section({ Title = "Exploit" })
 
-local gpSpoofToggle = PlayerTab:Toggle({
-    Title    = "Gamepass Spoof",
-    Tooltip  = "Spoof gamepass ownership and hook UserOwnsGamePassAsync",
-    Value    = false,
-    Callback = function(v)
-        if v then GamepassSpoof:Enable() else GamepassSpoof:Disable() end
-        N("Gamepass Spoof", v and "Spoofing ownership" or "Disabled")
-    end
-})
-ConfigMgr:Register("GamepassSpoof", gpSpoofToggle)
-
-local gpInstantToggle = PlayerTab:Toggle({
-    Title    = "Instant Purchase",
-    Tooltip  = "Automatically auto-complete purchase prompts instantly",
-    Value    = false,
-    Callback = function(v)
-        GamepassSpoof.InstantPurchase = v
-        N("Instant Purchase", v and "Auto-confirm ON" or "Auto-confirm OFF")
-    end
-})
-ConfigMgr:Register("GamepassInstant", gpInstantToggle)
-
-local gpInjectToggle = PlayerTab:Toggle({
-    Title    = "Inject Prompt Buttons",
-    Tooltip  = "Inject Free/Copy/Auto buttons into Roblox purchase prompts",
-    Value    = false,
-    Callback = function(v)
-        GamepassSpoof.InjectButtons = v
-        N("Prompt Buttons", v and "Injections active" or "Injections inactive")
-    end
-})
-ConfigMgr:Register("GamepassInjectButtons", gpInjectToggle)
-
-PlayerTab:Button({
-    Title    = "⚡ Auto Mass Purchase",
-    Tooltip  = "Simulate purchase success for all game gamepasses and products",
-    Callback = function()
-        if not GamepassSpoof.Enabled then
-            N("Mass Purchase", "Enable Gamepass Spoof first!")
-            return
+local gpSpoofToggle
+pcall(function()
+    gpSpoofToggle = PlayerTab:Toggle({
+        Title    = "Gamepass Spoof",
+        Tooltip  = "Spoof gamepass ownership and hook UserOwnsGamePassAsync",
+        Value    = false,
+        Callback = function(v)
+            if v then GamepassSpoof:Enable() else GamepassSpoof:Disable() end
+            N("Gamepass Spoof", v and "Spoofing ownership" or "Disabled")
         end
-        GamepassSpoof:PerformAutoMassPurchase(N)
-    end
-})
+    })
+    ConfigMgr:Register("GamepassSpoof", gpSpoofToggle)
+end)
+
+local gpInstantToggle
+pcall(function()
+    gpInstantToggle = PlayerTab:Toggle({
+        Title    = "Instant Purchase",
+        Tooltip  = "Automatically auto-complete purchase prompts instantly",
+        Value    = false,
+        Callback = function(v)
+            GamepassSpoof.InstantPurchase = v
+            N("Instant Purchase", v and "Auto-confirm ON" or "Auto-confirm OFF")
+        end
+    })
+    ConfigMgr:Register("GamepassInstant", gpInstantToggle)
+end)
+
+local gpInjectToggle
+pcall(function()
+    gpInjectToggle = PlayerTab:Toggle({
+        Title    = "Inject Prompt Buttons",
+        Tooltip  = "Inject Free/Copy/Auto buttons into Roblox purchase prompts",
+        Value    = false,
+        Callback = function(v)
+            GamepassSpoof.InjectButtons = v
+            N("Prompt Buttons", v and "Injections active" or "Injections inactive")
+        end
+    })
+    ConfigMgr:Register("GamepassInjectButtons", gpInjectToggle)
+end)
+
+pcall(function()
+    PlayerTab:Button({
+        Title    = "⚡ Auto Mass Purchase",
+        Tooltip  = "Simulate purchase success for all game gamepasses and products",
+        Callback = function()
+            if not GamepassSpoof.Enabled then
+                N("Mass Purchase", "Enable Gamepass Spoof first!")
+                return
+            end
+            GamepassSpoof:PerformAutoMassPurchase(N)
+        end
+    })
+end)
 
 PlayerTab:Section({ Title = "Avatar Customizer" })
 
@@ -2412,7 +2423,6 @@ SetTab:Paragraph({
     Title = "Panic Key Info",
     Content = "Press to disable ALL features and hide the UI"
 })
-end -- end universal mode
 
 setSplashProgress(0.96)
 
@@ -2429,7 +2439,6 @@ task.delay(1.5, function()
 
     -- Anti-AFK is already auto-enabled above (universal)
 
-    if not ActiveGameModule then
     -- ── Post-load sync: activate modules based on loaded toggle states ────────
     -- ConfigManager:Load() does NOT fire callbacks, so we manually sync here
     -- in a deterministic order to avoid race conditions.
@@ -2527,7 +2536,7 @@ task.delay(1.5, function()
         if noFallToggle.Value == true then NoFallDmg:Enable() end
         if antiFlingToggle.Value == true then AntiFling:Enable() end
         if antiVoidToggle.Value == true then AntiVoid:Enable() end
-        if gpSpoofToggle.Value == true then GamepassSpoof:Enable() end
+        if gpSpoofToggle and gpSpoofToggle.Value == true then GamepassSpoof:Enable() end
         if avatarCustomizerToggle.Value == true then AvatarSpoof:Enable() end
         if hitboxToggle.Value == true then HitboxExp:Enable() end
         if ikToggle.Value == true then InstantKill:Enable() end
@@ -2570,11 +2579,9 @@ task.delay(1.5, function()
             end
         end)
     end)
-    end -- end if not ActiveGameModule
 end)
 
 -- ── Character respawn handler ─────────────────────────────────────────────────
-if not ActiveGameModule then
 lp.CharacterAdded:Connect(function(char)
     task.wait(1)
     pcall(function()
@@ -2621,7 +2628,6 @@ if nilCount > 0 then
     -- Nil count debug removed
 end
 -- End debug info
-end
 
 -- Smooth splash exit
 local splashDestroyed = false
