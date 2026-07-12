@@ -560,7 +560,7 @@ MovTab:Section({ Title = "Flight" })
 -- Creating UI components
 
 -- Fly toggle
-local flyToggle = MovTab:Toggle({
+flyToggle = MovTab:Toggle({
     Title    = "Fly",
     Value    = false,
     Tooltip  = "Free flight with adjustable speed",
@@ -570,7 +570,7 @@ local flyToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("Fly", flyToggle)
-local flySpeedSlider = MovTab:Slider({
+flySpeedSlider = MovTab:Slider({
     Title    = "Fly Speed",
     Value    = { Min = 10, Max = 300, Default = 60 },
     Step     = 1,
@@ -578,7 +578,7 @@ local flySpeedSlider = MovTab:Slider({
     Callback = function(v) if v >= 10 then Fly:SetSpeed(v) end end
 })
 ConfigMgr:Register("FlySpeed", flySpeedSlider)
-local flyKey = Enum.KeyCode.F
+flyKey = Enum.KeyCode.F
 MovTab:Keybind({
     Title    = "Fly Keybind",
     Value    = "F",
@@ -597,7 +597,7 @@ end)
 
 MovTab:Section({ Title = "Speed" })
 
-local speedToggle = MovTab:Toggle({
+speedToggle = MovTab:Toggle({
     Title    = "Speed Hack",
     Value    = false,
     Tooltip  = "Customizable walk speed and jump power",
@@ -615,7 +615,7 @@ local speedToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("SpeedHack", speedToggle)
-local walkSpeedSlider = MovTab:Slider({
+walkSpeedSlider = MovTab:Slider({
     Title    = "Walk Speed",
     Value    = { Min = 16, Max = 250, Default = 16 },
     Step     = 1,
@@ -623,7 +623,7 @@ local walkSpeedSlider = MovTab:Slider({
     Callback = function(v) Speed:SetWalkSpeed(v) end
 })
 ConfigMgr:Register("WalkSpeed", walkSpeedSlider)
-local jumpPowerSlider = MovTab:Slider({
+jumpPowerSlider = MovTab:Slider({
     Title    = "Jump Power",
     Value    = { Min = 50, Max = 500, Default = 50 },
     Step     = 1,
@@ -634,7 +634,7 @@ ConfigMgr:Register("JumpPower", jumpPowerSlider)
 
 MovTab:Section({ Title = "Physics" })
 
-local infJumpToggle = MovTab:Toggle({
+infJumpToggle = MovTab:Toggle({
     Title    = "Infinite Jump",
     Value    = false,
     Tooltip  = "Jump mid-air indefinitely",
@@ -644,7 +644,7 @@ local infJumpToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("InfiniteJump", infJumpToggle)
-local noclipToggle = MovTab:Toggle({
+noclipToggle = MovTab:Toggle({
     Title    = "Noclip",
     Value    = false,
     Tooltip  = "Walk through walls and objects",
@@ -663,7 +663,7 @@ MovTab:Keybind({
         N("Noclip Keybind", k)
     end
 })
-local antiRagdollToggle = MovTab:Toggle({
+antiRagdollToggle = MovTab:Toggle({
     Title    = "Anti Ragdoll",
     Value    = false,
     Tooltip  = "Prevent ragdoll physics",
@@ -673,7 +673,7 @@ local antiRagdollToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("AntiRagdoll", antiRagdollToggle)
-local invisToggle = MovTab:Toggle({
+invisToggle = MovTab:Toggle({
     Title    = "Invisible (local)",
     Value    = false,
     Tooltip  = "Become invisible to other players",
@@ -686,8 +686,8 @@ ConfigMgr:Register("Invisible", invisToggle)
 
 MovTab:Section({ Title = "Camera" })
 
-local fcKey    = Enum.KeyCode.V
-local fcToggle = MovTab:Toggle({
+fcKey = Enum.KeyCode.V
+fcToggle = MovTab:Toggle({
     Title    = "Free Cam",
     Value    = false,
     Tooltip  = "Detach camera for cinematic views",
@@ -697,7 +697,7 @@ local fcToggle = MovTab:Toggle({
     end
 })
 ConfigMgr:Register("FreeCam", fcToggle)
-local fcSpeedSlider = MovTab:Slider({
+fcSpeedSlider = MovTab:Slider({
     Title    = "Free Cam Speed",
     Value    = { Min = 5, Max = 300, Default = 40 },
     Step     = 1,
@@ -723,7 +723,7 @@ end)
 
 MovTab:Section({ Title = "Special" })
 
-local clickTPToggle = MovTab:Toggle({
+clickTPToggle = MovTab:Toggle({
     Title    = "Click Teleport",
     Value    = false,
     Tooltip  = "Click anywhere to teleport to that location",
@@ -734,7 +734,7 @@ local clickTPToggle = MovTab:Toggle({
 })
 ConfigMgr:Register("ClickTeleport", clickTPToggle)
 
-local wowToggle = MovTab:Toggle({
+wowToggle = MovTab:Toggle({
     Title    = "Walk on Water",
     Value    = false,
     Tooltip  = "Walk on water surfaces",
@@ -750,7 +750,7 @@ ConfigMgr:Register("WalkOnWater", wowToggle)
 -- ══════════════════════════════════════════════════════════════════════════════
 
 -- Macro name input
-local macroNameInput = MacroTab:Input({
+macroNameInput = MacroTab:Input({
     Title = "Macro Name",
     Placeholder = "e.g. route_to_peak",
     Value = "",
@@ -823,7 +823,7 @@ MacroTab:Button({
     end
 })
 
-local speedSlider = MacroTab:Slider({
+speedSlider = MacroTab:Slider({
     Title = "Playback Speed",
     Value = { Min = 1, Max = 10, Default = 1 },
     Step = 1,
@@ -832,7 +832,7 @@ local speedSlider = MacroTab:Slider({
 })
 ConfigMgr:Register("MacroSpeed", speedSlider)
 
-local loopToggle = MacroTab:Toggle({
+loopToggle = MacroTab:Toggle({
     Title = "Loop Playback",
     Value = false,
     Tooltip = "Replay macro continuously after finishing",
@@ -840,7 +840,7 @@ local loopToggle = MacroTab:Toggle({
 })
 ConfigMgr:Register("MacroLoop", loopToggle)
 
-local antiFallToggle = MacroTab:Toggle({
+antiFallToggle = MacroTab:Toggle({
     Title = "Anti-Fall (auto-recover)",
     Value = true,
     Tooltip = "Auto-correct position if character falls during playback",
@@ -848,7 +848,7 @@ local antiFallToggle = MacroTab:Toggle({
 })
 ConfigMgr:Register("MacroAntiFall", antiFallToggle)
 
-local recordInputsToggle = MacroTab:Toggle({
+recordInputsToggle = MacroTab:Toggle({
     Title = "Record Inputs (jump, WASD, click)",
     Value = true,
     Tooltip = "Capture keyboard/mouse inputs during recording",
@@ -938,7 +938,7 @@ MacroTab:Button({
     end
 })
 
-local importInput = MacroTab:Input({
+importInput = MacroTab:Input({
     Title = "Paste JSON to Import",
     Placeholder = "Paste exported macro here...",
     Value = "",
@@ -982,8 +982,8 @@ MacroTab:Paragraph({
 })
 
 -- Queue dropdown to show current queue
-local queueDisplayDropdown = nil
-local selectedQueueItem = nil
+queueDisplayDropdown = nil
+selectedQueueItem = nil
 
 local function refreshQueueDisplay()
     local queue = MacroRec:GetQueue()
@@ -1050,7 +1050,7 @@ queueDisplayDropdown = MacroTab:Dropdown({
     Callback = function(v) selectedQueueItem = v end
 })
 
-local queueLoopToggle = MacroTab:Toggle({
+queueLoopToggle = MacroTab:Toggle({
     Title = "Loop Queue",
     Tooltip = "Replay the entire queue continuously",
     Value = true,
@@ -1095,7 +1095,7 @@ MacroTab:Paragraph({
     Content = "PlaceId: " .. tostring(game.PlaceId)
 })
 
-local perMapToggle = MacroTab:Toggle({
+perMapToggle = MacroTab:Toggle({
     Title = "Per-Map Macros",
     Tooltip = "Save macros per game instead of globally",
     Value = true,
@@ -1125,7 +1125,7 @@ end)
 -- ══════════════════════════════════════════════════════════════════════════════
 VisTab:Section({ Title = "Rendering" })
 
-local perfStatsToggle = VisTab:Toggle({
+perfStatsToggle = VisTab:Toggle({
     Title    = "Perf Stats (HUD)",
     Tooltip = "Show real-time FPS and performance overlay",
     Value    = true,
@@ -1135,7 +1135,7 @@ local perfStatsToggle = VisTab:Toggle({
     end
 })
 ConfigMgr:Register("PerfStats", perfStatsToggle)
-local espToggle = VisTab:Toggle({
+espToggle = VisTab:Toggle({
     Title    = "ESP",
     Tooltip = "See players through walls",
     Value    = false,
@@ -1145,7 +1145,7 @@ local espToggle = VisTab:Toggle({
     end
 })
 ConfigMgr:Register("ESP", espToggle)
-local fullBrightToggle = VisTab:Toggle({
+fullBrightToggle = VisTab:Toggle({
     Title    = "FullBright",
     Tooltip = "Remove all darkness and shadows",
     Value    = false,
@@ -1155,7 +1155,7 @@ local fullBrightToggle = VisTab:Toggle({
     end
 })
 ConfigMgr:Register("FullBright", fullBrightToggle)
-local removeFogToggle = VisTab:Toggle({
+removeFogToggle = VisTab:Toggle({
     Title    = "Remove Fog",
     Tooltip = "Clear fog for better visibility",
     Value    = false,
@@ -1174,7 +1174,7 @@ local EC = {
     Yellow = Color3.fromRGB(255,220,50),  Cyan   = Color3.fromRGB(60,220,255),
     Pink   = Color3.fromRGB(255,100,200)
 }
-local espColorDrop = VisTab:Dropdown({
+espColorDrop = VisTab:Dropdown({
     Title    = "ESP Color",
     Tooltip = "Color of the ESP overlay",
     Values   = {"White","Red","Green","Blue","Yellow","Cyan","Pink"},
@@ -1182,7 +1182,7 @@ local espColorDrop = VisTab:Dropdown({
     Callback = function(v) ESP:SetColor(EC[v] or Color3.new(1,1,1)) end
 })
 ConfigMgr:Register("ESPColor", espColorDrop)
-local espOpacitySlider = VisTab:Slider({
+espOpacitySlider = VisTab:Slider({
     Title    = "ESP Fill Opacity",
     Tooltip = "ESP box fill transparency (0-100)",
     Value    = { Min = 0, Max = 100, Default = 15 },
@@ -1190,7 +1190,7 @@ local espOpacitySlider = VisTab:Slider({
     Callback = function(v) ESP:SetOpacity(v) end
 })
 ConfigMgr:Register("ESPOpacity", espOpacitySlider)
-local espModeDrop = VisTab:Dropdown({
+espModeDrop = VisTab:Dropdown({
     Title    = "ESP Show Mode",
     Tooltip = "Show body, name, or both",
     Values   = {"Both","Body","Name"},
@@ -1201,7 +1201,7 @@ ConfigMgr:Register("ESPMode", espModeDrop)
 
 VisTab:Section({ Title = "Tracer" })
 
-local tracerToggle = VisTab:Toggle({
+tracerToggle = VisTab:Toggle({
     Title    = "Player Tracer",
     Tooltip = "Draw lines from screen to players",
     Value    = false,
@@ -1216,7 +1216,7 @@ local TC = {
     Green  = Color3.fromRGB(60,220,80),   Blue   = Color3.fromRGB(60,130,255),
     Yellow = Color3.fromRGB(255,220,50),  Cyan   = Color3.fromRGB(60,220,255),
 }
-local tracerColorDrop = VisTab:Dropdown({
+tracerColorDrop = VisTab:Dropdown({
     Title    = "Tracer Color",
     Tooltip = "Color of tracer lines",
     Values   = {"White","Red","Green","Blue","Yellow","Cyan"},
@@ -1224,7 +1224,7 @@ local tracerColorDrop = VisTab:Dropdown({
     Callback = function(v) Tracer:SetColor(TC[v] or Color3.new(1,1,1)) end
 })
 ConfigMgr:Register("TracerColor", tracerColorDrop)
-local tracerOpacitySlider = VisTab:Slider({
+tracerOpacitySlider = VisTab:Slider({
     Title    = "Tracer Opacity",
     Tooltip = "Tracer line transparency (0-100)",
     Value    = { Min = 0, Max = 100, Default = 100 },
@@ -1232,7 +1232,7 @@ local tracerOpacitySlider = VisTab:Slider({
     Callback = function(v) Tracer:SetOpacity(v) end
 })
 ConfigMgr:Register("TracerOpacity", tracerOpacitySlider)
-local tracerThickSlider = VisTab:Slider({
+tracerThickSlider = VisTab:Slider({
     Title    = "Tracer Thickness",
     Tooltip = "Tracer line width (1-8)",
     Value    = { Min = 1, Max = 8, Default = 2 },
@@ -1246,7 +1246,7 @@ ConfigMgr:Register("TracerThickness", tracerThickSlider)
 -- ══════════════════════════════════════════════════════════════════════════════
 CombatTab:Section({ Title = "Kill Aura" })
 
-local killAuraToggle = CombatTab:Toggle({
+killAuraToggle = CombatTab:Toggle({
     Title    = "Kill Aura",
     Tooltip = "Auto-attack nearby enemies",
     Value    = false,
@@ -1257,7 +1257,7 @@ local killAuraToggle = CombatTab:Toggle({
 })
 ConfigMgr:Register("KillAura", killAuraToggle)
 
-local killAuraRadiusSlider = CombatTab:Slider({
+killAuraRadiusSlider = CombatTab:Slider({
     Title    = "Radius",
     Tooltip = "Kill aura detection range (5-50)",
     Value    = { Min = 5, Max = 50, Default = 15 },
@@ -1266,7 +1266,7 @@ local killAuraRadiusSlider = CombatTab:Slider({
 })
 ConfigMgr:Register("KillAuraRadius", killAuraRadiusSlider)
 
-local killAuraIntervalSlider = CombatTab:Slider({
+killAuraIntervalSlider = CombatTab:Slider({
     Title    = "Attack Interval (ms)",
     Tooltip = "Time between attacks in milliseconds",
     Value    = { Min = 50, Max = 1000, Default = 100 },
@@ -1275,7 +1275,7 @@ local killAuraIntervalSlider = CombatTab:Slider({
 })
 ConfigMgr:Register("KillAuraInterval", killAuraIntervalSlider)
 
-local killAuraPlayersToggle = CombatTab:Toggle({
+killAuraPlayersToggle = CombatTab:Toggle({
     Title    = "Target Players",
     Tooltip = "Include players in kill aura targets",
     Value    = true,
@@ -1283,7 +1283,7 @@ local killAuraPlayersToggle = CombatTab:Toggle({
 })
 ConfigMgr:Register("KillAuraPlayers", killAuraPlayersToggle)
 
-local killAuraNPCsToggle = CombatTab:Toggle({
+killAuraNPCsToggle = CombatTab:Toggle({
     Title    = "Target NPCs",
     Tooltip = "Include NPCs in kill aura targets",
     Value    = true,
@@ -1291,7 +1291,7 @@ local killAuraNPCsToggle = CombatTab:Toggle({
 })
 ConfigMgr:Register("KillAuraNPCs", killAuraNPCsToggle)
 
-local killAuraTeamToggle = CombatTab:Toggle({
+killAuraTeamToggle = CombatTab:Toggle({
     Title    = "Team Check",
     Tooltip = "Skip teammates when attacking",
     Value    = true,
@@ -1301,7 +1301,7 @@ ConfigMgr:Register("KillAuraTeamCheck", killAuraTeamToggle)
 
 CombatTab:Section({ Title = "Hitbox Expander" })
 
-local hitboxToggle = CombatTab:Toggle({
+hitboxToggle = CombatTab:Toggle({
     Title    = "Hitbox Expander",
     Tooltip = "Visualize and expand hitboxes",
     Value    = false,
@@ -1311,7 +1311,7 @@ local hitboxToggle = CombatTab:Toggle({
     end
 })
 ConfigMgr:Register("HitboxExpander", hitboxToggle)
-local hitboxSizeSlider = CombatTab:Slider({
+hitboxSizeSlider = CombatTab:Slider({
     Title    = "Size",
     Tooltip = "Hitbox expansion size (5-30)",
     Value    = { Min = 5, Max = 30, Default = 10 },
@@ -1319,7 +1319,7 @@ local hitboxSizeSlider = CombatTab:Slider({
     Callback = function(v) HitboxExp:SetSize(v) end
 })
 ConfigMgr:Register("HitboxSize", hitboxSizeSlider)
-local hitboxAlphaSlider = CombatTab:Slider({
+hitboxAlphaSlider = CombatTab:Slider({
     Title    = "Transparency",
     Tooltip = "Hitbox visual transparency (0-100)",
     Value    = { Min = 0, Max = 100, Default = 80 },
@@ -1333,7 +1333,7 @@ local HC = {
     Cyan   = Color3.fromRGB(60,220,255), Pink   = Color3.fromRGB(255,100,200),
     White  = Color3.fromRGB(255,255,255), Orange = Color3.fromRGB(255,150,30),
 }
-local hitboxColorDrop = CombatTab:Dropdown({
+hitboxColorDrop = CombatTab:Dropdown({
     Title    = "Color",
     Tooltip = "Hitbox overlay color",
     Values   = {"Red","Green","Blue","Yellow","Cyan","Pink","White","Orange"},
@@ -1341,7 +1341,7 @@ local hitboxColorDrop = CombatTab:Dropdown({
     Callback = function(v) HitboxExp:SetColor(HC[v] or Color3.fromRGB(255,60,60)) end
 })
 ConfigMgr:Register("HitboxColor", hitboxColorDrop)
-local teamCheckToggle = CombatTab:Toggle({
+teamCheckToggle = CombatTab:Toggle({
     Title    = "Team Check",
     Tooltip = "Skip teammates for hitbox expansion",
     Value    = true,
@@ -1364,7 +1364,7 @@ CombatTab:Keybind({
 
 CombatTab:Section({ Title = "Quick Switch" })
 
-local quickSwitchToggle = CombatTab:Toggle({
+quickSwitchToggle = CombatTab:Toggle({
     Title    = "Quick Switch",
     Tooltip  = "Auto switch to knife and back on shoot ('qq')",
     Value    = false,
@@ -1375,7 +1375,7 @@ local quickSwitchToggle = CombatTab:Toggle({
 })
 ConfigMgr:Register("QuickSwitch", quickSwitchToggle)
 
-local qsShotDelaySlider = CombatTab:Slider({
+qsShotDelaySlider = CombatTab:Slider({
     Title    = "Shot Delay (ms)",
     Tooltip  = "Delay after shooting before switching weapon (ms)",
     Value    = { Min = 0, Max = 1000, Default = 50 },
@@ -1384,7 +1384,7 @@ local qsShotDelaySlider = CombatTab:Slider({
 })
 ConfigMgr:Register("QuickSwitchShotDelay", qsShotDelaySlider)
 
-local qsSwitchDelaySlider = CombatTab:Slider({
+qsSwitchDelaySlider = CombatTab:Slider({
     Title    = "Switch Delay (ms)",
     Tooltip  = "Delay between switches (knife and weapon) (ms)",
     Value    = { Min = 0, Max = 1000, Default = 50 },
@@ -1393,7 +1393,7 @@ local qsSwitchDelaySlider = CombatTab:Slider({
 })
 ConfigMgr:Register("QuickSwitchSwitchDelay", qsSwitchDelaySlider)
 
-local qsModeDrop = CombatTab:Dropdown({
+qsModeDrop = CombatTab:Dropdown({
     Title    = "Switch Type",
     Tooltip  = "Weapon switch key combination",
     Values   = {"Q-Q", "3-1", "Custom"},
@@ -1402,7 +1402,7 @@ local qsModeDrop = CombatTab:Dropdown({
 })
 ConfigMgr:Register("QuickSwitchType", qsModeDrop)
 
-local qsFirstKeyInput = CombatTab:Input({
+qsFirstKeyInput = CombatTab:Input({
     Title       = "Custom First Key",
     Tooltip     = "First key to press (e.g. Three or Q)",
     Placeholder = "Three",
@@ -1411,7 +1411,7 @@ local qsFirstKeyInput = CombatTab:Input({
 })
 ConfigMgr:Register("QuickSwitchFirstKey", qsFirstKeyInput)
 
-local qsSecondKeyInput = CombatTab:Input({
+qsSecondKeyInput = CombatTab:Input({
     Title       = "Custom Second Key",
     Tooltip     = "Second key to press (e.g. One or Q)",
     Placeholder = "One",
@@ -1422,7 +1422,7 @@ ConfigMgr:Register("QuickSwitchSecondKey", qsSecondKeyInput)
 
 CombatTab:Section({ Title = "Instant Kill" })
 
-local ikToggle = CombatTab:Toggle({
+ikToggle = CombatTab:Toggle({
     Title    = "Instant Kill NPC",
     Tooltip = "One-hit eliminate NPCs",
     Value    = false,
@@ -1444,7 +1444,7 @@ ikModeDrop = CombatTab:Dropdown({
     end
 })
 ConfigMgr:Register("KillMode", ikModeDrop)
-local ikTargetIn = CombatTab:Input({
+ikTargetIn = CombatTab:Input({
     Title       = "Target NPC Name",
     Tooltip = "NPC name to target in Specific mode",
     Placeholder = "e.g. Zombie",
@@ -1465,7 +1465,7 @@ CombatTab:Button({
 -- ══════════════════════════════════════════════════════════════════════════════
 PlayerTab:Section({ Title = "Utility" })
 
-local antiAFKToggle = PlayerTab:Toggle({
+antiAFKToggle = PlayerTab:Toggle({
     Title    = "Anti AFK",
     Tooltip  = "Prevent idle kick (always on when enabled)",
     Value    = false,
@@ -1476,7 +1476,7 @@ local antiAFKToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AntiAFK", antiAFKToggle)
 
-local infStaminaToggle = PlayerTab:Toggle({
+infStaminaToggle = PlayerTab:Toggle({
     Title    = "Infinite Stamina",
     Tooltip  = "Never get tired while running",
     Value    = false,
@@ -1487,7 +1487,7 @@ local infStaminaToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("InfStamina", infStaminaToggle)
 
-local godModeToggle = PlayerTab:Toggle({
+godModeToggle = PlayerTab:Toggle({
     Title    = "God Mode",
     Tooltip  = "Become immune to damage (game-dependent)",
     Value    = false,
@@ -1500,7 +1500,7 @@ ConfigMgr:Register("GodMode", godModeToggle)
 
 PlayerTab:Section({ Title = "Protection" })
 
-local antiDetectToggle = PlayerTab:Toggle({
+antiDetectToggle = PlayerTab:Toggle({
     Title    = "Anti Detect (Adonis/AC)",
     Tooltip  = "Bypass Adonis anti-cheat detection",
     Value    = false,
@@ -1513,7 +1513,7 @@ local antiDetectToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AntiDetect", antiDetectToggle)
 
-local noFallToggle = PlayerTab:Toggle({
+noFallToggle = PlayerTab:Toggle({
     Title    = "No Fall Damage",
     Tooltip  = "Immune to fall damage",
     Value    = false,
@@ -1524,7 +1524,7 @@ local noFallToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("NoFallDamage", noFallToggle)
 
-local antiFlingToggle = PlayerTab:Toggle({
+antiFlingToggle = PlayerTab:Toggle({
     Title    = "Anti Fling",
     Tooltip  = "Protection against being flung by other players",
     Value    = false,
@@ -1535,7 +1535,7 @@ local antiFlingToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AntiFling", antiFlingToggle)
 
-local flingThreshSlider = PlayerTab:Slider({
+flingThreshSlider = PlayerTab:Slider({
     Title    = "Fling Threshold",
     Tooltip  = "Velocity spike threshold to trigger anti-fling",
     Value    = { Min = 50, Max = 500, Default = 150 },
@@ -1544,7 +1544,7 @@ local flingThreshSlider = PlayerTab:Slider({
 })
 ConfigMgr:Register("FlingThreshold", flingThreshSlider)
 
-local massManipToggle = PlayerTab:Toggle({
+massManipToggle = PlayerTab:Toggle({
     Title    = "Mass Manipulation",
     Tooltip  = "Increase character mass to resist flings",
     Value    = true,
@@ -1555,7 +1555,7 @@ local massManipToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("MassManipulation", massManipToggle)
 
-local antiVoidToggle = PlayerTab:Toggle({
+antiVoidToggle = PlayerTab:Toggle({
     Title    = "Anti Void",
     Tooltip  = "Teleport back when falling into the void",
     Value    = false,
@@ -1566,7 +1566,7 @@ local antiVoidToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AntiVoid", antiVoidToggle)
 
-local voidThreshSlider = PlayerTab:Slider({
+voidThreshSlider = PlayerTab:Slider({
     Title    = "Void Threshold (Y)",
     Tooltip  = "Y position that triggers anti-void teleport",
     Value    = { Min = -200, Max = 0, Default = -50 },
@@ -1635,7 +1635,7 @@ end)
 
 PlayerTab:Section({ Title = "Avatar Customizer" })
 
-local avatarCustomizerToggle = PlayerTab:Toggle({
+avatarCustomizerToggle = PlayerTab:Toggle({
     Title    = "Avatar Customizer",
     Tooltip  = "Enable local and replicated avatar modifications (Headless, Korblox)",
     Value    = false,
@@ -1646,7 +1646,7 @@ local avatarCustomizerToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AvatarCustomizer", avatarCustomizerToggle)
 
-local headlessToggle = PlayerTab:Toggle({
+headlessToggle = PlayerTab:Toggle({
     Title    = "Headless Head",
     Tooltip  = "Make your head and face invisible (local/replicated if supported)",
     Value    = false,
@@ -1657,7 +1657,7 @@ local headlessToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AvatarHeadless", headlessToggle)
 
-local korbloxToggle = PlayerTab:Toggle({
+korbloxToggle = PlayerTab:Toggle({
     Title    = "Korblox Leg",
     Tooltip  = "Replace your right leg with Korblox leg (local/replicated if supported)",
     Value    = false,
@@ -1668,7 +1668,7 @@ local korbloxToggle = PlayerTab:Toggle({
 })
 ConfigMgr:Register("AvatarKorblox", korbloxToggle)
 
-local accessoryIdInput = PlayerTab:Input({
+accessoryIdInput = PlayerTab:Input({
     Title       = "Catalog ID",
     Placeholder = "Enter Catalog Asset ID (e.g. 10159600649)",
     Value       = "",
@@ -1683,7 +1683,7 @@ local savedAccList = AvatarSpoof:GetSavedAccessoryList()
 if #savedAccList == 0 then savedAccList = {"(no accessories saved)"} end
 local selectedSavedAcc = savedAccList[1]
 
-local savedAccDropdown = PlayerTab:Dropdown({
+savedAccDropdown = PlayerTab:Dropdown({
     Title    = "Saved Accessories",
     Values   = savedAccList,
     Value    = savedAccList[1],
@@ -1830,8 +1830,8 @@ TeleTab:Button({
 
 TeleTab:Section({ Title = "To Player" })
 
-local selectedPlayer = nil
-local tpDrop = TeleTab:Dropdown({
+selectedPlayer = nil
+tpDrop = TeleTab:Dropdown({
     Title    = "Select Player",
     Tooltip = "Choose a player to teleport to",
     Values   = Teleport:GetPlayerList(),
@@ -1863,7 +1863,7 @@ TeleTab:Button({
 
 TeleTab:Section({ Title = "Waypoints" })
 
-local wpNameIn = TeleTab:Input({
+wpNameIn = TeleTab:Input({
     Title       = "Waypoint Name",
     Tooltip = "Name for your waypoint",
     Placeholder = "e.g. spawn",
@@ -1871,7 +1871,7 @@ local wpNameIn = TeleTab:Input({
     Callback    = function() end
 })
 
-local selectedWaypoint = nil
+selectedWaypoint = nil
 local wpDrop
 
 TeleTab:Button({
@@ -1958,8 +1958,8 @@ TeleTab:Paragraph({
     Content = "Teleport through waypoints in order — stops at last"
 })
 
-local wpQueueDropdown = nil
-local selectedWpQueueItem = nil
+wpQueueDropdown = nil
+selectedWpQueueItem = nil
 
 local function refreshWpQueue()
     local queue = Waypoint:GetQueue()
@@ -2025,7 +2025,7 @@ wpQueueDropdown = TeleTab:Dropdown({
     Callback = function(v) selectedWpQueueItem = v end
 })
 
-local queueDelaySlider = TeleTab:Slider({
+queueDelaySlider = TeleTab:Slider({
     Title = "Delay Between TPs (sec)",
     Tooltip = "Wait time between queue teleports (1-10s)",
     Value = { Min = 1, Max = 10, Default = 2 },
@@ -2094,7 +2094,7 @@ TeleTab:Button({
 -- ══════════════════════════════════════════════════════════════════════════════
 AutoTab:Section({ Title = "Auto Clicker" })
 
-local autoClickerToggle = AutoTab:Toggle({
+autoClickerToggle = AutoTab:Toggle({
     Title    = "Auto Clicker",
     Value    = false,
     Tooltip  = "Automatically click at configurable speed",
@@ -2105,7 +2105,7 @@ local autoClickerToggle = AutoTab:Toggle({
 })
 ConfigMgr:Register("AutoClicker", autoClickerToggle)
 
-local cpsSlider = AutoTab:Slider({
+cpsSlider = AutoTab:Slider({
     Title    = "Clicks Per Second (CPS)",
     Value    = { Min = 1, Max = 100, Default = 10 },
     Step     = 1,
@@ -2114,7 +2114,7 @@ local cpsSlider = AutoTab:Slider({
 })
 ConfigMgr:Register("AutoClickerCPS", cpsSlider)
 
-local clickTypeDrop = AutoTab:Dropdown({
+clickTypeDrop = AutoTab:Dropdown({
     Title    = "Click Type",
     Values   = {"mouse", "tool"},
     Value    = "mouse",
@@ -2126,7 +2126,7 @@ local clickTypeDrop = AutoTab:Dropdown({
 })
 ConfigMgr:Register("AutoClickerType", clickTypeDrop)
 
-local holdDownToggle = AutoTab:Toggle({
+holdDownToggle = AutoTab:Toggle({
     Title    = "Hold Mouse Down",
     Value    = false,
     Tooltip  = "Hold mouse button instead of clicking",
@@ -2137,7 +2137,7 @@ local holdDownToggle = AutoTab:Toggle({
 })
 ConfigMgr:Register("AutoClickerHold", holdDownToggle)
 
-local randomDelayToggle = AutoTab:Toggle({
+randomDelayToggle = AutoTab:Toggle({
     Title    = "Random Delay",
     Value    = true,
     Tooltip  = "Randomize click timing to avoid detection",
@@ -2172,7 +2172,7 @@ SetTab:Keybind({
         N("Toggle Key", k)
     end
 })
-local themeDrop = SetTab:Dropdown({
+themeDrop = SetTab:Dropdown({
     Title    = "Theme",
     Values   = {"Default","Gold","Emerald","Rose","Violet","Amber","Neon"},
     Value    = "Default",
@@ -2186,7 +2186,7 @@ ConfigMgr:Register("Theme", themeDrop)
 
 SetTab:Section({ Title = "Config" })
 
-local cfgNameIn = SetTab:Input({
+cfgNameIn = SetTab:Input({
     Title       = "Config Name",
     Placeholder = "e.g. pvp",
     Value       = "default",
@@ -2203,8 +2203,8 @@ local function getCfgList()
     return #l > 0 and l or {"(none)"}
 end
 
-local selectedConfig = nil
-local cfgDrop = SetTab:Dropdown({
+selectedConfig = nil
+cfgDrop = SetTab:Dropdown({
     Title    = "Select Config",
     Values   = getCfgList(),
     Value    = 1,
