@@ -42,11 +42,11 @@ pcall(function()
     end
 end)
 
-local BASE = "https://cdn.jsdelivr.net/gh/leonx24/Leon-x@main/"
+local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
 local CURRENT_VERSION = "1.3"
 pcall(function()
-    CURRENT_VERSION = game:HttpGet(BASE.."version.txt", true):match("^%s*(.-)%s*$")
+    CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..tostring(os.time()), true):match("^%s*(.-)%s*$")
 end)
 
 local Players      = game:GetService("Players")
@@ -277,7 +277,7 @@ local function load(p)
     print("[LeonX] Loading module: " .. tostring(p))
     for attempt = 1, MAX_RETRIES do
         local ok, result = pcall(function()
-            local src = game:HttpGet(BASE..p, true)
+            local src = game:HttpGet(BASE..p.."?t="..tostring(os.time()), true)
             if not src or #src < 10 then error("empty response ("..#tostring(src).." bytes)") end
             if src:find("Too Many Requests") or src:find("^%s*<!") or src:find("^%s*<html") then
                 error("rate-limited (429 or HTML error page)")
