@@ -1,18 +1,16 @@
--- ╔══════════════════════════════════════════════════════════════════╗
--- ║  Leon X  |  Noir UI Library v4                                   ║
--- ║  "Cinematic darkness — where light is earned, not given."        ║
--- ╚══════════════════════════════════════════════════════════════════╝
+-- Leon X | Noir UI Library v4
+-- "Cinematic darkness  where light is earned, not given."
 
-print("[LeonX-LIB] ████ NOIR-UI-V4 ████")
+print("[LeonX-LIB] NOIR-UI-V4")
 
 local Library = {}
 Library.Registry = {}
 Library._allComponents = {}
 Library._windows = {}
 
--- ════════════════════════════════════════════════════════════════════════════
--- THEMES — deep, cinematic palettes (NOT just accent color swaps)
--- ════════════════════════════════════════════════════════════════════════════
+-- 
+-- THEMES  deep, cinematic palettes (NOT just accent color swaps)
+-- 
 
 local function mkTheme(accent, accentDim, glowTint)
 	return {
@@ -48,9 +46,9 @@ local GLASS_TRANSPARENCY = {
 	Elevated = 0.25,    -- Elevated elements (buttons, inputs)
 }
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- CORE UTILITIES
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 local TS      = game:GetService("TweenService")
 local UIS     = game:GetService("UserInputService")
@@ -75,7 +73,7 @@ local function tw(obj, dur, props, style, dir)
 	t:Play(); return t
 end
 
--- ── Theme-aware instance tagging ──
+--  Theme-aware instance tagging 
 -- Every visual element gets a "_role" attribute so theme changes
 -- can find and update them without tracking each one manually.
 local ROLE_COLORS = {
@@ -143,9 +141,9 @@ local function retagAll(frame, theme)
 	end
 end
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- LABEL / REGISTRY HELPERS
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 local function getLabel(data)
 	return data.Title or data.Name or data.Text or data.Label or ""
@@ -162,9 +160,9 @@ local function reg(data, api)
 	Library._allComponents[#Library._allComponents + 1] = api
 end
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- TOOLTIP SYSTEM
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 local function attachTooltip(component, text)
 	if not text or text == "" then return end
@@ -226,9 +224,9 @@ local function attachTooltip(component, text)
 	end)
 end
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- NOTIFICATION SYSTEM (separate ScreenGui, always on top)
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 local notifGui = mk("ScreenGui", {
 	Name = "LeonXNotif"; ResetOnSpawn = false;
@@ -238,9 +236,9 @@ local notifGui = mk("ScreenGui", {
 pcall(function() notifGui.Parent = lp:WaitForChild("PlayerGui") end)
 local activeNotifs = {}
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- CREATE WINDOW
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 function Library:CreateWindow(cfg)
 	cfg = cfg or {}
@@ -258,7 +256,7 @@ function Library:CreateWindow(cfg)
 	Library._windows[#Library._windows + 1] = win
 	Library._lastTheme = themeName
 
-	-- ── ScreenGui ──
+	--  ScreenGui 
 	local sg = mk("ScreenGui", {
 		Name = "LeonXNoir"; ResetOnSpawn = false;
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
@@ -266,7 +264,7 @@ function Library:CreateWindow(cfg)
 		Parent = lp:WaitForChild("PlayerGui");
 	})
 
-	-- ── Main frame ──
+	--  Main frame 
 	local scale = isMobile and 0.8 or 1.0
 	local main = mk("Frame", {
 		Size = size;
@@ -284,7 +282,7 @@ function Library:CreateWindow(cfg)
 		})
 	end
 
-	-- ── Background layer (glassmorphism bg, tagged for theme) ──
+	--  Background layer (glassmorphism bg, tagged for theme) 
 	local bgFrame = tagBg(mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.BG;
 		BackgroundTransparency = GLASS_TRANSPARENCY.Window;
@@ -292,12 +290,12 @@ function Library:CreateWindow(cfg)
 	}), "bg")
 	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = bgFrame })
 
-	-- ── Main border stroke ──
+	--  Main border stroke 
 	local mainStroke = tagBorder(mk("UIStroke", {
 		Color = theme.Border; Thickness = 1; Parent = bgFrame;
 	}), "border")
 
-	-- ── Signature: Ambient glow frame (pulses subtly) ──
+	--  Signature: Ambient glow frame (pulses subtly) 
 	local glowFrame = tagBg(mk("Frame", {
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.Glow;
 		BackgroundTransparency = 0.97; BorderSizePixel = 0;
@@ -306,7 +304,7 @@ function Library:CreateWindow(cfg)
 	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = glowFrame })
 
 
-	-- ── Noir vignette (subtle darkening at edges) ──
+	--  Noir vignette (subtle darkening at edges) 
 	-- Top vignette
 	local vigTop = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 60); Position = UDim2.fromOffset(0, 0);
@@ -344,9 +342,9 @@ function Library:CreateWindow(cfg)
 		Parent = vigBot;
 	})
 
-	-- ══════════════════════════════════════════════════════════════
-	-- SIDEBAR — dark glass with accent glow edge
-	-- ══════════════════════════════════════════════════════════════
+	-- 
+	-- SIDEBAR  dark glass with accent glow edge
+	-- 
 	local SIDEBAR_W = 148
 	local sidebarBg = mk("Frame", {
 		Size = UDim2.new(0, SIDEBAR_W, 1, 0); Position = UDim2.fromOffset(0, 0);
@@ -378,7 +376,7 @@ function Library:CreateWindow(cfg)
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 6; Parent = sidebarBg;
 	}), "border")
 
-	-- ── Logo area ──
+	--  Logo area 
 	-- Logo accent dot (static circle before text)
 	local logoDot = tagBg(mk("Frame", {
 		Size = UDim2.fromOffset(8, 8); Position = UDim2.fromOffset(16, 22);
@@ -412,9 +410,9 @@ function Library:CreateWindow(cfg)
 		BackgroundTransparency = 0.5; ZIndex = 6; Parent = sidebarBg;
 	}), "border")
 
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	-- HEADER
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	local headerBg = tagBg(mk("Frame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 0, 44); Position = UDim2.fromOffset(SIDEBAR_W, 0);
 		BackgroundColor3 = theme.Surface; BorderSizePixel = 0; ZIndex = 5;
@@ -427,7 +425,7 @@ function Library:CreateWindow(cfg)
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 6; Parent = headerBg;
 	}), "border")
 
-	-- ── Signature: Accent beam under header (animated shimmer) ──
+	--  Signature: Accent beam under header (animated shimmer) 
 	local beamTrack = tagBg(mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 2); Position = UDim2.new(0, 0, 1, -2);
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; ZIndex = 7; Parent = headerBg;
@@ -471,7 +469,7 @@ function Library:CreateWindow(cfg)
 		}), "textdim")
 	end
 
-	-- ── Header buttons (icon-based, no unicode) ──
+	--  Header buttons (icon-based, no unicode) 
 	local function headerBtn(xPos)
 		local b = mk("TextButton", {
 			Size = UDim2.fromOffset(34, 34); Position = UDim2.new(1, xPos, 0.5, -17);
@@ -524,9 +522,9 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	-- CONTENT AREA
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	local content = mk("ScrollingFrame", {
 		Size = UDim2.new(1, -SIDEBAR_W, 1, -44); Position = UDim2.fromOffset(SIDEBAR_W, 44);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
@@ -548,9 +546,9 @@ function Library:CreateWindow(cfg)
 	pcall(function() content.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
 	win._allComps = {}
 
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	-- FLOATING BUTTON
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	local floatGui = mk("ScreenGui", {
 		Name = "LeonXFloat"; ResetOnSpawn = false;
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling;
@@ -566,7 +564,7 @@ function Library:CreateWindow(cfg)
 		mk("UIStroke", { Color = theme.Border; Thickness = 1.5 }),
 	})
 	-- Float button text (simple, no asset loading)
-	floatBtn.Text = "⚡"
+	floatBtn.Text = ""
 	floatBtn.Font = Enum.Font.GothamBold
 	floatBtn.TextSize = 20
 	floatBtn.TextColor3 = theme.Accent
@@ -606,9 +604,9 @@ function Library:CreateWindow(cfg)
 		end)
 	end
 
-	-- ══════════════════════════════════════════════════════════════
-	-- CLOSE / OPEN — smooth transitions
-	-- ══════════════════════════════════════════════════════════════
+	-- 
+	-- CLOSE / OPEN  smooth transitions
+	-- 
 	function win:Close()
 		if not win._visible then return end
 		win._visible = false
@@ -634,7 +632,7 @@ function Library:CreateWindow(cfg)
 	end
 	closeBtn.MouseButton1Click:Connect(function() win:Close() end)
 
-	-- ── Drag ──
+	--  Drag 
 	local dragging, dragStart, startPos
 	headerBg.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
@@ -649,7 +647,7 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- ── Resize Handle (bottom-right corner) ──
+	--  Resize Handle (bottom-right corner) 
 	local resizing, resizeStart, resizeStartSize = false, nil, nil
 	local resizeHandle = mk("TextButton", {
 		Size = UDim2.fromOffset(20, 20);
@@ -714,9 +712,9 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	-- PUBLIC API
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	function win:SetToggleKey(k) win._toggleKey = k end
 
 	function win:SetTheme(name)
@@ -729,15 +727,15 @@ function Library:CreateWindow(cfg)
 		retagAll(floatBtn, t)
 	end
 
-	-- Toggle key handler — uses `win` not `self`
+	-- Toggle key handler  uses `win` not `self`
 	UIS.InputBegan:Connect(function(i, gp)
 		if gp or i.KeyCode ~= win._toggleKey then return end
 		if win._visible then win:Close() else win:Open() end
 	end)
 
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	-- WELCOME SCREEN
-	-- ══════════════════════════════════════════════════════════════
+	-- 
 	local gameName = cfg.GameName or nil
 	local isGameMode = cfg.GameMode or false
 
@@ -776,7 +774,7 @@ function Library:CreateWindow(cfg)
 	-- Logo
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, 0, 0, 40); Position = UDim2.fromOffset(0, 26);
-		BackgroundTransparency = 1; Text = "⚡ Leon X";
+		BackgroundTransparency = 1; Text = " Leon X";
 		Font = Enum.Font.GothamBold; TextSize = 30;
 		TextColor3 = theme.Accent; ZIndex = 52; Parent = welcomeCard;
 	}), "accent")
@@ -806,7 +804,7 @@ function Library:CreateWindow(cfg)
 
 	-- Info table
 	local platformText = isGameMode and ("Game Mode: " .. gameName) or "Universal Mode"
-	local categoriesText = isGameMode and "Auto Farm · Auto Sell · Auto Steal" or "Movement · Combat · Visual · Auto"
+	local categoriesText = isGameMode and "Auto Farm  Auto Sell  Auto Steal" or "Movement  Combat  Visual  Auto"
 	local infoData = {
 		{"Author",      "leonx24"},
 		{"Mode",        platformText},
@@ -815,7 +813,7 @@ function Library:CreateWindow(cfg)
 		{"Executor",    "Any modern executor"},
 		{"Config",      "Auto-save & load"},
 		{"Mobile",      "Full touch support"},
-		{"Status",      "● Active"},
+		{"Status",      " Active"},
 	}
 	local tableY = 148
 	local tableFrame = mk("Frame", {
@@ -874,7 +872,7 @@ function Library:CreateWindow(cfg)
 		Size = UDim2.new(1, -48, 0, 44);
 		Position = UDim2.fromOffset(24, tableY + #infoData * 28 + 44);
 		BackgroundColor3 = theme.Accent; BorderSizePixel = 0;
-		Text = "Enter Leon X  →";
+		Text = "Enter Leon X  ";
 		Font = Enum.Font.GothamBold; TextSize = 14;
 		TextColor3 = Color3.fromRGB(8, 8, 10);
 		AutoButtonColor = false; ZIndex = 52; Parent = welcomeCard;
@@ -910,9 +908,9 @@ function Library:CreateWindow(cfg)
 
 	enterBtn.MouseButton1Click:Connect(function() win:DismissWelcome() end)
 
-	-- ══════════════════════════════════════════════════════════════
-	-- TABS — interactive with count badges + staggered reveal
-	-- ══════════════════════════════════════════════════════════════
+	-- 
+	-- TABS  interactive with count badges + staggered reveal
+	-- 
 	local tabList = mk("ScrollingFrame", {
 		Size = UDim2.new(1, 0, 1, -80); Position = UDim2.fromOffset(0, 75);
 		BackgroundTransparency = 1; ZIndex = 6; Parent = sidebarBg;
@@ -937,7 +935,7 @@ function Library:CreateWindow(cfg)
 		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = win }
 		local idx = #win._tabs + 1
 
-		-- Staggered entry animation — slide in from left
+		-- Staggered entry animation  slide in from left
 		local btn = mk("TextButton", {
 			Size = UDim2.new(1, -10, 0, 38);
 			Position = UDim2.fromOffset(-SIDEBAR_W, (idx - 1) * 42);
@@ -1080,25 +1078,25 @@ function Library:CreateWindow(cfg)
 	return win
 end
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- THEME HELPER
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 local function th(tab)
 	if tab._win then return tab._win._theme end
 	return Library.Themes[Library._lastTheme or "Default"] or Library.Themes.Default
 end
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- COMPONENTS
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 local function nextOrder(tab)
 	tab._layoutOrder = (tab._layoutOrder or 0) + 1
 	return tab._layoutOrder
 end
 
--- ── Section ────────────────────────────────────────────────────────────────
+--  Section 
 function Section(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
@@ -1130,7 +1128,7 @@ function Section(tab, data)
 	return { Frame = f }
 end
 
--- ── Paragraph ──────────────────────────────────────────────────────────────
+--  Paragraph 
 function Paragraph(tab, data)
 	local theme = th(tab)
 	local label = getLabel(data)
@@ -1167,7 +1165,7 @@ function Paragraph(tab, data)
 	return api
 end
 
--- ── Toggle ─────────────────────────────────────────────────────────────────
+--  Toggle 
 function Toggle(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
@@ -1218,7 +1216,7 @@ function Toggle(tab, data)
 	return api
 end
 
--- ── Slider ─────────────────────────────────────────────────────────────────
+--  Slider 
 function Slider(tab, data)
 	local theme = th(tab)
 	local mn = (data.Value and data.Value.Min) or 0
@@ -1352,7 +1350,7 @@ function Slider(tab, data)
 	return api
 end
 
--- ── Dropdown (frame expands, search, no clipping issues) ──────────────────
+--  Dropdown (frame expands, search, no clipping issues) 
 function Dropdown(tab, data)
 	local theme = th(tab)
 	local vals = data.Values or {}
@@ -1403,7 +1401,7 @@ function Dropdown(tab, data)
 	-- Arrow icon (chevron down)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(0, 32, 1, 0); Position = UDim2.new(1, -32, 0, 0);
-		BackgroundTransparency = 1; Text = "▼";
+		BackgroundTransparency = 1; Text = "";
 		Font = Enum.Font.GothamBold; TextSize = 14; TextColor3 = theme.Accent;
 		TextXAlignment = Enum.TextXAlignment.Center;
 		TextYAlignment = Enum.TextYAlignment.Center;
@@ -1537,7 +1535,7 @@ function Dropdown(tab, data)
 	return api
 end
 
--- ── Button ─────────────────────────────────────────────────────────────────
+--  Button 
 -- Styles: "Primary" (accent fill), "Outline" (border only), "Danger" (red fill), "Ghost" (transparent)
 function Button(tab, data)
 	local theme = th(tab)
@@ -1625,7 +1623,7 @@ function Button(tab, data)
 	return api
 end
 
--- ── Keybind ────────────────────────────────────────────────────────────────
+--  Keybind 
 function Keybind(tab, data)
 	local theme = th(tab)
 	local cur = data.Value or data.Default or "None"
@@ -1686,7 +1684,7 @@ function Keybind(tab, data)
 	return api
 end
 
--- ── Input ──────────────────────────────────────────────────────────────────
+--  Input 
 function Input(tab, data)
 	local theme = th(tab)
 	local f = tagBg(mk("Frame", {
@@ -1739,9 +1737,9 @@ function Input(tab, data)
 	return api
 end
 
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 -- NOTIFICATIONS
--- ════════════════════════════════════════════════════════════════════════════
+-- 
 
 function Library:Notify(cfg)
 	cfg = cfg or {}
