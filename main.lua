@@ -44,6 +44,8 @@ end)
 
 local BASE = "https://raw.githubusercontent.com/leonx24/Leon-x/main/"
 
+local raw_loadstring = loadstring or (getgenv and getgenv().loadstring) or (getfenv and getfenv(0).loadstring)
+
 local CURRENT_VERSION = "1.3"
 pcall(function()
     CURRENT_VERSION = game:HttpGet(BASE.."version.txt?t="..tostring(os.time()), true):match("^%s*(.-)%s*$")
@@ -282,7 +284,7 @@ local function load(p)
             if src:find("Too Many Requests") or src:find("^%s*<!") or src:find("^%s*<html") then
                 error("rate-limited (429 or HTML error page)")
             end
-            local fn, err = loadstring(src)
+            local fn, err = raw_loadstring(src)
             if not fn then error("loadstring failed: "..tostring(err)) end
             return fn()
         end)
