@@ -369,6 +369,7 @@ local DUMMY = {
 local function safe(m) return m or setmetatable({}, {__index = function() return DUMMY end}) end
 
 ConfigMgr      = safe(ConfigMgr)
+AntiDetect     = safe(AntiDetect)
 Fly            = safe(Fly)
 Speed          = safe(Speed)
 InfJump        = safe(InfJump)
@@ -600,9 +601,9 @@ local speedToggle = MovTab:Toggle({
     Tooltip  = "Customizable walk speed and jump power",
     Callback = function(v)
         if v then
-            local cur = walkSpeedSlider.Value or 16
-            Speed:SetWalkSpeed(cur)
-            local jp = jumpPowerSlider.Value or 50
+            local ws = (walkSpeedSlider and walkSpeedSlider.Value) or 16
+            local jp = (jumpPowerSlider  and jumpPowerSlider.Value)  or 50
+            Speed:SetWalkSpeed(ws)
             Speed:SetJumpPower(jp)
             Speed:Enable()
         else
