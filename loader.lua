@@ -1,4 +1,25 @@
+local secure_loadstring = (function()
+    local reg = debug and debug.getregistry and debug.getregistry() or getreg and getreg()
+    if reg then
+        for _, v in pairs(reg) do
+            if type(v) == "function" and debug.info(v, "n") == "loadstring" then
+                return v
+            end
+        end
+    end
+    local genv = getgenv and getgenv() or _G
+    if genv and genv.loadstring then
+        return genv.loadstring
+    end
+    local fenv = getfenv and getfenv(0)
+    if fenv and fenv.loadstring then
+        return fenv.loadstring
+    end
+    return loadstring
+end)()
+
 local userKey = _G.Key
+
 
 if not userKey or userKey == "" then
     game:GetService("Players").LocalPlayer:Kick("Key tidak ditemukan! Silakan dapatkan key via /script di Discord.")
@@ -49,7 +70,7 @@ end
 
 -- Menjalankan script utama yang dikirimkan oleh website jika verifikasi lolos
 local loadSuccess, loadErr = pcall(function()
-    loadstring(response)()
+    secure_loadstring(response)()
 end)
 
 if not loadSuccess then

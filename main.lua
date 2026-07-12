@@ -8,6 +8,26 @@
 -- AntiDetect module handles script destruction only (no function hooking)
 -- ═══════════════════════════════════════════════════════════════════════════
 
+local secure_loadstring = (function()
+    local reg = debug and debug.getregistry and debug.getregistry() or getreg and getreg()
+    if reg then
+        for _, v in pairs(reg) do
+            if type(v) == "function" and debug.info(v, "n") == "loadstring" then
+                return v
+            end
+        end
+    end
+    local genv = getgenv and getgenv() or _G
+    if genv and genv.loadstring then
+        return genv.loadstring
+    end
+    local fenv = getfenv and getfenv(0)
+    if fenv and fenv.loadstring then
+        return fenv.loadstring
+    end
+    return loadstring
+end)()
+
 _G._LeonX_AllowTeleport = function(allow)
     _G._LeonX_AllowTeleportActive = allow and true or false
 end
@@ -281,7 +301,7 @@ local function load(p)
             if src:find("Too Many Requests") or src:find("^%s*<!") or src:find("^%s*<html") then
                 error("rate-limited (429 or HTML error page)")
             end
-            local fn, err = loadstring(src)
+            local fn, err = secure_loadstring(src)
             if not fn then error("loadstring failed: "..tostring(err)) end
             return fn()
         end)
