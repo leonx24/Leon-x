@@ -274,6 +274,7 @@ end)
 local loadErrors = {}
 local MAX_RETRIES = 4
 local function load(p)
+    print("[LeonX] Loading module: " .. tostring(p))
     for attempt = 1, MAX_RETRIES do
         local ok, result = pcall(function()
             local src = game:HttpGet(BASE..p, true)
@@ -286,6 +287,7 @@ local function load(p)
             return fn()
         end)
         if ok then
+            print("[LeonX] Successfully loaded: " .. tostring(p))
             return result
         end
         if attempt < MAX_RETRIES then
