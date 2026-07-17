@@ -511,20 +511,37 @@ if ActiveGameModule then
     -- Game-specific mode: only show game tabs, skip universal tabs
     if PerfStats then PerfStats:Enable() end
     if AntiAFK then AntiAFK:Enable() end
-    ActiveGameModule:Init()
-    ActiveGameModule:WireUI(Window, {
-        Fly          = Fly,
-        Speed        = Speed,
-        Window       = Window,
-        AntiAFK      = AntiAFK,
-        InfiniteJump = InfJump,
-        AntiFling    = AntiFling,
-        Rejoin       = Rejoin,
-        ServerHop    = ServerHop,
-        ConfigMgr    = ConfigMgr,
-        PerfStats    = PerfStats,
-        N            = N,
-    })
+    pcall(function() ActiveGameModule:Init() end)
+    local wireSuccess, wireErr = pcall(function()
+        ActiveGameModule:WireUI(Window, {
+            Fly          = Fly,
+            Speed        = Speed,
+            Window       = Window,
+            AntiAFK      = AntiAFK,
+            InfiniteJump = InfJump,
+            AntiFling    = AntiFling,
+            Rejoin       = Rejoin,
+            ServerHop    = ServerHop,
+            ConfigMgr    = ConfigMgr,
+            PerfStats    = PerfStats,
+            N            = N,
+        })
+    end)
+    if not wireSuccess then
+        warn("[Leon X Debug] WireUI Error: " .. tostring(wireErr))
+        pcall(function()
+            local sg = Instance.new("ScreenGui", game:GetService("CoreGui") or lp:WaitForChild("PlayerGui"))
+            sg.Name = "LeonXWireError"
+            local txt = Instance.new("TextLabel", sg)
+            txt.Size = UDim2.new(1, 0, 0, 80)
+            txt.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+            txt.TextColor3 = Color3.fromRGB(255, 255, 255)
+            txt.Text = "WireUI Error: " .. tostring(wireErr)
+            txt.TextSize = 14
+            txt.TextWrapped = true
+            txt.Font = Enum.Font.SourceSansBold
+        end)
+    end
     N("Game Detected", ActiveGameModule.Name)
 
     setSplashProgress(1.0)
