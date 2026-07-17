@@ -409,6 +409,10 @@ local gagModule = load("modules/games/growagarden2.lua")
 if gagModule and gagModule.PlaceIds then
     GAME_MODULES[#GAME_MODULES + 1] = gagModule
 end
+local famModule = load("modules/games/fishandmonsters.lua")
+if famModule and famModule.PlaceIds then
+    GAME_MODULES[#GAME_MODULES + 1] = famModule
+end
 -- add more game modules here
 
 local ActiveGameModule = nil
