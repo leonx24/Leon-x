@@ -153,34 +153,49 @@ local function startUIHider()
     local function processUI(child)
         if not FAM.HideCatchUI then return end
         local name = child.Name:lower()
-        if name:find("caught") or name:find("obtain") or name:find("reward") then
-            task.wait()
+        local matches = {"caught", "obtain", "reward", "fish", "collection", "collect", "result", "popup", "loot", "receive", "success", "unlock", "toast"}
+        local shouldHide = false
+        for _, match in ipairs(matches) do
+            if name:find(match) then
+                shouldHide = true
+                break
+            end
+        end
+        if shouldHide then
             pcall(function()
                 if child:IsA("ScreenGui") then
                     child.Enabled = false
-                else
+                elseif child:IsA("GuiObject") then
                     child.Visible = false
                 end
             end)
         end
     end
     pcall(function()
-        for _, child in ipairs(lp.PlayerGui:GetChildren()) do
+        for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
             processUI(child)
         end
     end)
-    connections.uihider = lp.PlayerGui.ChildAdded:Connect(processUI)
+    connections.uihider = lp.PlayerGui.DescendantAdded:Connect(processUI)
 end
 
 local function stopUIHider()
     disconnect("uihider")
     pcall(function()
-        for _, child in ipairs(lp.PlayerGui:GetChildren()) do
+        for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
             local name = child.Name:lower()
-            if name:find("caught") or name:find("obtain") or name:find("reward") then
+            local matches = {"caught", "obtain", "reward", "fish", "collection", "collect", "result", "popup", "loot", "receive", "success", "unlock", "toast"}
+            local shouldHide = false
+            for _, match in ipairs(matches) do
+                if name:find(match) then
+                    shouldHide = true
+                    break
+                end
+            end
+            if shouldHide then
                 if child:IsA("ScreenGui") then
                     child.Enabled = true
-                else
+                elseif child:IsA("GuiObject") then
                     child.Visible = true
                 end
             end
@@ -258,6 +273,23 @@ local function startAutoCast()
     connections.castloop = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled or not FAM.AutoCast then return end
         if isFishing then return end
+        
+        -- Check if inventory limit reached before casting to allow Auto Sell to execute
+        local fishCount = 0
+        pcall(function()
+            if services.FishermanShopService then
+                local inv = services.FishermanShopService:GetFishInventory()
+                if inv and type(inv) == "table" then
+                    for _ in pairs(inv) do
+                        fishCount = fishCount + 1
+                    end
+                end
+            end
+        end)
+        local limit = FAM.SellLimit or 15
+        if FAM.AutoSell and fishCount >= limit then
+            return
+        end
         
         local CAST_INTERVAL = FAM.BlatantMode and 0.5 or 3.0
         actionTimer = actionTimer + dt
