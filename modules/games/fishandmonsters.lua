@@ -1058,12 +1058,15 @@ local function findFishermanShop()
     local shop = workspace:FindFirstChild("GameSystemObject") and workspace.GameSystemObject:FindFirstChild("FishermanShop")
     if shop then return shop end
     
+    local seller = workspace:FindFirstChild("Fish Seller") or workspace:FindFirstChild("Fisherman Market")
+    if seller then return seller end
+    
     local found = nil
     local function search(parent)
         if found then return end
         for _, child in ipairs(parent:GetChildren()) do
             local name = child.Name:lower()
-            if name:find("fisherman") or name:find("fishshop") or name:find("sellnpc") then
+            if name:find("fisherman") or name:find("fish seller") or name:find("seller") or name:find("fishshop") or name:find("sellnpc") then
                 found = child
                 return
             end
