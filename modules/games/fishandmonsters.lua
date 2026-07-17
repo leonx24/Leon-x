@@ -96,41 +96,71 @@ end
 -- ═══════════════════════════════════════════════════════════════════════════
 -- AUTO CAST & INSTANT BITE
 -- ═══════════════════════════════════════════════════════════════════════════
+local isFishing = false
+
 local function startAutoCast()
     disconnect("cast")
+    disconnect("castloop")
+    disconnect("fishcaught")
+    
+    -- Listen for fish caught event to know when to re-cast
+    pcall(function()
+        if services.FishingRewardService then
+            connections.fishcaught = services.FishingRewardService.FishCaught:Connect(function()
+                isFishing = false
+            end)
+        end
+    end)
     
     local actionTimer = 0
     
-    connections.cast = RunService.Heartbeat:Connect(function(dt)
+    connections.castloop = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled or not FAM.AutoCast then return end
+        if isFishing then return end
         
-        local CAST_INTERVAL = FAM.BlatantMode and 0.5 or 3 -- 0.5s in blatant mode, 3s in normal
+        local CAST_INTERVAL = FAM.BlatantMode and 1.0 or 4.0
         actionTimer = actionTimer + dt
         if actionTimer < CAST_INTERVAL then return end
         actionTimer = 0
         
-        pcall(function()
-            if services.FishingReplicationService then
-                local hrp = getHRP()
-                local castPos = hrp and (hrp.Position + hrp.CFrame.LookVector * 15) or Vector3.new(0, 0, 0)
+        isFishing = true
+        
+        task.spawn(function()
+            pcall(function()
+                if not services.FishingReplicationService then return end
                 
-                -- Throw floater to target position
+                local hrp = getHRP()
+                if not hrp then isFishing = false return end
+                local castPos = hrp.Position + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
+                
+                -- Step 1: Stop any previous fishing session
+                pcall(function() services.FishingReplicationService:StopFishing() end)
+                task.wait(0.3)
+                
+                -- Step 2: Throw the floater
                 services.FishingReplicationService:ThrowFloater(castPos)
-                if not FAM.BlatantMode then
-                    task.wait(0.2)
-                end
+                task.wait(FAM.BlatantMode and 0.1 or 0.5)
+                
+                -- Step 3: Confirm the cast landed on water
+                pcall(function() services.FishingReplicationService:ConfirmFloatingCast() end)
+                task.wait(FAM.BlatantMode and 0.1 or 0.3)
+                
+                -- Step 4: Start fishing (waiting for bite)
                 services.FishingReplicationService:StartFishing()
                 
-                -- Instant Bite option
+                -- Step 5: Instant Bite (force fish to bite immediately)
                 if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
-                    if not FAM.BlatantMode then
-                        task.wait(0.5)
-                    end
+                    task.wait(FAM.BlatantMode and 0.2 or 1.0)
                     pcall(function()
                         services.FishingRewardService:RequestFishBite()
                     end)
                 end
-            end
+            end)
+            
+            -- Safety: reset fishing state after timeout so we don't get stuck
+            task.delay(FAM.BlatantMode and 5 or 15, function()
+                isFishing = false
+            end)
         end)
     end)
 end
@@ -145,20 +175,20 @@ local function startAutoReel()
         if services.FishingRewardService and services.FishingReplicationService then
             connections.reel = services.FishingRewardService.FishingPullState:Connect(function(active)
                 if active and FAM.AutoReel then
-                    -- Trigger client pull state animations
+                    -- Trigger client pull state
                     pcall(function()
                         services.FishingReplicationService:StartPulling()
                     end)
                     
-                    -- Send multiple pull inputs to complete minigame rapidly
+                    -- Send multiple pull inputs to complete minigame
                     task.spawn(function()
-                        for i = 1, 15 do
+                        for i = 1, 20 do
                             if not FAM.AutoReel or not FAM.Enabled then break end
                             pcall(function()
                                 services.FishingRewardService:FishingPullInput(true)
                             end)
                             if not FAM.BlatantMode then
-                                task.wait(0.08) -- No wait in blatant mode (instantly completes in 1 frame)
+                                task.wait(0.06)
                             end
                         end
                     end)
@@ -181,7 +211,7 @@ local function setAfkMode(v)
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- AUTO SELL
+-- AUTO SELL (Teleport to Fisherman → Sell → Teleport Back)
 -- ═══════════════════════════════════════════════════════════════════════════
 local function startAutoSell()
     disconnect("sell")
@@ -191,15 +221,49 @@ local function startAutoSell()
     connections.sell = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled or not FAM.AutoSell then return end
         
-        local SELL_INTERVAL = FAM.BlatantMode and 0.5 or 3 -- 0.5s in blatant mode, 3s in normal
+        local SELL_INTERVAL = FAM.BlatantMode and 3 or 10
         actionTimer = actionTimer + dt
         if actionTimer < SELL_INTERVAL then return end
         actionTimer = 0
         
-        pcall(function()
-            if services.FishermanShopService then
+        task.spawn(function()
+            pcall(function()
+                if not services.FishermanShopService then return end
+                
+                local hrp = getHRP()
+                if not hrp then return end
+                
+                -- Check if we have fish to sell
+                local hasFish = false
+                pcall(function()
+                    local inv = services.FishermanShopService:GetFishInventory()
+                    if inv and type(inv) == "table" then
+                        for _ in pairs(inv) do hasFish = true break end
+                    end
+                end)
+                if not hasFish then return end
+                
+                -- Save original position
+                local originalCFrame = hrp.CFrame
+                
+                -- Teleport to Fisherman NPC
+                local fishermanShop = workspace:FindFirstChild("GameSystemObject")
+                    and workspace.GameSystemObject:FindFirstChild("FishermanShop")
+                
+                if fishermanShop and fishermanShop:IsA("BasePart") then
+                    hrp.CFrame = fishermanShop.CFrame + Vector3.new(0, 3, 0)
+                    task.wait(0.3)
+                end
+                
+                -- Sell all fish
                 services.FishermanShopService:SellAllFish()
-            end
+                task.wait(0.3)
+                
+                -- Teleport back to original position
+                if hrp and hrp.Parent then
+                    hrp.CFrame = originalCFrame
+                end
+            end)
         end)
     end)
 end
