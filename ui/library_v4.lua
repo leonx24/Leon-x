@@ -1188,34 +1188,41 @@ function Paragraph(tab, data)
 	return api
 end
 
--- ── Toggle ─────────────────────────────────────────────────────────────────
 function Toggle(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
 	local val = data.Value ~= nil and data.Value or (data.Default ~= nil and data.Default or false)
+	local isCompact = data.Compact
+	local fHeight = isCompact and 32 or 44
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 44); BackgroundColor3 = theme.Surface;
+		Size = UDim2.new(1, 0, 0, fHeight); BackgroundColor3 = theme.Surface;
 		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
-	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+	mk("UICorner", { CornerRadius = UDim.new(0, isCompact and 6 or 8); Parent = f })
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -64, 1, 0); Position = UDim2.fromOffset(14, 0);
 		BackgroundTransparency = 1;
-		Text = label; Font = Enum.Font.GothamMedium; TextSize = 13;
+		Text = label; Font = Enum.Font.GothamMedium; TextSize = isCompact and 11 or 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
+	local trW = isCompact and 36 or 44
+	local trH = isCompact and 20 or 24
+	local trOffset = isCompact and -46 or -54
+	local trY = isCompact and -10 or -12
 	local track = tagBg(mk("Frame", {
-		Size = UDim2.fromOffset(44, 24); Position = UDim2.new(1, -54, 0.5, -12);
+		Size = UDim2.fromOffset(trW, trH); Position = UDim2.new(1, trOffset, 0.5, trY);
 		BackgroundColor3 = val and theme.Accent or theme.Border; BorderSizePixel = 0; Parent = f;
 	}), val and "accent" or "border")
-	mk("UICorner", { CornerRadius = UDim.new(0, 12); Parent = track })
+	mk("UICorner", { CornerRadius = UDim.new(0, isCompact and 10 or 12); Parent = track })
 
+	local kbSize = isCompact and 14 or 18
+	local kbY = isCompact and -7 or -9
 	local knob = mk("Frame", {
-		Size = UDim2.fromOffset(18, 18);
-		Position = val and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9);
+		Size = UDim2.fromOffset(kbSize, kbSize);
+		Position = val and UDim2.new(1, isCompact and -17 or -21, 0.5, kbY) or UDim2.new(0, 3, 0.5, kbY);
 		BackgroundColor3 = Color3.fromRGB(255,255,255); BorderSizePixel = 0; Parent = track;
 	})
 	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = knob })
@@ -1227,7 +1234,7 @@ function Toggle(tab, data)
 		self.Value = v
 		tw(track, 0.2, { BackgroundColor3 = v and theme.Accent or theme.Border })
 		track:SetAttribute("_role", v and "accent" or "border")
-		tw(knob, 0.2, { Position = v and UDim2.new(1, -21, 0.5, -9) or UDim2.new(0, 3, 0.5, -9) })
+		tw(knob, 0.2, { Position = v and UDim2.new(1, isCompact and -17 or -21, 0.5, kbY) or UDim2.new(0, 3, 0.5, kbY) })
 		if self.Callback then pcall(self.Callback, v) end
 	end
 	function api:Get() return self.Value end
@@ -1247,39 +1254,44 @@ function Slider(tab, data)
 	local df = (data.Value and data.Value.Default) or mn
 	local step = data.Step or 1
 	local cur = df
+	local isCompact = data.Compact
+	local fHeight = isCompact and 44 or 56
 
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 56); BackgroundColor3 = theme.Surface;
+		Size = UDim2.new(1, 0, 0, fHeight); BackgroundColor3 = theme.Surface;
 		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
-	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+	mk("UICorner", { CornerRadius = UDim.new(0, isCompact and 6 or 8); Parent = f })
 
 	-- Label + value on same row
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -74, 0, 16); Position = UDim2.fromOffset(14, 8);
+		Size = UDim2.new(1, -74, 0, isCompact and 14 or 16); Position = UDim2.fromOffset(14, isCompact and 6 or 8);
 		BackgroundTransparency = 1;
-		Text = getLabel(data); Font = Enum.Font.GothamMedium; TextSize = 13;
+		Text = getLabel(data); Font = Enum.Font.GothamMedium; TextSize = isCompact and 11 or 13;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
+	local valLblHeight = isCompact and 20 or 24
 	local valLbl = mk("TextBox", {
-		Size = UDim2.new(0, 60, 0, 24); Position = UDim2.new(1, -74, 0, 4);
+		Size = UDim2.new(0, isCompact and 50 or 60, 0, valLblHeight); Position = UDim2.new(1, -74, 0, isCompact and 2 or 4);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = 12;
-		TextColor3 = theme.Accent; TextXAlignment = Enum.TextXAlignment.Center;
+		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = isCompact and 10 or 12;
+		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Center;
 		Parent = f;
 	})
 	mk("UICorner", { CornerRadius = UDim.new(0, 4); Parent = valLbl })
 	tagBg(valLbl, "elevated")
-	tagText(valLbl, "accent")
+	tagText(valLbl, "text")
 
 	-- Progress bar track (thicker, more visible)
+	local trkY = isCompact and 28 or 36
+	local trkH = isCompact and 8 or 10
 	local trk = tagBg(mk("Frame", {
-		Size = UDim2.new(1, -28, 0, 10); Position = UDim2.new(0, 14, 0, 36);
+		Size = UDim2.new(1, -28, 0, trkH); Position = UDim2.new(0, 14, 0, trkY);
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; Parent = f;
 	}), "border")
-	mk("UICorner", { CornerRadius = UDim.new(0, 5); Parent = trk })
+	mk("UICorner", { CornerRadius = UDim.new(0, trkH / 2); Parent = trk })
 
 	-- Progress bar fill (gradient accent)
 	local fill = tagBg(mk("Frame", {
@@ -1381,9 +1393,10 @@ function Dropdown(tab, data)
 	if type(cur) == "number" and vals[cur] then cur = vals[cur] end
 	local open = false
 	local searchTerm = ""
-	local CLOSED_H = 60
-	local ITEM_H = 32
-	local SEARCH_H = 36
+	local isCompact = data.Compact
+	local CLOSED_H = isCompact and 46 or 60
+	local ITEM_H = isCompact and 24 or 32
+	local SEARCH_H = isCompact and 28 or 36
 	local MAX_VISIBLE = 6
 
 	local f = tagBg(mk("Frame", {
@@ -1391,23 +1404,23 @@ function Dropdown(tab, data)
 		BackgroundTransparency = GLASS_TRANSPARENCY.Surface;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "surface")
-	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = f })
+	mk("UICorner", { CornerRadius = UDim.new(0, isCompact and 6 or 8); Parent = f })
 
 	-- Label
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -28, 0, 14); Position = UDim2.fromOffset(14, 6);
+		Size = UDim2.new(1, -28, 0, isCompact and 12 or 14); Position = UDim2.fromOffset(14, isCompact and 2 or 6);
 		BackgroundTransparency = 1;
-		Text = getLabel(data); Font = Enum.Font.GothamBold; TextSize = 11;
+		Text = getLabel(data); Font = Enum.Font.GothamBold; TextSize = isCompact and 9 or 11;
 		TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "textsub")
 
 	-- Selection box
 	local box = mk("TextButton", {
-		Size = UDim2.new(1, -28, 0, 32); Position = UDim2.fromOffset(14, 22);
+		Size = UDim2.new(1, -28, 0, isCompact and 24 or 32); Position = UDim2.fromOffset(14, isCompact and 18 or 22);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		Text = ""; AutoButtonColor = false; ZIndex = 2; Parent = f;
 	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 6) }),
+		mk("UICorner", { CornerRadius = UDim.new(0, isCompact and 4 or 6) }),
 	})
 	tagBg(box, "elevated")
 	local boxStroke = tagBorder(mk("UIStroke", {
@@ -1433,10 +1446,10 @@ function Dropdown(tab, data)
 
 	-- Search input
 	local searchBox = mk("TextBox", {
-		Size = UDim2.new(1, -28, 0, 28); Position = UDim2.fromOffset(14, 58);
+		Size = UDim2.new(1, -28, 0, isCompact and 22 or 28); Position = UDim2.fromOffset(14, CLOSED_H - 2);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		PlaceholderText = "Search..."; PlaceholderColor3 = theme.TextDim;
-		Text = ""; Font = Enum.Font.GothamMedium; TextSize = 12;
+		Text = ""; Font = Enum.Font.GothamMedium; TextSize = isCompact and 10 or 12;
 		TextColor3 = theme.Text; ClearTextOnFocus = true;
 		TextXAlignment = Enum.TextXAlignment.Left;
 		Visible = false; ZIndex = 3; Parent = f;
@@ -1452,7 +1465,7 @@ function Dropdown(tab, data)
 
 	-- Scroll
 	local scroll = mk("ScrollingFrame", {
-		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, 90);
+		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, CLOSED_H + SEARCH_H - 4);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 3; ScrollBarImageColor3 = theme.AccentDim;
 		Visible = false; ZIndex = 3; Parent = f;
@@ -1563,8 +1576,10 @@ end
 function Button(tab, data)
 	local theme = th(tab)
 	local style = data.Style or "Surface"
+	local isCompact = data.Compact
+	local fHeight = isCompact and 30 or 40
 	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 40); BackgroundTransparency = 1;
+		Size = UDim2.new(1, 0, 0, fHeight); BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
 
@@ -1600,10 +1615,10 @@ function Button(tab, data)
 		Size = UDim2.new(1, 0, 1, 0); BackgroundColor3 = bgColor;
 		BackgroundTransparency = (style == "Outline" or style == "Ghost") and 1 or 0;
 		BorderSizePixel = 0; Text = getLabel(data);
-		Font = Enum.Font.GothamMedium; TextSize = 13; TextColor3 = textColor;
+		Font = Enum.Font.GothamMedium; TextSize = isCompact and 11 or 13; TextColor3 = textColor;
 		AutoButtonColor = false; Parent = f;
 	}, {
-		mk("UICorner", { CornerRadius = UDim.new(0, 8) }),
+		mk("UICorner", { CornerRadius = UDim.new(0, isCompact and 6 or 8) }),
 	})
 
 	local btnStroke = mk("UIStroke", {
