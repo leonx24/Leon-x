@@ -136,6 +136,16 @@ local function getEquippedFloater()
     return floater
 end
 
+local function logCast(step, detail)
+    local msg = string.format("[Leon X Debug] [%s] Step: %s | Detail: %s", os.date("%H:%M:%S"), tostring(step), tostring(detail))
+    print(msg)
+    pcall(function()
+        local content = ""
+        pcall(function() content = readfile("LeonX_CastLog.txt") or "" end)
+        writefile("LeonX_CastLog.txt", content .. "\n" .. msg)
+    end)
+end
+
 local isFishing = false
 local activeUUID = nil
 
@@ -144,10 +154,14 @@ local function startAutoCast()
     disconnect("castloop")
     disconnect("fishcaught")
     
+    pcall(function() writefile("LeonX_CastLog.txt", "=== Cast Log Started ===") end)
+    logCast("Init", "AutoCast initialized")
+    
     -- Listen for fish caught event to know when to re-cast
     pcall(function()
         if services.FishingRewardService then
             connections.fishcaught = services.FishingRewardService.FishCaught:Connect(function()
+                logCast("Event", "FishCaught event fired")
                 isFishing = false
                 activeUUID = nil
             end)
@@ -166,6 +180,7 @@ local function startAutoCast()
         actionTimer = 0
         
         isFishing = true
+        logCast("Cast Loop", "Triggering cast sequence...")
         
         task.spawn(function()
             local success, err = pcall(function()
@@ -174,7 +189,7 @@ local function startAutoCast()
                 local hrp = getHRP()
                 if not hrp then error("HRP nil") end
                 
-                                local charPos = hrp.Position
+                local charPos = hrp.Position
                 local castPos = charPos + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
                 local rod = getEquippedRod()
                 local floater = getEquippedFloater()
@@ -188,44 +203,52 @@ local function startAutoCast()
                 }
                 local power = FAM.CastPower or 8.8843638102214
                 
+                logCast("Variables", string.format("Rod: %s | Floater: %s | Power: %f", tostring(rod), tostring(floater), power))
+                
                 -- Step 1: Stop any previous fishing session
+                logCast("StopFishing", "Invoking StopFishing...")
                 pcall(function() services.FishingReplicationService:StopFishing() end)
                 task.wait(0.3)
                 
-                -- Step 2: Throw the floater with correct parameters matching the game
+                -- Step 2: Throw the floater
+                logCast("ThrowFloater", string.format("CharPos: %s | CastPos: %s", tostring(charPos), tostring(castPos)))
                 services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
                 task.wait(FAM.BlatantMode and 0.1 or 0.5)
                 
                 -- Step 3: Confirm the cast landed on water
+                logCast("ConfirmFloatingCast", "Invoking ConfirmFloatingCast...")
                 pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
                 task.wait(FAM.BlatantMode and 0.1 or 0.3)
                 
                 -- Step 4: Start fishing
+                logCast("StartFishing", "Invoking StartFishing...")
                 services.FishingReplicationService:StartFishing(rod, floater)
                 
                 -- Step 5: Instant Bite (force fish to bite immediately)
                 if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
                     task.wait(FAM.BlatantMode and 0.2 or 1.0)
-                    pcall(function()
-                        local res = services.FishingRewardService:RequestFishBite(castPos)
-                        if res then
-                            local found = findUUID(res)
-                            if found then
-                                activeUUID = found
-                            end
+                    logCast("RequestFishBite", "Invoking RequestFishBite...")
+                    local res = services.FishingRewardService:RequestFishBite(castPos)
+                    logCast("RequestFishBite Result", tostring(res))
+                    if res then
+                        local found = findUUID(res)
+                        logCast("UUID Search", "Found: " .. tostring(found))
+                        if found then
+                            activeUUID = found
                         end
-                    end)
+                    end
                 end
             end)
             
             if not success then
-                warn("[Leon X] AutoCast sequence failed: " .. tostring(err))
+                logCast("Error", "AutoCast failed: " .. tostring(err))
                 isFishing = false
             end
             
             -- Safety: reset fishing state after timeout so we don't get stuck
             task.delay(FAM.BlatantMode and 5 or 15, function()
                 if isFishing and not activeUUID then
+                    logCast("Timeout Safety", "Resetting isFishing to false (no active UUID)")
                     isFishing = false
                 end
             end)
