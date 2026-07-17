@@ -197,6 +197,20 @@ local function startUIHider()
     
     local function processUI(child)
         if not FAM.HideCatchUI then return end
+        
+        -- Ignore Leon X UI elements to avoid hiding our own script window
+        if child.Name == "LeonXNoir" or child.Name == "LeonXNotif" or child.Name == "LeonXFloat" then
+            return
+        end
+        local noir = lp.PlayerGui:FindFirstChild("LeonXNoir")
+        local notif = lp.PlayerGui:FindFirstChild("LeonXNotif")
+        local float = lp.PlayerGui:FindFirstChild("LeonXFloat")
+        if (noir and child:IsDescendantOf(noir)) or 
+           (notif and child:IsDescendantOf(notif)) or 
+           (float and child:IsDescendantOf(float)) then
+            return
+        end
+        
         local name = child.Name:lower()
         local matches = {
             "caught", "obtain", "received", "success", "result", "collectionnotification", 
