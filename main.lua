@@ -496,24 +496,16 @@ if ConfigMgr then
     end
 end
 
--- ══ STANDARD TABS (Always Created) ═══════════════════════════════════
-local MovTab = Window:Tab({ Title = "Movement", Icon = "🏃" })
-local CombatTab = Window:Tab({ Title = "Combat", Icon = "⚔️" })
-local PlayerTab = Window:Tab({ Title = "Player", Icon = "🛡️" })
-local TeleTab = Window:Tab({ Title = "Teleport", Icon = "📍" })
-local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
-local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
-local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
-local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
-
+-- ══ GAME MODULE vs UNIVERSAL MODE ═════════════════════════════════════
 if ActiveGameModule then
+    -- Game-specific mode: only show game tabs, skip universal tabs
     if PerfStats then PerfStats:Enable() end
+    if AntiAFK then AntiAFK:Enable() end
     ActiveGameModule:Init()
     ActiveGameModule:WireUI(Window, {
         Fly          = Fly,
         Speed        = Speed,
         Window       = Window,
-        PlayerTab    = PlayerTab,
         AntiAFK      = AntiAFK,
         InfiniteJump = InfJump,
         AntiFling    = AntiFling,
@@ -524,7 +516,33 @@ if ActiveGameModule then
         N            = N,
     })
     N("Game Detected", ActiveGameModule.Name)
-end
+
+    setSplashProgress(1.0)
+
+    -- AutoLoad config for game module
+    task.delay(1.5, function()
+        ConfigMgr:AutoLoad()
+    end)
+
+    -- Character respawn handler
+    lp.CharacterAdded:Connect(function(char)
+        task.wait(1)
+        pcall(function()
+            if Fly and Fly.Enabled then Fly:Disable(); Fly:Enable() end
+        end)
+    end)
+
+else
+-- Universal mode: create all standard tabs
+
+local MovTab = Window:Tab({ Title = "Movement", Icon = "🏃" })
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "⚔️" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "🛡️" })
+local TeleTab = Window:Tab({ Title = "Teleport", Icon = "📍" })
+local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
+local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
+local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
+local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
 
 if AntiAFK then AntiAFK:Enable() end
 if PerfStats then PerfStats:Enable() end
@@ -2591,6 +2609,8 @@ task.spawn(function()
         end
     end)
 end)
+
+end -- END: Universal mode (else branch of ActiveGameModule check)
 
 -- Debug: component count per tab
 -- Debug info removed
