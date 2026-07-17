@@ -37,6 +37,9 @@ FAM.SellLimit      = 15
 FAM.AntiAFK        = false
 FAM.AutoBuyRod     = false
 FAM.AutoBuyFloater = false
+FAM.AutoBuyEgg     = false
+FAM.SelectedEgg    = "Common Egg"
+
 
 local connections = {}
 local espObjects  = {}
@@ -92,6 +95,10 @@ local function findRemotes()
             services.SpawnService = Knit.GetService("SpawnService")
             services.TreasureService = Knit.GetService("TreasureService")
             services.QuestService = Knit.GetService("QuestService")
+            
+            pcall(function() services.PetService = Knit.GetService("PetService") or Knit.GetService("PetShopService") end)
+            pcall(function() services.EggService = Knit.GetService("EggService") or Knit.GetService("EggShopService") end)
+            
             print("[Leon X] FAM: Bound all Knit services successfully!")
             
             pcall(function()
@@ -168,12 +175,19 @@ local function logCast(step, detail)
     end)
 end
 
+local uiConnections = {}
+
 local function startUIHider()
     disconnect("uihider")
+    
     local function processUI(child)
         if not FAM.HideCatchUI then return end
         local name = child.Name:lower()
-        local matches = {"caught", "obtain", "received", "success", "result", "collectionnotification", "lootnotification"}
+        local matches = {
+            "caught", "obtain", "received", "success", "result", "collectionnotification", 
+            "lootnotification", "loot", "reward", "popup", "congrat", "unbox", "catch", 
+            "roll", "won", "win", "alert", "notification"
+        }
         local shouldHide = false
         for _, match in ipairs(matches) do
             if name:find(match) then
@@ -185,12 +199,27 @@ local function startUIHider()
             pcall(function()
                 if child:IsA("ScreenGui") then
                     child.Enabled = false
+                    if not uiConnections[child] then
+                        uiConnections[child] = child:GetPropertyChangedSignal("Enabled"):Connect(function()
+                            if FAM.HideCatchUI and child.Enabled then
+                                child.Enabled = false
+                            end
+                        end)
+                    end
                 elseif child:IsA("GuiObject") then
                     child.Visible = false
+                    if not uiConnections[child] then
+                        uiConnections[child] = child:GetPropertyChangedSignal("Visible"):Connect(function()
+                            if FAM.HideCatchUI and child.Visible then
+                                child.Visible = false
+                            end
+                        end)
+                    end
                 end
             end)
         end
     end
+    
     pcall(function()
         for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
             processUI(child)
@@ -201,10 +230,19 @@ end
 
 local function stopUIHider()
     disconnect("uihider")
+    for inst, conn in pairs(uiConnections) do
+        pcall(function() conn:Disconnect() end)
+    end
+    uiConnections = {}
+    
     pcall(function()
         for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
             local name = child.Name:lower()
-            local matches = {"caught", "obtain", "received", "success", "result", "collectionnotification", "lootnotification"}
+            local matches = {
+                "caught", "obtain", "received", "success", "result", "collectionnotification", 
+                "lootnotification", "loot", "reward", "popup", "congrat", "unbox", "catch", 
+                "roll", "won", "win", "alert", "notification"
+            }
             local shouldHide = false
             for _, match in ipairs(matches) do
                 if name:find(match) then
@@ -249,31 +287,101 @@ local function stopAntiAFK()
     disconnect("reconnect")
 end
 
+local function openShopGUI(state)
+    pcall(function()
+        local playerGui = lp:WaitForChild("PlayerGui")
+        -- Search for typical Shop/Pet GUIs and set their Enabled/Visible state
+        for _, gui in ipairs(playerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                local lowerName = gui.Name:lower()
+                if lowerName:find("shop") or lowerName:find("pet") or lowerName:find("egg") or lowerName:find("hatch") or lowerName:find("upgrade") or lowerName:find("rod") then
+                    gui.Enabled = state
+                end
+                for _, desc in ipairs(gui:GetDescendants()) do
+                    if desc:IsA("Frame") or desc:IsA("ScrollingFrame") then
+                        local dName = desc.Name:lower()
+                        if dName:find("shop") or dName:find("pet") or dName:find("egg") or dName:find("hatch") or dName:find("upgrade") or dName:find("rod") or dName:find("main") or dName:find("content") then
+                            desc.Visible = state
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Fallback: Check inside common parent frames
+        for _, guiName in ipairs({"MainGui", "Main", "HUD", "LobbyGui", "ScreenGui"}) do
+            local gui = playerGui:FindFirstChild(guiName)
+            if gui then
+                for _, child in ipairs(gui:GetDescendants()) do
+                    if child:IsA("Frame") or child:IsA("ScrollingFrame") then
+                        local name = child.Name:lower()
+                        if name:find("shop") or name:find("pet") or name:find("egg") or name:find("hatch") or name:find("upgrade") or name:find("rod") then
+                            child.Visible = state
+                        end
+                    end
+                end
+            end
+        end
+    end)
+end
+
 local function startUpgradeLoop()
     disconnect("upgrade")
     local actionTimer = 0
     connections.upgrade = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled then return end
-        if not FAM.AutoBuyRod and not FAM.AutoBuyFloater then return end
+        if not FAM.AutoBuyRod and not FAM.AutoBuyFloater and not FAM.AutoBuyEgg then return end
         
         actionTimer = actionTimer + dt
         if actionTimer < 5.0 then return end
         actionTimer = 0
         
         task.spawn(function()
-            if not services.FishermanShopService then return end
+            -- Open Shop GUI to bypass server checks
+            openShopGUI(true)
+            task.wait(0.3)
             
-            if FAM.AutoBuyRod then
+            if FAM.AutoBuyRod and services.FishermanShopService then
                 pcall(function() services.FishermanShopService:UpgradeRod() end)
                 pcall(function() services.FishermanShopService:BuyNextRod() end)
                 pcall(function() services.FishermanShopService:Upgrade("Rod") end)
             end
             
-            if FAM.AutoBuyFloater then
+            if FAM.AutoBuyFloater and services.FishermanShopService then
                 pcall(function() services.FishermanShopService:UpgradeFloater() end)
                 pcall(function() services.FishermanShopService:BuyNextFloater() end)
                 pcall(function() services.FishermanShopService:Upgrade("Floater") end)
             end
+            
+            if FAM.AutoBuyEgg then
+                local eggToBuy = FAM.SelectedEgg or "Common Egg"
+                local eggTier = eggToBuy:gsub(" Egg", "")
+                
+                pcall(function()
+                    if services.EggService then
+                        services.EggService:BuyEgg(eggToBuy)
+                        services.EggService:HatchEgg(eggToBuy, 1)
+                        services.EggService:Hatch(eggToBuy)
+                        services.EggService:BuyEgg(eggTier)
+                        services.EggService:HatchEgg(eggTier, 1)
+                        services.EggService:Hatch(eggTier)
+                    end
+                end)
+                pcall(function()
+                    if services.PetService then
+                        services.PetService:BuyEgg(eggToBuy)
+                        services.PetService:Hatch(eggToBuy, 1)
+                        services.PetService:HatchEgg(eggToBuy)
+                        services.PetService:BuyEgg(eggTier)
+                        services.PetService:Hatch(eggTier, 1)
+                        services.PetService:HatchEgg(eggTier)
+                    end
+                end)
+            end
+            
+            -- Close Shop GUI
+            task.wait(0.2)
+            openShopGUI(false)
         end)
     end)
 end
@@ -894,6 +1002,7 @@ function FAM:Disable()
     self.AntiAFK        = false
     self.AutoBuyRod     = false
     self.AutoBuyFloater = false
+    self.AutoBuyEgg     = false
     stopUIHider()
     stopAntiAFK()
     stopUpgradeLoop()
@@ -916,9 +1025,32 @@ function FAM:WireUI(Window, extras)
     local SettingsTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
 
     -- ══ FISHING TAB ═══════════════════════════════════════════════════════
-    FishTab:Section({ Title = "Auto Fishing" })
+    local isCollapsed = true
+    local autoFishingComponents = {}
+    
+    local function setButtonText(btnApi, text)
+        pcall(function()
+            local button = btnApi.Frame:FindFirstChildWhichIsA("TextButton")
+            if button then
+                button.Text = text
+            end
+        end)
+    end
+    
+    local collapsibleBtn
+    collapsibleBtn = FishTab:Button({
+        Title = "▶ Auto Fishing Settings",
+        Style = "Surface",
+        Callback = function()
+            isCollapsed = not isCollapsed
+            setButtonText(collapsibleBtn, isCollapsed and "▶ Auto Fishing Settings" or "▼ Auto Fishing Settings")
+            for _, comp in ipairs(autoFishingComponents) do
+                comp.Frame.Visible = not isCollapsed
+            end
+        end
+    })
 
-    FishTab:Toggle({
+    local autoCastToggle = FishTab:Toggle({
         Title    = "Auto Cast",
         Flag     = "FAM_AutoCast",
         Default  = false,
@@ -934,8 +1066,10 @@ function FAM:WireUI(Window, extras)
             N("Auto Cast", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, autoCastToggle)
+    autoCastToggle.Frame.Visible = false
 
-    FishTab:Toggle({
+    local instantBiteToggle = FishTab:Toggle({
         Title    = "Instant Bite",
         Flag     = "FAM_InstantBite",
         Default  = false,
@@ -945,8 +1079,10 @@ function FAM:WireUI(Window, extras)
             N("Instant Bite", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, instantBiteToggle)
+    instantBiteToggle.Frame.Visible = false
 
-    FishTab:Toggle({
+    local blatantModeToggle = FishTab:Toggle({
         Title    = "Blatant Mode",
         Flag     = "FAM_BlatantMode",
         Default  = false,
@@ -956,8 +1092,10 @@ function FAM:WireUI(Window, extras)
             N("Blatant Mode", v and "Enabled (High Risk)" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, blatantModeToggle)
+    blatantModeToggle.Frame.Visible = false
 
-    FishTab:Toggle({
+    local autoReelToggle = FishTab:Toggle({
         Title    = "Auto Reel",
         Flag     = "FAM_AutoReel",
         Default  = false,
@@ -973,8 +1111,10 @@ function FAM:WireUI(Window, extras)
             N("Auto Reel", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, autoReelToggle)
+    autoReelToggle.Frame.Visible = false
 
-    FishTab:Toggle({
+    local afkModeToggle = FishTab:Toggle({
         Title    = "In-Game AFK Mode",
         Flag     = "FAM_AfkMode",
         Default  = false,
@@ -985,8 +1125,10 @@ function FAM:WireUI(Window, extras)
             N("AFK Fishing", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, afkModeToggle)
+    afkModeToggle.Frame.Visible = false
 
-    FishTab:Toggle({
+    local hideCatchToggle = FishTab:Toggle({
         Title    = "Hide Catch GUI",
         Flag     = "FAM_HideCatchUI",
         Default  = false,
@@ -1001,8 +1143,10 @@ function FAM:WireUI(Window, extras)
             N("Hide Catch GUI", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, hideCatchToggle)
+    hideCatchToggle.Frame.Visible = false
 
-    FishTab:Toggle({
+    local antiAfkToggle = FishTab:Toggle({
         Title    = "Anti-AFK (Reconnect / Anti-Idle)",
         Flag     = "FAM_AntiAFK",
         Default  = false,
@@ -1017,6 +1161,8 @@ function FAM:WireUI(Window, extras)
             N("Anti-AFK", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(autoFishingComponents, antiAfkToggle)
+    antiAfkToggle.Frame.Visible = false
 
     FishTab:Section({ Title = "Economy & Collection" })
 
@@ -1090,7 +1236,7 @@ function FAM:WireUI(Window, extras)
             if v then
                 FAM.Enabled = true
                 startUpgradeLoop()
-            elseif not FAM.AutoBuyFloater then
+            elseif not FAM.AutoBuyFloater and not FAM.AutoBuyEgg then
                 stopUpgradeLoop()
             end
             N("Auto Buy Rods", v and "Enabled" or "Disabled")
@@ -1107,10 +1253,37 @@ function FAM:WireUI(Window, extras)
             if v then
                 FAM.Enabled = true
                 startUpgradeLoop()
-            elseif not FAM.AutoBuyRod then
+            elseif not FAM.AutoBuyRod and not FAM.AutoBuyEgg then
                 stopUpgradeLoop()
             end
             N("Auto Buy Floaters", v and "Enabled" or "Disabled")
+        end
+    })
+
+    FishTab:Toggle({
+        Title    = "Auto Buy Egg Upgrades",
+        Flag     = "FAM_AutoBuyEgg",
+        Default  = false,
+        Tooltip  = "Periodically purchases/hatches the selected egg when you have enough cash",
+        Callback = function(v)
+            FAM.AutoBuyEgg = v
+            if v then
+                FAM.Enabled = true
+                startUpgradeLoop()
+            elseif not FAM.AutoBuyRod and not FAM.AutoBuyFloater then
+                stopUpgradeLoop()
+            end
+            N("Auto Buy Eggs", v and "Enabled" or "Disabled")
+        end
+    })
+
+    FishTab:Dropdown({
+        Title    = "Select Egg to Buy",
+        Flag     = "FAM_SelectedEgg",
+        Default  = "Common Egg",
+        Values   = { "Common Egg", "Uncommon Egg", "Rare Egg", "Epic Egg", "Legendary Egg" },
+        Callback = function(v)
+            FAM.SelectedEgg = v
         end
     })
 
