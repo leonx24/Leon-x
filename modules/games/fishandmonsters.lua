@@ -219,50 +219,61 @@ local function startUIHider()
     local function processUI(child)
         if not FAM.HideCatchUI then return end
         
-        -- Ignore Leon X UI elements to avoid hiding our own script window
-        if child.Name == "LeonXNoir" or child.Name == "LeonXNotif" or child.Name == "LeonXFloat" then
-            return
-        end
-        local noir = lp.PlayerGui:FindFirstChild("LeonXNoir")
-        local notif = lp.PlayerGui:FindFirstChild("LeonXNotif")
-        local float = lp.PlayerGui:FindFirstChild("LeonXFloat")
-        if (noir and child:IsDescendantOf(noir)) or 
-           (notif and child:IsDescendantOf(notif)) or 
-           (float and child:IsDescendantOf(float)) then
+        -- Fast exit for non-target class names
+        local isScreenGui = child:IsA("ScreenGui")
+        local isFrame = child:IsA("Frame") or child:IsA("ScrollingFrame")
+        if not isScreenGui and not isFrame then
             return
         end
         
-        local shouldHide = targetGuis[child.Name] or targetFrames[child.Name]
+        local name = child.Name
+        -- Only process if it is a target ScreenGui or a target Frame
+        if not targetGuis[name] and not targetFrames[name] then
+            return
+        end
         
-        if shouldHide then
-            pcall(function()
-                if child:IsA("ScreenGui") then
-                    if originalStates[child] == nil then
-                        originalStates[child] = child.Enabled
-                    end
-                    child.Enabled = false
-                    if not uiConnections[child] then
-                        uiConnections[child] = child:GetPropertyChangedSignal("Enabled"):Connect(function()
-                            if FAM.HideCatchUI and child.Enabled then
-                                child.Enabled = false
-                            end
-                        end)
-                    end
-                elseif child:IsA("GuiObject") then
-                    if originalStates[child] == nil then
-                        originalStates[child] = child.Visible
-                    end
-                    child.Visible = false
-                    if not uiConnections[child] then
-                        uiConnections[child] = child:GetPropertyChangedSignal("Visible"):Connect(function()
-                            if FAM.HideCatchUI and child.Visible then
-                                child.Visible = false
-                            end
-                        end)
-                    end
+        -- Ignore Leon X UI elements
+        if name == "LeonXNoir" or name == "LeonXNotif" or name == "LeonXFloat" then
+            return
+        end
+        
+        -- Fast parent name check to bypass our own UIs
+        local parentGui = isScreenGui and child or child:FindFirstAncestorOfClass("ScreenGui")
+        if parentGui then
+            local pName = parentGui.Name
+            if pName == "LeonXNoir" or pName == "LeonXNotif" or pName == "LeonXFloat" then
+                return
+            end
+        end
+        
+        -- Hide it!
+        pcall(function()
+            if isScreenGui then
+                if originalStates[child] == nil then
+                    originalStates[child] = child.Enabled
                 end
-            end)
-        end
+                child.Enabled = false
+                if not uiConnections[child] then
+                    uiConnections[child] = child:GetPropertyChangedSignal("Enabled"):Connect(function()
+                        if FAM.HideCatchUI and child.Enabled then
+                            child.Enabled = false
+                        end
+                    end)
+                end
+            else
+                if originalStates[child] == nil then
+                    originalStates[child] = child.Visible
+                end
+                child.Visible = false
+                if not uiConnections[child] then
+                    uiConnections[child] = child:GetPropertyChangedSignal("Visible"):Connect(function()
+                        if FAM.HideCatchUI and child.Visible then
+                            child.Visible = false
+                        end
+                    end)
+                end
+            end
+        end)
     end
     
     pcall(function()
