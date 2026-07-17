@@ -34,6 +34,9 @@ FAM.CastPower      = 100   -- 0-100%
 FAM.BlatantMode    = false
 FAM.HideCatchUI    = false
 FAM.SellLimit      = 15
+FAM.AntiAFK        = false
+FAM.AutoBuyRod     = false
+FAM.AutoBuyFloater = false
 
 local connections = {}
 local espObjects  = {}
@@ -90,6 +93,23 @@ local function findRemotes()
             services.TreasureService = Knit.GetService("TreasureService")
             services.QuestService = Knit.GetService("QuestService")
             print("[Leon X] FAM: Bound all Knit services successfully!")
+            
+            pcall(function()
+                logCast("Service Dump", "Dumping FishermanShopService:")
+                for k, v in pairs(services.FishermanShopService) do
+                    logCast("Service Dump", string.format("  .%s = %s", tostring(k), type(v)))
+                end
+                if services.FishermanShopService.RF then
+                    for k, v in pairs(services.FishermanShopService.RF) do
+                        logCast("Service Dump RF", string.format("  .RF.%s = %s", tostring(k), type(v)))
+                    end
+                end
+                if services.FishermanShopService.RE then
+                    for k, v in pairs(services.FishermanShopService.RE) do
+                        logCast("Service Dump RE", string.format("  .RE.%s = %s", tostring(k), type(v)))
+                    end
+                end
+            end)
         else
             warn("[Leon X] FAM: Knit framework not found!")
         end
@@ -201,6 +221,65 @@ local function stopUIHider()
             end
         end
     end)
+end
+
+local function startAntiAFK()
+    disconnect("antiafk")
+    disconnect("reconnect")
+    
+    pcall(function()
+        connections.antiafk = lp.Idled:Connect(function()
+            local vu = game:GetService("VirtualUser")
+            vu:CaptureController()
+            vu:ClickButton2(Vector2.new())
+            logCast("Anti-AFK", "Prevented disconnect due to idling")
+        end)
+    end)
+    
+    pcall(function()
+        connections.reconnect = game:GetService("GuiService").ErrorMessageChanged:Connect(function()
+            task.wait(5)
+            game:GetService("TeleportService"):Teleport(game.PlaceId, lp)
+        end)
+    end)
+end
+
+local function stopAntiAFK()
+    disconnect("antiafk")
+    disconnect("reconnect")
+end
+
+local function startUpgradeLoop()
+    disconnect("upgrade")
+    local actionTimer = 0
+    connections.upgrade = RunService.Heartbeat:Connect(function(dt)
+        if not FAM.Enabled then return end
+        if not FAM.AutoBuyRod and not FAM.AutoBuyFloater then return end
+        
+        actionTimer = actionTimer + dt
+        if actionTimer < 5.0 then return end
+        actionTimer = 0
+        
+        task.spawn(function()
+            if not services.FishermanShopService then return end
+            
+            if FAM.AutoBuyRod then
+                pcall(function() services.FishermanShopService:UpgradeRod() end)
+                pcall(function() services.FishermanShopService:BuyNextRod() end)
+                pcall(function() services.FishermanShopService:Upgrade("Rod") end)
+            end
+            
+            if FAM.AutoBuyFloater then
+                pcall(function() services.FishermanShopService:UpgradeFloater() end)
+                pcall(function() services.FishermanShopService:BuyNextFloater() end)
+                pcall(function() services.FishermanShopService:Upgrade("Floater") end)
+            end
+        end)
+    end)
+end
+
+local function stopUpgradeLoop()
+    disconnect("upgrade")
 end
 
 local isFishing = false
@@ -812,7 +891,12 @@ function FAM:Disable()
     self.TreasureESP    = false
     self.BlatantMode    = false
     self.HideCatchUI    = false
+    self.AntiAFK        = false
+    self.AutoBuyRod     = false
+    self.AutoBuyFloater = false
     stopUIHider()
+    stopAntiAFK()
+    stopUpgradeLoop()
     setAfkMode(false)
     clearESP()
     disconnectAll()
@@ -918,6 +1002,22 @@ function FAM:WireUI(Window, extras)
         end
     })
 
+    FishTab:Toggle({
+        Title    = "Anti-AFK (Reconnect / Anti-Idle)",
+        Flag     = "FAM_AntiAFK",
+        Default  = false,
+        Tooltip  = "Prevents idling disconnect and automatically reconnects if kicked",
+        Callback = function(v)
+            FAM.AntiAFK = v
+            if v then
+                startAntiAFK()
+            else
+                stopAntiAFK()
+            end
+            N("Anti-AFK", v and "Enabled" or "Disabled")
+        end
+    })
+
     FishTab:Section({ Title = "Economy & Collection" })
 
     FishTab:Toggle({
@@ -945,6 +1045,72 @@ function FAM:WireUI(Window, extras)
         Tooltip  = "Number of fish in inventory before teleporting to sell",
         Callback = function(v)
             FAM.SellLimit = v
+        end
+    })
+
+    FishTab:Button({
+        Title    = "Sell All Fish Now",
+        Style    = "Primary",
+        Callback = function()
+            task.spawn(function()
+                local hrp = getHRP()
+                if not hrp then return end
+                
+                local originalCFrame = hrp.CFrame
+                local fishermanShop = workspace:FindFirstChild("GameSystemObject")
+                    and workspace.GameSystemObject:FindFirstChild("FishermanShop")
+                
+                if fishermanShop and fishermanShop:IsA("BasePart") then
+                    hrp.CFrame = fishermanShop.CFrame + Vector3.new(0, 3, 0)
+                    task.wait(0.4)
+                end
+                
+                pcall(function()
+                    if services.FishermanShopService then
+                        services.FishermanShopService:SellAllFish()
+                    end
+                end)
+                task.wait(0.4)
+                
+                if hrp and hrp.Parent then
+                    hrp.CFrame = originalCFrame
+                end
+                N("Manual Sell", "All fish sold successfully")
+            end)
+        end
+    })
+
+    FishTab:Toggle({
+        Title    = "Auto Buy Rod Upgrades",
+        Flag     = "FAM_AutoBuyRod",
+        Default  = false,
+        Tooltip  = "Periodically upgrades your rod when you have enough cash",
+        Callback = function(v)
+            FAM.AutoBuyRod = v
+            if v then
+                FAM.Enabled = true
+                startUpgradeLoop()
+            elseif not FAM.AutoBuyFloater then
+                stopUpgradeLoop()
+            end
+            N("Auto Buy Rods", v and "Enabled" or "Disabled")
+        end
+    })
+
+    FishTab:Toggle({
+        Title    = "Auto Buy Floater Upgrades",
+        Flag     = "FAM_AutoBuyFloater",
+        Default  = false,
+        Tooltip  = "Periodically upgrades your floater when you have enough cash",
+        Callback = function(v)
+            FAM.AutoBuyFloater = v
+            if v then
+                FAM.Enabled = true
+                startUpgradeLoop()
+            elseif not FAM.AutoBuyRod then
+                stopUpgradeLoop()
+            end
+            N("Auto Buy Floaters", v and "Enabled" or "Disabled")
         end
     })
 
