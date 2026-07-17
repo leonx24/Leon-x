@@ -193,6 +193,7 @@ local function logCast(step, detail)
 end
 
 local uiConnections = {}
+local originalStates = {}
 
 local function startUIHider()
     disconnect("uihider")
@@ -213,23 +214,44 @@ local function startUIHider()
             return
         end
         
-        local name = child.Name:lower()
-        local matches = {
-            "caught", "obtain", "received", "success", "result", "collectionnotification", 
-            "lootnotification", "loot", "reward", "popup", "congrat", "unbox", "catch", 
-            "roll", "won", "win", "alert", "notification", "fish", "fishing", "item", 
-            "display", "show", "award", "hatch", "reveal", "unlock"
+        -- Target specific ScreenGuis that represent fish caught or reward screens
+        local targetGuis = {
+            "NewFishDiscovery",
+            "PetGachaGui",
+            "NotificationGui",
+            "NotificationGuiV2",
+            "DailyRewardGUI",
+            "RewardGui"
         }
+        
+        -- Target specific Frame/Scroll names inside other GUIs
+        local targetFrames = {
+            "RewardPanel", "LootNotification", "CollectionNotification", "CollectionNotificationFrame", "Backdrop", "Card"
+        }
+        
         local shouldHide = false
-        for _, match in ipairs(matches) do
-            if name:find(match) then
+        local name = child.Name
+        for _, tName in ipairs(targetGuis) do
+            if name == tName then
                 shouldHide = true
                 break
             end
         end
+        if not shouldHide then
+            for _, fName in ipairs(targetFrames) do
+                if name == fName then
+                    shouldHide = true
+                    break
+                end
+            end
+        end
+        
         if shouldHide then
             pcall(function()
                 if child:IsA("ScreenGui") then
+                    if originalStates[child] == nil then
+                        originalStates[child] = child.Enabled
+                    end
                     child.Enabled = false
                     if not uiConnections[child] then
                         uiConnections[child] = child:GetPropertyChangedSignal("Enabled"):Connect(function()
@@ -239,6 +261,9 @@ local function startUIHider()
                         end)
                     end
                 elseif child:IsA("GuiObject") then
+                    if originalStates[child] == nil then
+                        originalStates[child] = child.Visible
+                    end
                     child.Visible = false
                     if not uiConnections[child] then
                         uiConnections[child] = child:GetPropertyChangedSignal("Visible"):Connect(function()
@@ -267,30 +292,19 @@ local function stopUIHider()
     end
     uiConnections = {}
     
+    -- Restore original enabled/visible states to avoid breaking game HUD
     pcall(function()
-        for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
-            local name = child.Name:lower()
-            local matches = {
-                "caught", "obtain", "received", "success", "result", "collectionnotification", 
-                "lootnotification", "loot", "reward", "popup", "congrat", "unbox", "catch", 
-                "roll", "won", "win", "alert", "notification"
-            }
-            local shouldHide = false
-            for _, match in ipairs(matches) do
-                if name:find(match) then
-                    shouldHide = true
-                    break
-                end
-            end
-            if shouldHide then
+        for child, origState in pairs(originalStates) do
+            if child and child.Parent then
                 if child:IsA("ScreenGui") then
-                    child.Enabled = true
+                    child.Enabled = origState
                 elseif child:IsA("GuiObject") then
-                    child.Visible = true
+                    child.Visible = origState
                 end
             end
         end
     end)
+    originalStates = {}
 end
 
 local function startAntiAFK()
