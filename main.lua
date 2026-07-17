@@ -417,9 +417,19 @@ end
 
 local ActiveGameModule = nil
 for _, gm in ipairs(GAME_MODULES) do
+    -- Check PlaceIds first
     if gm and gm.PlaceIds then
         for _, pid in ipairs(gm.PlaceIds) do
             if tostring(pid) == tostring(game.PlaceId) then
+                ActiveGameModule = gm
+                break
+            end
+        end
+    end
+    -- Check GameIds (Universe ID) if PlaceId didn't match
+    if not ActiveGameModule and gm and gm.GameIds then
+        for _, gid in ipairs(gm.GameIds) do
+            if tostring(gid) == tostring(game.GameId) then
                 ActiveGameModule = gm
                 break
             end

@@ -15,6 +15,7 @@ local lp = Players.LocalPlayer
 local FAM = {}
 FAM.Name = "Fish And Monsters"
 FAM.PlaceIds = { 111385005478215 }
+FAM.GameIds  = { 10009809198 }  -- Universe ID (works across Sea 1, 2, 3, etc.)
 FAM.Enabled = false
 
 -- ── Feature States ──────────────────────────────────────────────────────────
