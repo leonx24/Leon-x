@@ -1058,7 +1058,7 @@ local function findFishermanShop()
     local shop = workspace:FindFirstChild("GameSystemObject") and workspace.GameSystemObject:FindFirstChild("FishermanShop")
     if shop then return shop end
     
-    local seller = workspace:FindFirstChild("Fish Seller") or workspace:FindFirstChild("Fisherman Market")
+    local seller = workspace:FindFirstChild("Fish Seller") or workspace:FindFirstChild("Fisherman's Market") or workspace:FindFirstChild("Fisherman Market")
     if seller then return seller end
     
     local found = nil
