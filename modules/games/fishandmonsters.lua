@@ -149,6 +149,34 @@ end
 local isFishing = false
 local activeUUID = nil
 
+local function doPull(uuid)
+    if not uuid then return end
+    logCast("Reel", "Starting pulling sequence for UUID: " .. tostring(uuid))
+    
+    -- Trigger client pull state animation
+    pcall(function()
+        services.FishingReplicationService:StartPulling()
+    end)
+    
+    -- Send multiple pull inputs to complete minigame
+    task.spawn(function()
+        pcall(function()
+            services.FishingRewardService:FishingPullInput(uuid, "begin")
+        end)
+        task.wait(0.05)
+        
+        for i = 1, 15 do
+            if not FAM.AutoReel or not FAM.Enabled then break end
+            pcall(function()
+                services.FishingRewardService:FishingPullInput(uuid, "tap")
+            end)
+            if not FAM.BlatantMode then
+                task.wait(0.06)
+            end
+        end
+    end)
+end
+
 local function startAutoCast()
     disconnect("cast")
     disconnect("castloop")
@@ -189,7 +217,7 @@ local function startAutoCast()
                 local hrp = getHRP()
                 if not hrp then error("HRP nil") end
                 
-                                local charPos = hrp.Position
+                local charPos = hrp.Position
                 
                 -- Use Raycast to find exact water height
                 local castY = 168.50004577637 -- Fallback to Sea 1 water level
@@ -203,7 +231,7 @@ local function startAutoCast()
                         castY = result.Position.Y
                     end
                 end)
-                -- asd
+                
                 local castPos = charPos + hrp.CFrame.LookVector * 15
                 castPos = Vector3.new(castPos.X, castY, castPos.Z)
                 
@@ -221,7 +249,7 @@ local function startAutoCast()
                 
                 logCast("Variables", string.format("Rod: %s | Floater: %s | Power: %f", tostring(rod), tostring(floater), power))
                 
-                                -- Step 1: Stop any previous fishing session
+                -- Step 1: Stop any previous fishing session
                 logCast("StopFishing", "Invoking StopFishing...")
                 pcall(function() services.FishingReplicationService:StopFishing() end)
                 task.wait(0.3)
@@ -263,6 +291,12 @@ local function startAutoCast()
                         logCast("UUID Search", "Found: " .. tostring(found))
                         if found then
                             activeUUID = found
+                            
+                            -- Trigger auto reel immediately
+                            if FAM.AutoReel then
+                                task.wait(0.1)
+                                doPull(found)
+                            end
                         end
                     end
                 end
@@ -315,38 +349,9 @@ local function startAutoReel()
                 
                 if state and FAM.AutoReel then
                     activeUUID = uuid
-                    
-                    -- Trigger client pull state
-                    pcall(function()
-                        services.FishingReplicationService:StartPulling()
-                    end)
-                    
-                    -- Send multiple pull inputs to complete minigame
-                    task.spawn(function()
-                        -- First send "begin"
-                        if uuid then
-                            pcall(function()
-                                services.FishingRewardService:FishingPullInput(uuid, "begin")
-                            end)
-                            task.wait(0.05)
-                        end
-                        
-                        -- Then send "tap" inputs
-                        for i = 1, 15 do
-                            if not FAM.AutoReel or not FAM.Enabled then break end
-                            pcall(function()
-                                if uuid then
-                                    services.FishingRewardService:FishingPullInput(uuid, "tap")
-                                else
-                                    -- Fallback if UUID couldn't be extracted
-                                    services.FishingRewardService:FishingPullInput(true)
-                                end
-                            end)
-                            if not FAM.BlatantMode then
-                                task.wait(0.06)
-                            end
-                        end
-                    end)
+                    if uuid then
+                        doPull(uuid)
+                    end
                 end
             end)
         end
