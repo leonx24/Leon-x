@@ -512,6 +512,7 @@ if ActiveGameModule then
     if PerfStats then PerfStats:Enable() end
     if AntiAFK then AntiAFK:Enable() end
     pcall(function() ActiveGameModule:Init() end)
+    pcall(function() ActiveGameModule:Enable() end)
     local wireSuccess, wireErr = pcall(function()
         ActiveGameModule:WireUI(Window, {
             Fly          = Fly,

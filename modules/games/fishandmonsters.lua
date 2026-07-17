@@ -1323,6 +1323,7 @@ function FAM:Init()
     task.wait(1)
     findRemotes()
     getIslandNames()
+    self.Enabled = true
     print("[Leon X] Booting Version 5.0 (Optimized Blatant & Hider Performance Hotfix)")
 end
 
