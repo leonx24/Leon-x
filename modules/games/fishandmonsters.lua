@@ -43,6 +43,7 @@ FAM.SelectedEgg    = "Common Egg"
 
 local connections = {}
 local espObjects  = {}
+local Fly, Speed, InfiniteJump, PerfStats, FullBright, RemoveFog, Rejoin, ServerHop
 
 -- ── Connection Helpers ──────────────────────────────────────────────────────
 local function disconnect(key)
@@ -110,9 +111,9 @@ local function findRemotes()
             end
             
             bindAsync("PetService", "PetService")
-            bindAsync("PetShopService", "PetService")
+            bindAsync("PetShopService", "PetShopService")
             bindAsync("EggService", "EggService")
-            bindAsync("EggShopService", "EggService")
+            bindAsync("EggShopService", "EggShopService")
             bindAsync("RodShopService", "RodShopService")
             bindAsync("PotionShopService", "PotionShopService")
             
@@ -386,6 +387,73 @@ local function openShopGUI(state)
                         end
                     end
                 end
+            end
+        end
+    end)
+end
+
+local function toggleShopGUI(name, state)
+    pcall(function()
+        local playerGui = lp:WaitForChild("PlayerGui")
+        local gui = playerGui:FindFirstChild(name)
+        
+        -- Case-insensitive fallback
+        if not gui then
+            for _, child in ipairs(playerGui:GetChildren()) do
+                if child:IsA("ScreenGui") and child.Name:lower() == name:lower() then
+                    gui = child
+                    break
+                end
+            end
+        end
+        
+        -- Special fallbacks for Pet Gacha
+        if not gui and name == "PetGachaGui" then
+            for _, child in ipairs(playerGui:GetChildren()) do
+                if child:IsA("ScreenGui") then
+                    local ln = child.Name:lower()
+                    if ln == "petgachagui" or ln == "petgacha" or ln == "petshop" or ln == "petshopgui" or ln == "egggachagui" or ln == "egggacha" or ln:find("petgacha") then
+                        gui = child
+                        break
+                    end
+                end
+            end
+        end
+
+        -- Special fallbacks for Equipment Shop
+        if not gui and name == "EquipmentShopGUI" then
+            for _, child in ipairs(playerGui:GetChildren()) do
+                if child:IsA("ScreenGui") then
+                    local ln = child.Name:lower()
+                    if ln == "equipmentshopgui" or ln == "equipmentshop" or ln == "gearshop" or ln == "gearshopgui" or ln:find("equipmentshop") then
+                        gui = child
+                        break
+                    end
+                end
+            end
+        end
+
+        -- Special fallbacks for Potion/General Shop
+        if not gui and name == "Shop" then
+            for _, child in ipairs(playerGui:GetChildren()) do
+                if child:IsA("ScreenGui") then
+                    local ln = child.Name:lower()
+                    if ln == "shop" or ln == "potionshop" or ln == "potionshopgui" or (ln:find("shop") and not ln:find("equipment") and not ln:find("pet")) then
+                        gui = child
+                        break
+                    end
+                end
+            end
+        end
+
+        if gui then
+            gui.Enabled = state
+            local mainPanel = gui:FindFirstChild("MainPanel") 
+                or gui:FindFirstChild("ShopPanel") 
+                or gui:FindFirstChild("Frame")
+                or gui:FindFirstChildWhichIsA("Frame")
+            if mainPanel then
+                mainPanel.Visible = state
             end
         end
     end)
@@ -1120,19 +1188,17 @@ function FAM:Disable()
     clearESP()
     disconnectAll()
     
+    pcall(function() if Fly and Fly.Disable then Fly:Disable() end end)
+    pcall(function() if Speed and Speed.Disable then Speed:Disable() end end)
+    pcall(function() if InfiniteJump and InfiniteJump.Disable then InfiniteJump:Disable() end end)
+    pcall(function() if FullBright and FullBright.Disable then FullBright:Disable() end end)
+    pcall(function() if RemoveFog and RemoveFog.Disable then RemoveFog:Disable() end end)
+    pcall(function() if PerfStats and PerfStats.Disable then PerfStats:Disable() end end)
+    
     -- Close any opened shop GUIs
     pcall(function()
-        local playerGui = lp:WaitForChild("PlayerGui")
         for _, guiName in ipairs({"EquipmentShopGUI", "PetGachaGui", "Shop"}) do
-            local gui = playerGui:FindFirstChild(guiName)
-            if gui then
-                gui.Enabled = false
-                local mainPanel = gui:FindFirstChild("MainPanel") 
-                    or gui:FindFirstChild("ShopPanel") 
-                    or gui:FindFirstChild("Frame")
-                    or gui:FindFirstChildWhichIsA("Frame")
-                if mainPanel then mainPanel.Visible = false end
-            end
+            toggleShopGUI(guiName, false)
         end
     end)
 end
@@ -1144,6 +1210,15 @@ function FAM:WireUI(Window, extras)
     extras = extras or {}
     local ConfigMgr = extras.ConfigMgr
     local N = extras.N or function() end
+    
+    Fly          = extras.Fly
+    Speed        = extras.Speed
+    InfiniteJump = extras.InfiniteJump
+    PerfStats    = extras.PerfStats
+    FullBright   = extras.FullBright
+    RemoveFog    = extras.RemoveFog
+    Rejoin       = extras.Rejoin
+    ServerHop    = extras.ServerHop
 
     local FishTab     = Window:Tab({ Title = "Fishing",  Icon = "🎣" })
     local ESPTab      = Window:Tab({ Title = "ESP",      Icon = "👁️" })
@@ -1211,22 +1286,7 @@ function FAM:WireUI(Window, extras)
     end
 
     -- ══ FISHING TAB ═══════════════════════════════════════════════════════
-    local function toggleShopGUI(name, state)
-        pcall(function()
-            local playerGui = lp:WaitForChild("PlayerGui")
-            local gui = playerGui:FindFirstChild(name)
-            if gui then
-                gui.Enabled = state
-                local mainPanel = gui:FindFirstChild("MainPanel") 
-                    or gui:FindFirstChild("ShopPanel") 
-                    or gui:FindFirstChild("Frame")
-                    or gui:FindFirstChildWhichIsA("Frame")
-                if mainPanel then
-                    mainPanel.Visible = state
-                end
-            end
-        end)
-    end
+    -- toggleShopGUI is now defined at the top file level for global access
 
     local autoFishingComponents = {}
     createCollapsible(FishTab, "Auto Fishing Settings", autoFishingComponents)
@@ -1688,6 +1748,218 @@ function FAM:WireUI(Window, extras)
             end
         })
     end
+
+    -- ══ PLAYER TAB ════════════════════════════════════════════════════════
+    local PlayerTab = Window:Tab({ Title = "Player", Icon = "👤" })
+
+    PlayerTab:Section({ Title = "Flight" })
+    
+    local flyToggle
+    local flySpeedSlider
+
+    flyToggle = PlayerTab:Toggle({
+        Title    = "Fly",
+        Flag     = "FAM_Fly",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Allows you to fly around the map",
+        Callback = function(v)
+            if Fly then
+                if v then Fly:Enable() else Fly:Disable() end
+                N("Fly", v and "Enabled" or "Disabled")
+            else
+                N("Error", "Fly module not loaded")
+            end
+        end
+    })
+
+    flySpeedSlider = PlayerTab:Slider({
+        Title    = "Fly Speed",
+        Flag     = "FAM_FlySpeed",
+        Value    = { Min = 10, Max = 300, Default = 60 },
+        Compact  = true,
+        Tooltip  = "Adjust flight speed",
+        Callback = function(v)
+            if Fly and v >= 10 then
+                Fly:SetSpeed(v)
+            end
+        end
+    })
+
+    PlayerTab:Section({ Title = "Speed Hack" })
+
+    local speedToggle
+    local walkSpeedSlider
+    local jumpPowerSlider
+
+    speedToggle = PlayerTab:Toggle({
+        Title    = "Speed Hack",
+        Flag     = "FAM_SpeedHack",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Enable custom Walk Speed and Jump Power",
+        Callback = function(v)
+            if Speed then
+                if v then
+                    local ws = (walkSpeedSlider and walkSpeedSlider.Value) or 16
+                    local jp = (jumpPowerSlider and jumpPowerSlider.Value) or 50
+                    Speed:SetWalkSpeed(ws)
+                    Speed:SetJumpPower(jp)
+                    Speed:Enable()
+                else
+                    Speed:Disable()
+                end
+                N("Speed Hack", v and "Enabled" or "Disabled")
+            else
+                N("Error", "Speed module not loaded")
+            end
+        end
+    })
+
+    walkSpeedSlider = PlayerTab:Slider({
+        Title    = "Walk Speed",
+        Flag     = "FAM_WalkSpeed",
+        Value    = { Min = 16, Max = 250, Default = 16 },
+        Compact  = true,
+        Tooltip  = "Adjust walking speed",
+        Callback = function(v)
+            if Speed then
+                Speed:SetWalkSpeed(v)
+            end
+        end
+    })
+
+    jumpPowerSlider = PlayerTab:Slider({
+        Title    = "Jump Power",
+        Flag     = "FAM_JumpPower",
+        Value    = { Min = 50, Max = 250, Default = 50 },
+        Compact  = true,
+        Tooltip  = "Adjust jump power",
+        Callback = function(v)
+            if Speed then
+                Speed:SetJumpPower(v)
+            end
+        end
+    })
+
+    PlayerTab:Section({ Title = "Other Exploit" })
+
+    local infJumpToggle = PlayerTab:Toggle({
+        Title    = "Infinite Jump",
+        Flag     = "FAM_InfiniteJump",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Allows you to jump infinitely in the air",
+        Callback = function(v)
+            if InfiniteJump then
+                if v then InfiniteJump:Enable() else InfiniteJump:Disable() end
+                N("Infinite Jump", v and "Enabled" or "Disabled")
+            else
+                N("Error", "Infinite Jump module not loaded")
+            end
+        end
+    })
+
+    local perfStatsToggle = PlayerTab:Toggle({
+        Title    = "Performance HUD",
+        Flag     = "FAM_PerfHUD",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Show real-time performance statistics overlay",
+        Callback = function(v)
+            if PerfStats then
+                if v then PerfStats:Enable() else PerfStats:Disable() end
+                N("Performance HUD", v and "Enabled" or "Disabled")
+            else
+                N("Error", "Performance HUD module not loaded")
+            end
+        end
+    })
+
+    if ConfigMgr then
+        ConfigMgr:Register("FAM_Fly", flyToggle)
+        ConfigMgr:Register("FAM_FlySpeed", flySpeedSlider)
+        ConfigMgr:Register("FAM_SpeedHack", speedToggle)
+        ConfigMgr:Register("FAM_WalkSpeed", walkSpeedSlider)
+        ConfigMgr:Register("FAM_JumpPower", jumpPowerSlider)
+        ConfigMgr:Register("FAM_InfiniteJump", infJumpToggle)
+        ConfigMgr:Register("FAM_PerfHUD", perfStatsToggle)
+    end
+
+
+    -- ══ MISC TAB ══════════════════════════════════════════════════════════
+    local MiscTab = Window:Tab({ Title = "Misc", Icon = "⚙️" })
+
+    MiscTab:Section({ Title = "Visual Tweaks" })
+
+    local clearFogToggle = MiscTab:Toggle({
+        Title    = "Clear Fog",
+        Flag     = "FAM_ClearFog",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Removes atmospheric fog and sky haze",
+        Callback = function(v)
+            if RemoveFog then
+                if v then RemoveFog:Enable() else RemoveFog:Disable() end
+                N("Clear Fog", v and "Enabled" or "Disabled")
+            else
+                N("Error", "RemoveFog module not loaded")
+            end
+        end
+    })
+
+    local autoBrightToggle = MiscTab:Toggle({
+        Title    = "Auto Bright",
+        Flag     = "FAM_AutoBright",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Maximizes in-game lighting brightness (FullBright)",
+        Callback = function(v)
+            if FullBright then
+                if v then FullBright:Enable() else FullBright:Disable() end
+                N("Auto Bright", v and "Enabled" or "Disabled")
+            else
+                N("Error", "FullBright module not loaded")
+            end
+        end
+    })
+
+    if ConfigMgr then
+        ConfigMgr:Register("FAM_ClearFog", clearFogToggle)
+        ConfigMgr:Register("FAM_AutoBright", autoBrightToggle)
+    end
+
+    MiscTab:Section({ Title = "Server Actions" })
+
+    MiscTab:Button({
+        Title    = "Rejoin Server",
+        Style    = "Primary",
+        Compact  = true,
+        Callback = function()
+            if Rejoin then
+                N("Rejoin", "Rejoining map...")
+                task.wait(0.5)
+                Rejoin:Execute()
+            else
+                N("Error", "Rejoin module not loaded")
+            end
+        end
+    })
+
+    MiscTab:Button({
+        Title    = "Server Hop",
+        Style    = "Primary",
+        Compact  = true,
+        Callback = function()
+            if ServerHop then
+                N("Server Hop", "Finding new server...")
+                task.wait(0.5)
+                ServerHop:Execute()
+            else
+                N("Error", "Server Hop module not loaded")
+            end
+        end
+    })
 
     SettingsTab:Section({ Title = "About" })
     SettingsTab:Paragraph({

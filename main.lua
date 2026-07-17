@@ -524,6 +524,8 @@ if ActiveGameModule then
             ServerHop    = ServerHop,
             ConfigMgr    = ConfigMgr,
             PerfStats    = PerfStats,
+            FullBright   = FullBright,
+            RemoveFog    = RemoveFog,
             N            = N,
         })
     end)
