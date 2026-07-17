@@ -204,13 +204,31 @@ local targetGuis = {
     RewardGui = true
 }
 
+local scanGuis = {
+    HUD = true,
+    TreasureGUI = true,
+    NotificationGui = true,
+    NotificationGuiV2 = true,
+    NewFishDiscovery = true,
+    PetGachaGui = true,
+    RewardGui = true,
+    DailyRewardGUI = true
+}
+
 local targetFrames = {
     RewardPanel = true,
     LootNotification = true,
     CollectionNotification = true,
     CollectionNotificationFrame = true,
     Backdrop = true,
-    Card = true
+    Card = true,
+    CaughtFrame = true,
+    ObtainFrame = true,
+    SuccessFrame = true,
+    CatchFrame = true,
+    LootFrame = true,
+    RewardFrame = true,
+    NotificationTemplate = true
 }
 
 local function startUIHider()
@@ -244,12 +262,13 @@ local function startUIHider()
         end
     end
 
-    -- Process target ScreenGuis that already exist in PlayerGui
-    local targets = {"NewFishDiscovery", "PetGachaGui", "NotificationGui", "NotificationGuiV2", "DailyRewardGUI", "RewardGui"}
-    for _, name in ipairs(targets) do
+    -- Process target ScreenGuis and parents that already exist in PlayerGui
+    for name, _ in pairs(scanGuis) do
         local gui = lp.PlayerGui:FindFirstChild(name)
         if gui then
-            hideElement(gui)
+            if targetGuis[name] then
+                hideElement(gui)
+            end
             -- Hide target frames inside it
             for _, desc in ipairs(gui:GetDescendants()) do
                 if targetFrames[desc.Name] then
@@ -267,8 +286,11 @@ local function startUIHider()
 
     -- Listen to PlayerGui ChildAdded only for top-level ScreenGui additions (0% lag impact)
     connections.uihider = lp.PlayerGui.ChildAdded:Connect(function(child)
-        if targetGuis[child.Name] then
-            hideElement(child)
+        local name = child.Name
+        if scanGuis[name] then
+            if targetGuis[name] then
+                hideElement(child)
+            end
             for _, desc in ipairs(child:GetDescendants()) do
                 if targetFrames[desc.Name] then
                     hideElement(desc)
