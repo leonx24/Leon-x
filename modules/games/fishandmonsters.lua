@@ -446,63 +446,9 @@ local function buyNextEquipment(type)
 end
 
 local function startUpgradeLoop()
-    disconnect("upgrade")
-    local actionTimer = 0
-    connections.upgrade = RunService.Heartbeat:Connect(function(dt)
-        if not FAM.Enabled then return end
-        if not FAM.AutoBuyRod and not FAM.AutoBuyFloater and not FAM.AutoBuyEgg then return end
-        
-        actionTimer = actionTimer + dt
-        if actionTimer < 5.0 then return end
-        actionTimer = 0
-        
-        task.spawn(function()
-            if FAM.AutoBuyRod then
-                buyNextEquipment("Rod")
-            end
-            
-            if FAM.AutoBuyFloater then
-                buyNextEquipment("Floater")
-            end
-            
-            if FAM.AutoBuyEgg then
-                -- Open Egg Shop GUI to bypass server checks
-                openShopGUI(true)
-                task.wait(0.3)
-                
-                local eggToBuy = FAM.SelectedEgg or "Common Egg"
-                local eggTier = eggToBuy:gsub(" Egg", "")
-                
-                pcall(function()
-                    if services.EggService then
-                        services.EggService:BuyEgg(eggToBuy)
-                        services.EggService:HatchEgg(eggToBuy, 1)
-                        services.EggService:Hatch(eggToBuy)
-                        services.EggService:BuyEgg(eggTier)
-                        services.EggService:HatchEgg(eggTier, 1)
-                        services.EggService:Hatch(eggTier)
-                    end
-                end)
-                pcall(function()
-                    if services.PetService then
-                        services.PetService:BuyEgg(eggToBuy)
-                        services.PetService:Hatch(eggToBuy, 1)
-                        services.PetService:HatchEgg(eggToBuy)
-                        services.PetService:BuyEgg(eggTier)
-                        services.PetService:Hatch(eggTier, 1)
-                        services.PetService:HatchEgg(eggTier)
-                    end
-                end)
-                
-                task.wait(0.2)
-                openShopGUI(false)
-            end
-        end)
-    end)
 end
 
 local function stopUpgradeLoop()
-    disconnect("upgrade")
 end
 
 local isFishing = false
@@ -574,6 +520,32 @@ local function startAutoCast()
     
     connections.castloop = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled or not FAM.AutoCast then return end
+        
+        -- Continuously restore movement / controls when blatant is active to prevent freeze
+        if FAM.BlatantMode then
+            pcall(function()
+                -- Re-enable controls
+                local playerModule = lp.PlayerScripts:FindFirstChild("PlayerModule")
+                if playerModule then
+                    local controls = require(playerModule):GetControls()
+                    if controls then
+                        controls:Enable()
+                    end
+                end
+                
+                local char = lp.Character
+                local hum = char and char:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    hum.PlatformStand = false
+                end
+                
+                local hrp = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp and hrp.Anchored then
+                    hrp.Anchored = false
+                end
+            end)
+        end
+        
         if isFishing then return end
         
         -- Check if inventory limit reached before casting to allow Auto Sell to execute
