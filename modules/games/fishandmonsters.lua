@@ -78,30 +78,151 @@ end
 -- ═══════════════════════════════════════════════════════════════════════════
 -- KNIT SERVICES LOAD
 -- ═══════════════════════════════════════════════════════════════════════════
+-- ═══════════════════════════════════════════════════════════════════════════
+-- KNIT SERVICES LOAD & HELPERS
+-- ═══════════════════════════════════════════════════════════════════════════
 local Knit = nil
 local services = {}
 
+local function findKnit()
+    -- Try standard places first
+    local packages = ReplicatedStorage:FindFirstChild("Packages")
+    if packages then
+        local knit = packages:FindFirstChild("Knit") or packages:FindFirstChild("KnitClient")
+        if knit and knit:IsA("ModuleScript") then
+            local success, res = pcall(require, knit)
+            if success and type(res) == "table" and (res.GetService or res.GetController) then
+                return res
+            end
+        end
+    end
+    
+    local knit = ReplicatedStorage:FindFirstChild("Knit") or ReplicatedStorage:FindFirstChild("KnitClient")
+    if knit and knit:IsA("ModuleScript") then
+        local success, res = pcall(require, knit)
+        if success and type(res) == "table" and (res.GetService or res.GetController) then
+            return res
+        end
+    end
+
+    -- Try to search in _Index
+    if packages then
+        local index = packages:FindFirstChild("_Index")
+        if index then
+            for _, folder in ipairs(index:GetChildren()) do
+                if folder.Name:find("sleitnick_knit") then
+                    local knitObj = folder:FindFirstChild("knit")
+                    if knitObj then
+                        local knitClient = knitObj:FindFirstChild("KnitClient") or knitObj
+                        if knitClient and knitClient:IsA("ModuleScript") then
+                            local success, res = pcall(require, knitClient)
+                            if success and type(res) == "table" and (res.GetService or res.GetController) then
+                                return res
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Dynamic recursive search in ReplicatedStorage as fallback
+    local found = nil
+    local function search(parent)
+        if found then return end
+        for _, child in ipairs(parent:GetChildren()) do
+            if (child.Name == "Knit" or child.Name == "KnitClient") and child:IsA("ModuleScript") then
+                local success, res = pcall(require, child)
+                if success and type(res) == "table" and (res.GetService or res.GetController) then
+                    found = res
+                    return
+                end
+            end
+            pcall(function()
+                search(child)
+            end)
+            if found then return end
+        end
+    end
+    search(ReplicatedStorage)
+    return found
+end
+
+local function findKnitServicesFolder()
+    -- Look for Knit/Services directly in ReplicatedStorage
+    local knitFolder = ReplicatedStorage:FindFirstChild("Knit")
+    if knitFolder then
+        local servicesFolder = knitFolder:FindFirstChild("Services")
+        if servicesFolder then return servicesFolder end
+    end
+    
+    -- Search recursively for a "Services" folder inside a Knit/knit folder
+    local found = nil
+    local function search(parent)
+        if found then return end
+        for _, child in ipairs(parent:GetChildren()) do
+            if child.Name == "Services" and (parent.Name:lower() == "knit") then
+                found = child
+                return
+            end
+            pcall(function()
+                search(child)
+            end)
+            if found then return end
+        end
+    end
+    search(ReplicatedStorage)
+    return found
+end
+
+local function getServiceRemote(serviceName, remoteType, remoteName)
+    local servicesFolder = findKnitServicesFolder()
+    if servicesFolder then
+        local serviceFolder = servicesFolder:FindFirstChild(serviceName)
+        if serviceFolder then
+            local typeFolder = serviceFolder:FindFirstChild(remoteType) -- "RF" or "RE"
+            if typeFolder then
+                local remote = typeFolder:FindFirstChild(remoteName)
+                if remote then return remote end
+            end
+            -- Fallback: check directly under the service folder
+            local remote = serviceFolder:FindFirstChild(remoteName)
+            if remote then return remote end
+        end
+    end
+    return nil
+end
+
 local function findRemotes()
     pcall(function()
-        local packages = ReplicatedStorage:FindFirstChild("Packages")
-        if packages and packages:FindFirstChild("Knit") then
-            Knit = require(packages.Knit)
-        end
+        Knit = findKnit()
         
         if Knit then
-            services.FishermanShopService = Knit.GetService("FishermanShopService")
-            services.FishingReplicationService = Knit.GetService("FishingReplicationService")
-            services.FishingRewardService = Knit.GetService("FishingRewardService")
-            services.SeaLobbyService = Knit.GetService("SeaLobbyService")
-            services.SpawnService = Knit.GetService("SpawnService")
-            services.TreasureService = Knit.GetService("TreasureService")
-            services.QuestService = Knit.GetService("QuestService")
+            local function bindService(name)
+                local success, service = pcall(function()
+                    return Knit.GetService(name)
+                end)
+                if success and service then
+                    return service
+                else
+                    warn("[Leon X] FAM: Failed to bind service " .. tostring(name) .. ": " .. tostring(service))
+                    return nil
+                end
+            end
+            
+            services.FishermanShopService = bindService("FishermanShopService")
+            services.FishingReplicationService = bindService("FishingReplicationService")
+            services.FishingRewardService = bindService("FishingRewardService")
+            services.SeaLobbyService = bindService("SeaLobbyService")
+            services.SpawnService = bindService("SpawnService")
+            services.TreasureService = bindService("TreasureService")
+            services.QuestService = bindService("QuestService")
             
             -- Bind Pet, Egg, Rod, and Potion services asynchronously to prevent infinite yielding if they don't exist
             local function bindAsync(name, key)
                 task.spawn(function()
                     pcall(function()
-                        local s = Knit.GetService(name)
+                        local s = bindService(name)
                         if s then
                             services[key] = s
                             print("[Leon X] FAM: Bound " .. name .. " successfully!")
@@ -117,29 +238,84 @@ local function findRemotes()
             bindAsync("RodShopService", "RodShopService")
             bindAsync("PotionShopService", "PotionShopService")
             bindAsync("SavePointService", "SavePointService")
+            bindAsync("AssetPreviewService", "AssetPreviewService")
             
-            print("[Leon X] FAM: Bound all primary Knit services successfully!")
+            print("[Leon X] FAM: Bound primary Knit services!")
             
-            pcall(function()
-                logCast("Service Dump", "Dumping FishermanShopService:")
-                for k, v in pairs(services.FishermanShopService) do
-                    logCast("Service Dump", string.format("  .%s = %s", tostring(k), type(v)))
-                end
-                if services.FishermanShopService.RF then
-                    for k, v in pairs(services.FishermanShopService.RF) do
-                        logCast("Service Dump RF", string.format("  .RF.%s = %s", tostring(k), type(v)))
+            if services.FishermanShopService then
+                pcall(function()
+                    logCast("Service Dump", "Dumping FishermanShopService:")
+                    for k, v in pairs(services.FishermanShopService) do
+                        logCast("Service Dump", string.format("  .%s = %s", tostring(k), type(v)))
                     end
-                end
-                if services.FishermanShopService.RE then
-                    for k, v in pairs(services.FishermanShopService.RE) do
-                        logCast("Service Dump RE", string.format("  .RE.%s = %s", tostring(k), type(v)))
-                    end
-                end
-            end)
+                end)
+            end
         else
             warn("[Leon X] FAM: Knit framework not found!")
         end
     end)
+end
+
+local function invokeService(serviceName, methodName, ...)
+    local args = {...}
+    
+    -- Attempt 1: Use Knit service proxy
+    if services[serviceName] then
+        local s = services[serviceName]
+        if s[methodName] then
+            local success, res = pcall(function()
+                return s[methodName](s, unpack(args))
+            end)
+            if success then return res end
+        end
+    end
+    
+    -- Attempt 2: Use direct RemoteFunction lookup
+    local rf = getServiceRemote(serviceName, "RF", methodName)
+    if rf and rf:IsA("RemoteFunction") then
+        local success, res = pcall(function()
+            return rf:InvokeServer(unpack(args))
+        end)
+        if success then return res end
+    end
+    
+    -- Attempt 3: Retry finding remotes if not found yet, then try again
+    findRemotes()
+    if services[serviceName] then
+        local s = services[serviceName]
+        if s[methodName] then
+            local success, res = pcall(function()
+                return s[methodName](s, unpack(args))
+            end)
+            if success then return res end
+        end
+    end
+    
+    return nil
+end
+
+local function connectServiceEvent(serviceName, eventName, callback)
+    -- Attempt 1: Knit service signal connection
+    if services[serviceName] then
+        local s = services[serviceName]
+        if s[eventName] and s[eventName].Connect then
+            local success, conn = pcall(function()
+                return s[eventName]:Connect(callback)
+            end)
+            if success and conn then return conn end
+        end
+    end
+    
+    -- Attempt 2: Direct RemoteEvent connection
+    local re = getServiceRemote(serviceName, "RE", eventName)
+    if re and re:IsA("RemoteEvent") then
+        local success, conn = pcall(function()
+            return re.OnClientEvent:Connect(callback)
+        end)
+        if success and conn then return conn end
+    end
+    
+    return nil
 end
 
 -- Helper to recursively find UUID in tables/strings
@@ -513,12 +689,12 @@ local function buyNextEquipment(type)
                             
                             -- Knit service fallback
                             local itemId = card.Name:match(type .. "Card_(.+)")
-                            if itemId and services.RodShopService then
+                            if itemId then
                                 pcall(function()
                                     if type == "Rod" then
-                                        services.RodShopService:BuyRod(itemId)
+                                        invokeService("RodShopService", "BuyRod", itemId)
                                     else
-                                        services.RodShopService:BuyFloater(itemId)
+                                        invokeService("RodShopService", "BuyFloater", itemId)
                                     end
                                 end)
                             end
@@ -550,28 +726,7 @@ local currentCastSession = 0
 local function getInventoryCount()
     local fishCount = 0
     pcall(function()
-        local inv = nil
-        local success = pcall(function()
-            if services.FishermanShopService and services.FishermanShopService.GetFishInventory then
-                inv = services.FishermanShopService:GetFishInventory()
-            end
-        end)
-        
-        if not success or not inv then
-            local rf = ReplicatedStorage:FindFirstChild("Packages")
-                and ReplicatedStorage.Packages:FindFirstChild("_Index")
-                and ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"]:FindFirstChild("knit")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit:FindFirstChild("Services")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services:FindFirstChild("FishermanShopService")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.FishermanShopService:FindFirstChild("RF")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.FishermanShopService.RF:FindFirstChild("GetFishInventory")
-                
-            if rf and rf:IsA("RemoteFunction") then
-                inv = rf:InvokeServer()
-            end
-        end
-        
+        local inv = invokeService("FishermanShopService", "GetFishInventory")
         if inv and type(inv) == "table" then
             for _ in pairs(inv) do
                 fishCount = fishCount + 1
@@ -587,13 +742,13 @@ local function doPull(uuid)
     
     -- Trigger client pull state animation
     pcall(function()
-        services.FishingReplicationService:StartPulling()
+        invokeService("FishingReplicationService", "StartPulling")
     end)
     
     -- Send multiple pull inputs to complete minigame
     task.spawn(function()
         pcall(function()
-            services.FishingRewardService:FishingPullInput(uuid, "begin")
+            invokeService("FishingRewardService", "FishingPullInput", uuid, "begin")
         end)
         task.wait(0.02)
         
@@ -601,7 +756,7 @@ local function doPull(uuid)
         for i = 1, 60 do
             if not FAM.AutoReel or not FAM.Enabled or not activeUUID then break end
             pcall(function()
-                services.FishingRewardService:FishingPullInput(uuid, "tap")
+                invokeService("FishingRewardService", "FishingPullInput", uuid, "tap")
             end)
             task.wait(tapInterval)
         end
@@ -616,6 +771,54 @@ local function doPull(uuid)
     end)
 end
 
+local function findFishName(tbl)
+    if type(tbl) ~= "table" then return nil end
+    if tbl.Name then return tbl.Name end
+    if tbl.FishName then return tbl.FishName end
+    if tbl.Id then return tbl.Id end
+    if tbl.FishId then return tbl.FishId end
+    
+    for k, v in pairs(tbl) do
+        if k == "Name" or k == "FishName" or k == "Id" or k == "FishId" then
+            if type(v) == "string" and v ~= "" then return v end
+        elseif type(v) == "table" then
+            local found = findFishName(v)
+            if found then return found end
+        end
+    end
+    return nil
+end
+
+local function triggerAssetPreview(fishName)
+    if not fishName or fishName == "" then return end
+    task.spawn(function()
+        pcall(function()
+            logCast("AssetPreview", "Requesting preview for " .. tostring(fishName))
+            invokeService("AssetPreviewService", "RequestPreview", "FishModels", fishName, nil)
+            task.wait(0.5)
+            logCast("AssetPreview", "Releasing preview for " .. tostring(fishName))
+            invokeService("AssetPreviewService", "ReleasePreview", fishName, nil)
+        end)
+    end)
+end
+
+local function handleCatch(args)
+    local fishName = nil
+    for _, arg in ipairs(args) do
+        if type(arg) == "string" and #arg > 0 and not arg:find("-") then
+            fishName = arg
+            break
+        elseif type(arg) == "table" then
+            fishName = findFishName(arg)
+            if fishName then break end
+        end
+    end
+    if fishName then
+        logCast("Catch Preview", "Detected fish: " .. tostring(fishName))
+        triggerAssetPreview(fishName)
+    end
+end
+
 local function startAutoCast()
     disconnect("cast")
     disconnect("castloop")
@@ -627,18 +830,20 @@ local function startAutoCast()
     
     -- Listen for fish caught event to know when to re-cast
     pcall(function()
-        if services.FishingRewardService then
-            connections.fishcaught = services.FishingRewardService.FishCaught:Connect(function()
-                logCast("Event", "FishCaught event fired")
-                isFishing = false
-                activeUUID = nil
-            end)
-            connections.fishsuccess = services.FishingRewardService.FishingSuccess:Connect(function()
-                logCast("Event", "FishingSuccess event fired")
-                isFishing = false
-                activeUUID = nil
-            end)
-        end
+        connections.fishcaught = connectServiceEvent("FishingRewardService", "FishCaught", function(...)
+            local args = {...}
+            logCast("Event", "FishCaught event fired")
+            pcall(handleCatch, args)
+            isFishing = false
+            activeUUID = nil
+        end)
+        connections.fishsuccess = connectServiceEvent("FishingRewardService", "FishingSuccess", function(...)
+            local args = {...}
+            logCast("Event", "FishingSuccess event fired")
+            pcall(handleCatch, args)
+            isFishing = false
+            activeUUID = nil
+        end)
     end)
     
     local actionTimer = 0
@@ -693,7 +898,8 @@ local function startAutoCast()
         
         task.spawn(function()
             local success, err = pcall(function()
-                if not services.FishingReplicationService then error("FishingReplicationService nil") end
+                local hasRemote = services.FishingReplicationService or getServiceRemote("FishingReplicationService", "RF", "StartFishing")
+                if not hasRemote then error("FishingReplicationService not found on client") end
                 
                 local hrp = getHRP()
                 if not hrp then error("HRP nil") end
@@ -732,30 +938,30 @@ local function startAutoCast()
                 
                 -- Step 1: Stop any previous fishing session
                 logCast("StopFishing", "Invoking StopFishing...")
-                pcall(function() services.FishingReplicationService:StopFishing() end)
+                pcall(function() invokeService("FishingReplicationService", "StopFishing") end)
                 task.wait(0.15)
                 
                 -- Step 2: Start fishing (ready the rod)
                 logCast("StartFishing", "Invoking StartFishing...")
-                services.FishingReplicationService:StartFishing(rod, floater)
+                invokeService("FishingReplicationService", "StartFishing", rod, floater)
                 task.wait(0.1)
                 
                 -- Step 3: Throw the floater
                 logCast("ThrowFloater", string.format("CharPos: %s | CastPos: %s", tostring(charPos), tostring(castPos)))
-                services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
+                invokeService("FishingReplicationService", "ThrowFloater", charPos, castPos, rod, floater, visualData, power)
                 
                 -- Wait for flight simulation (1.2 seconds in normal, 0.15 seconds in blatant)
                 task.wait(FAM.BlatantMode and 0.15 or 1.2)
                 
                 -- Step 4: Confirm the cast landed on water
                 logCast("ConfirmFloatingCast", "Invoking ConfirmFloatingCast...")
-                pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
+                pcall(function() invokeService("FishingReplicationService", "ConfirmFloatingCast", castPos) end)
                 task.wait(FAM.BlatantMode and 0.1 or 0.5)
                 
                 -- Step 5: Instant Bite (force fish to bite immediately)
-                if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
+                if FAM.InstantBite or FAM.BlatantMode then
                     logCast("RequestFishBite", "Invoking RequestFishBite...")
-                    local res = services.FishingRewardService:RequestFishBite(castPos)
+                    local res = invokeService("FishingRewardService", "RequestFishBite", castPos)
                     logCast("RequestFishBite Result", tostring(res))
                     if res and type(res) == "table" then
                         -- Print full table structure
@@ -807,36 +1013,34 @@ local function startAutoReel()
     disconnect("reel")
     
     pcall(function()
-        if services.FishingRewardService and services.FishingReplicationService then
-            connections.reel = services.FishingRewardService.FishingPullState:Connect(function(arg1, arg2)
-                -- Determine which parameter is active and if there's a UUID
-                local state = arg1
-                local uuid = activeUUID
-                
-                -- Extract UUID from argument if present
-                local found1 = findUUID(arg1)
-                local found2 = findUUID(arg2)
-                if found1 then
-                    uuid = found1
-                    state = arg2
-                elseif found2 then
-                    uuid = found2
-                    state = arg1
+        connections.reel = connectServiceEvent("FishingRewardService", "FishingPullState", function(arg1, arg2)
+            -- Determine which parameter is active and if there's a UUID
+            local state = arg1
+            local uuid = activeUUID
+            
+            -- Extract UUID from argument if present
+            local found1 = findUUID(arg1)
+            local found2 = findUUID(arg2)
+            if found1 then
+                uuid = found1
+                state = arg2
+            elseif found2 then
+                uuid = found2
+                state = arg1
+            end
+            
+            if state == false then
+                isFishing = false
+                activeUUID = nil
+            end
+            
+            if state and FAM.AutoReel then
+                activeUUID = uuid
+                if uuid then
+                    doPull(uuid)
                 end
-                
-                if state == false then
-                    isFishing = false
-                    activeUUID = nil
-                end
-                
-                if state and FAM.AutoReel then
-                    activeUUID = uuid
-                    if uuid then
-                        doPull(uuid)
-                    end
-                end
-            end)
-        end
+            end
+        end)
     end)
 end
 
@@ -845,10 +1049,8 @@ end
 -- ═══════════════════════════════════════════════════════════════════════════
 local function setAfkMode(v)
     pcall(function()
-        if services.FishingRewardService then
-            services.FishingRewardService:SetAfkMode(v)
-            print("[Leon X] FAM: AfkMode set to " .. tostring(v))
-        end
+        invokeService("FishingRewardService", "SetAfkMode", v)
+        print("[Leon X] FAM: AfkMode set to " .. tostring(v))
     end)
 end
 
@@ -868,7 +1070,8 @@ local function startAutoSell()
         
         task.spawn(function()
             local success, err = pcall(function()
-                if not services.FishermanShopService then return end
+                local hasRemote = services.FishermanShopService or getServiceRemote("FishermanShopService", "RF", "SellAllFish")
+                if not hasRemote then return end
                 
                 local hrp = getHRP()
                 if not hrp then return end
@@ -897,7 +1100,7 @@ local function startAutoSell()
                 
                 -- Sell all fish
                 pcall(function()
-                    services.FishermanShopService:SellAllFish()
+                    invokeService("FishermanShopService", "SellAllFish")
                 end)
                 task.wait(0.4)
                 
@@ -939,7 +1142,8 @@ local function startAutoCollect()
         
         task.spawn(function()
             pcall(function()
-                if not services.TreasureService then isCollecting = false return end
+                local hasRemote = services.TreasureService or getServiceRemote("TreasureService", "RF", "GetActiveChests")
+                if not hasRemote then isCollecting = false return end
                 
                 local hrp = getHRP()
                 if not hrp then isCollecting = false return end
@@ -948,7 +1152,7 @@ local function startAutoCollect()
                 local originalCFrame = hrp.CFrame
                 
                 -- Get all active chests
-                local chests = services.TreasureService:GetActiveChests()
+                local chests = invokeService("TreasureService", "GetActiveChests")
                 if not chests then isCollecting = false return end
                 
                 local opened = 0
@@ -968,7 +1172,7 @@ local function startAutoCollect()
                         end
                         
                         -- Open chest
-                        services.TreasureService:RequestOpenChest(chestId)
+                        invokeService("TreasureService", "RequestOpenChest", chestId)
                         opened = opened + 1
                         task.wait(FAM.BlatantMode and 0.3 or 0.8)
                     end)
@@ -1002,18 +1206,16 @@ local function startAutoQuest()
         actionTimer = 0
         
         pcall(function()
-            if services.QuestService then
-                -- Try to claim completed quest rewards
-                services.QuestService:ClaimReward()
-                
-                -- Auto Accept Daily Quest Status
-                safeQuestInvoke("GetDailyQuestStatus")
-                
-                -- Auto Accept Weekly Quests
-                safeQuestInvoke("AcceptWeeklyQuest", "weekly_abyssal_collector")
-                safeQuestInvoke("AcceptWeeklyQuest", "weekly_mythical_hunter")
-                safeQuestInvoke("AcceptWeeklyQuest", "weekly_grand_merchant")
-            end
+            -- Try to claim completed quest rewards
+            invokeService("QuestService", "ClaimReward")
+            
+            -- Auto Accept Daily Quest Status
+            safeQuestInvoke("GetDailyQuestStatus")
+            
+            -- Auto Accept Weekly Quests
+            safeQuestInvoke("AcceptWeeklyQuest", "weekly_abyssal_collector")
+            safeQuestInvoke("AcceptWeeklyQuest", "weekly_mythical_hunter")
+            safeQuestInvoke("AcceptWeeklyQuest", "weekly_grand_merchant")
         end)
     end)
 end
@@ -1241,39 +1443,20 @@ end
 
 local function setSavePoint(islandName)
     pcall(function()
-        if services.SavePointService then
-            services.SavePointService:ConfirmSave(islandName)
-        else
-            local rfFolder = ReplicatedStorage:FindFirstChild("Packages")
-                and ReplicatedStorage.Packages:FindFirstChild("_Index")
-                and ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"]:FindFirstChild("knit")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit:FindFirstChild("Services")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services:FindFirstChild("SavePointService")
-                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.SavePointService:FindFirstChild("RF")
-                
-            if rfFolder then
-                local remote = rfFolder:FindFirstChild("ConfirmSave")
-                if remote and remote:IsA("RemoteFunction") then
-                    remote:InvokeServer(islandName)
-                end
-            end
-        end
+        invokeService("SavePointService", "ConfirmSave", islandName)
     end)
 end
 
 local function teleportToIsland(islandName)
     pcall(function()
-        if Knit then
-            if islandName == "Boat Shop" then
-                if services.SpawnService then services.SpawnService:RequestBoatShopTeleport() end
-            elseif islandName == "My Plot" then
-                if services.SpawnService then services.SpawnService:RequestPlotTeleport() end
-            elseif islandName == "Base" then
-                if services.SeaLobbyService then services.SeaLobbyService:ReturnToBase() end
-            else
-                if services.SeaLobbyService then services.SeaLobbyService:RequestSea(islandName) end
-            end
+        if islandName == "Boat Shop" then
+            invokeService("SpawnService", "RequestBoatShopTeleport")
+        elseif islandName == "My Plot" then
+            invokeService("SpawnService", "RequestPlotTeleport")
+        elseif islandName == "Base" then
+            invokeService("SeaLobbyService", "ReturnToBase")
+        else
+            invokeService("SeaLobbyService", "RequestSea", islandName)
         end
         
         -- Fallback & Hardcoded Coordinates Teleport
@@ -1310,30 +1493,7 @@ local function teleportToIsland(islandName)
 end
 
 local function safeQuestInvoke(methodName, ...)
-    local args = {...}
-    local success, res = pcall(function()
-        if services.QuestService and services.QuestService[methodName] then
-            return services.QuestService[methodName](services.QuestService, unpack(args))
-        end
-    end)
-    if success and res ~= nil then return res end
-    
-    pcall(function()
-        local rfFolder = ReplicatedStorage:FindFirstChild("Packages")
-            and ReplicatedStorage.Packages:FindFirstChild("_Index")
-            and ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
-            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"]:FindFirstChild("knit")
-            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit:FindFirstChild("Services")
-            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services:FindFirstChild("QuestService")
-            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.QuestService:FindFirstChild("RF")
-            
-        if rfFolder then
-            local remote = rfFolder:FindFirstChild(methodName)
-            if remote and remote:IsA("RemoteFunction") then
-                return remote:InvokeServer(unpack(args))
-            end
-        end
-    end)
+    return invokeService("QuestService", methodName, ...)
 end
 
 local function teleportToInnkeeper(islandName)
