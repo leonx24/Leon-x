@@ -1116,31 +1116,31 @@ local function getIslandNames()
     islandNames = {}
     pcall(function()
         local activeIslands = workspace:FindFirstChild("ActiveIslands")
+            or workspace:FindFirstChild("Islands")
+            or workspace:FindFirstChild("Map")
+            
         if activeIslands then
             for _, child in ipairs(activeIslands:GetChildren()) do
-                if child:IsA("Model") or child:IsA("Folder") then
+                if child:IsA("Model") or child:IsA("Folder") or child:IsA("Part") then
                     table.insert(islandNames, child.Name)
                 end
             end
         end
     end)
-    -- Fallback list if ActiveIslands folder doesn't exist/load
+    -- Fallback list if folders don't exist/load (Fisch fallback removed; correct Fish and Monsters fallback)
     if #islandNames == 0 then
         islandNames = {
-            "Moosewood",
-            "Roslit Bay",
-            "Terrapin Island",
-            "Snowcap Island",
-            "Sunstone Island",
-            "Ancient Isle",
-            "Desolate Deep",
-            "Forsaken Shores",
-            "Bora Reef",
-            "Keepers Altar",
             "Starter Island",
             "My Plot",
             "Boat Shop",
-            "Base"
+            "Base",
+            "Sea 1",
+            "Sea 2",
+            "Sea 3",
+            "Deep Sea",
+            "Coral Reef",
+            "Monster Cove",
+            "Treasure Bay"
         }
     end
     -- Sort names alphabetically
@@ -1156,17 +1156,37 @@ local function getCurrentIsland()
     local minDistance = math.huge
     
     pcall(function()
-        local activeIslands = workspace:FindFirstChild("ActiveIslands")
-        if activeIslands then
-            for _, child in ipairs(activeIslands:GetChildren()) do
-                if child:IsA("Model") then
-                    local pos = child.PrimaryPart and child.PrimaryPart.Position or child:GetBoundingBox().Position
-                    local dist = (hrp.Position - pos).Magnitude
-                    if dist < minDistance then
-                        minDistance = dist
-                        closestIsland = child.Name
-                    end
+        local folder = workspace:FindFirstChild("ActiveIslands")
+            or workspace:FindFirstChild("Islands")
+            or workspace:FindFirstChild("Map")
+            or workspace
+            
+        local targets = {}
+        if folder == workspace then
+            local known = {
+                ["Starter Island"] = true, ["My Plot"] = true, ["Boat Shop"] = true, ["Base"] = true,
+                ["Sea 1"] = true, ["Sea 2"] = true, ["Sea 3"] = true, ["Deep Sea"] = true,
+                ["Coral Reef"] = true, ["Monster Cove"] = true, ["Treasure Bay"] = true
+            }
+            for _, child in ipairs(workspace:GetChildren()) do
+                if child:IsA("Model") and known[child.Name] then
+                    table.insert(targets, child)
                 end
+            end
+        else
+            for _, child in ipairs(folder:GetChildren()) do
+                if child:IsA("Model") or child:IsA("Part") then
+                    table.insert(targets, child)
+                end
+            end
+        end
+        
+        for _, child in ipairs(targets) do
+            local pos = child:IsA("Model") and (child.PrimaryPart and child.PrimaryPart.Position or child:GetBoundingBox().Position) or child.Position
+            local dist = (hrp.Position - pos).Magnitude
+            if dist < minDistance then
+                minDistance = dist
+                closestIsland = child.Name
             end
         end
     end)
@@ -1259,7 +1279,7 @@ local function teleportToInnkeeper(islandName)
             for _, child in ipairs(parent:GetChildren()) do
                 if child:IsA("Model") then
                     local name = child.Name:lower()
-                    if name:find("innkeeper") or name:find("keeper") or name:find("spawn") then
+                    if name:find("keeper") or name:find("spawn") or name:find("save") or name:find("location") or name:find("point") or name:find("npc") then
                         targetNPC = child
                         break
                     end
