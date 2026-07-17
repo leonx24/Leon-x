@@ -1054,6 +1054,51 @@ local function setAfkMode(v)
     end)
 end
 
+local function findFishermanShop()
+    local shop = workspace:FindFirstChild("GameSystemObject") and workspace.GameSystemObject:FindFirstChild("FishermanShop")
+    if shop then return shop end
+    
+    local found = nil
+    local function search(parent)
+        if found then return end
+        for _, child in ipairs(parent:GetChildren()) do
+            local name = child.Name:lower()
+            if name:find("fisherman") or name:find("fishshop") or name:find("sellnpc") then
+                found = child
+                return
+            end
+            pcall(function()
+                search(child)
+            end)
+            if found then return end
+        end
+    end
+    search(workspace)
+    return found
+end
+
+local function buildSellList(inv)
+    local list = {}
+    if type(inv) ~= "table" then return list end
+    
+    for key, value in pairs(inv) do
+        if type(value) == "table" then
+            local fishId = value.FishId or value.Id or value.Name or (type(key) == "string" and not key:find("-") and key)
+            local instanceId = value.InstanceId or value.UUID or (type(key) == "string" and key)
+            local count = value.Count or value.Amount or 1
+            
+            if fishId and instanceId then
+                table.insert(list, {
+                    FishId = fishId,
+                    Count = count,
+                    InstanceId = instanceId
+                })
+            end
+        end
+    end
+    return list
+end
+
 local function startAutoSell()
     disconnect("sell")
     
@@ -1070,14 +1115,22 @@ local function startAutoSell()
         
         task.spawn(function()
             local success, err = pcall(function()
-                local hasRemote = services.FishermanShopService or getServiceRemote("FishermanShopService", "RF", "SellAllFish")
+                local hasRemote = services.FishermanShopService 
+                    or getServiceRemote("FishermanShopService", "RF", "SellSelectedFish")
+                    or getServiceRemote("FishermanShopService", "RF", "SellAllFish")
                 if not hasRemote then return end
                 
                 local hrp = getHRP()
                 if not hrp then return end
                 
-                -- Count fish in inventory
-                local fishCount = getInventoryCount()
+                -- Count fish in inventory and build sell list
+                local inv = invokeService("FishermanShopService", "GetFishInventory")
+                local fishCount = 0
+                local sellList = {}
+                if inv and type(inv) == "table" then
+                    sellList = buildSellList(inv)
+                    fishCount = #sellList
+                end
                 
                 -- Only sell if count meets the threshold (defaults to 15)
                 local limit = FAM.SellLimit or 15
@@ -1090,16 +1143,18 @@ local function startAutoSell()
                 local originalCFrame = hrp.CFrame
                 
                 -- Teleport to Fisherman NPC
-                local fishermanShop = workspace:FindFirstChild("GameSystemObject")
-                    and workspace.GameSystemObject:FindFirstChild("FishermanShop")
-                
-                if fishermanShop and fishermanShop:IsA("BasePart") then
-                    hrp.CFrame = fishermanShop.CFrame + Vector3.new(0, 3, 0)
+                local fishermanShop = findFishermanShop()
+                if fishermanShop then
+                    local pos = fishermanShop:IsA("Model") and (fishermanShop.PrimaryPart and fishermanShop.PrimaryPart.Position or fishermanShop:GetBoundingBox().Position) or fishermanShop.Position
+                    hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
                     task.wait(0.4)
                 end
                 
                 -- Sell all fish
                 pcall(function()
+                    if #sellList > 0 then
+                        invokeService("FishermanShopService", "SellSelectedFish", sellList)
+                    end
                     invokeService("FishermanShopService", "SellAllFish")
                 end)
                 task.wait(0.4)
