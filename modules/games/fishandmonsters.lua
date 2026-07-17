@@ -1112,6 +1112,22 @@ end
 -- ═══════════════════════════════════════════════════════════════════════════
 local islandNames = {}
 
+local islandCoordinates = {
+    ["Bora Reef"]              = Vector3.new(-4011.87, 171.44, 2035.11),
+    ["Lost Whale Island"]      = Vector3.new(-2674.05, 173.19, 38.14),
+    ["Underwater Lost Whale"]  = Vector3.new(-2980.87, 63.66, -207.52),
+    ["Bamboo Island"]          = Vector3.new(-1413.18, 181.42, 303.33),
+    ["Iceberg"]                = Vector3.new(-516.20, 184.16, -266.86),
+    ["SEABREEZE"]              = Vector3.new(-2618.35, 185.00, -4551.20),
+    ["DRAGON COVE"]            = Vector3.new(-2360.46, 853.00, -5536.36),
+    ["Emerald Island"]          = Vector3.new(2086.03, 173.01, -2675.82),
+    ["Mystic Mangrove"]        = Vector3.new(4413.43, 177.17, 1202.62),
+    ["Ancient Abyss"]          = Vector3.new(3869.36, 183.00, 6840.18),
+    ["Volcano Vent"]           = Vector3.new(-1742.58, 239.68, 5477.28),
+    ["Sea Harbor"]             = Vector3.new(-1442.41, 173.92, 2946.50),
+    ["Cape Town"]              = Vector3.new(1407.39, 187.73, 3563.85),
+}
+
 local function getIslandNames()
     islandNames = {}
     pcall(function()
@@ -1130,17 +1146,27 @@ local function getIslandNames()
     -- Fallback list if folders don't exist/load (Fisch fallback removed; correct Fish and Monsters fallback)
     if #islandNames == 0 then
         islandNames = {
-            "Starter Island",
-            "My Plot",
-            "Boat Shop",
+            "Ancient Abyss",
+            "Bamboo Island",
             "Base",
-            "Sea 1",
-            "Sea 2",
-            "Sea 3",
-            "Deep Sea",
+            "Boat Shop",
+            "Bora Reef",
+            "Cape Town",
             "Coral Reef",
+            "Deep Sea",
+            "DRAGON COVE",
+            "Emerald Island",
+            "Iceberg",
+            "Lost Whale Island",
             "Monster Cove",
-            "Treasure Bay"
+            "My Plot",
+            "Mystic Mangrove",
+            "Sea Harbor",
+            "SEABREEZE",
+            "Starter Island",
+            "Treasure Bay",
+            "Underwater Lost Whale",
+            "Volcano Vent"
         }
     end
     -- Sort names alphabetically
@@ -1166,7 +1192,11 @@ local function getCurrentIsland()
             local known = {
                 ["Starter Island"] = true, ["My Plot"] = true, ["Boat Shop"] = true, ["Base"] = true,
                 ["Sea 1"] = true, ["Sea 2"] = true, ["Sea 3"] = true, ["Deep Sea"] = true,
-                ["Coral Reef"] = true, ["Monster Cove"] = true, ["Treasure Bay"] = true
+                ["Coral Reef"] = true, ["Monster Cove"] = true, ["Treasure Bay"] = true,
+                ["Bora Reef"] = true, ["Lost Whale Island"] = true, ["Underwater Lost Whale"] = true,
+                ["Bamboo Island"] = true, ["Iceberg"] = true, ["SEABREEZE"] = true, ["DRAGON COVE"] = true,
+                ["Emerald Island"] = true, ["Mystic Mangrove"] = true, ["Ancient Abyss"] = true,
+                ["Volcano Vent"] = true, ["Sea Harbor"] = true, ["Cape Town"] = true
             }
             for _, child in ipairs(workspace:GetChildren()) do
                 if child:IsA("Model") and known[child.Name] then
@@ -1230,17 +1260,35 @@ local function teleportToIsland(islandName)
             end
         end
         
-        -- Fallback: Physical CFrame teleport
+        -- Fallback & Hardcoded Coordinates Teleport
         local hrp = getHRP()
         if not hrp then return end
         
+        -- Reset linear/angular velocity to zero to avoid fall fling or damage
+        local function resetVelocity()
+            pcall(function()
+                hrp.AssemblyLinearVelocity = Vector3.zero
+                hrp.AssemblyAngularVelocity = Vector3.zero
+            end)
+        end
+        
+        -- Check hardcoded table first (bypasses fallback scan completely, avoids StreamingEnabled issues)
+        local coords = islandCoordinates[islandName]
+        if coords then
+            hrp.CFrame = CFrame.new(coords + Vector3.new(0, 3, 0))
+            resetVelocity()
+            return
+        end
+        
+        -- Dynamic search fallback if not in hardcoded coordinates table
         local target = workspace:FindFirstChild(islandName) 
             or (workspace:FindFirstChild("Islands") and workspace.Islands:FindFirstChild(islandName))
             or (workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild(islandName))
             
         if target then
             local pos = target:IsA("Model") and (target.PrimaryPart and target.PrimaryPart.Position or target:GetBoundingBox().Position) or target.Position
-            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 10, 0))
+            hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+            resetVelocity()
         end
     end)
 end
