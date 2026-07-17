@@ -108,7 +108,7 @@ local function findRemotes()
                     end)
                 end)
             end
-            
+            -- asdasd
             bindAsync("PetService", "PetService")
             bindAsync("PetShopService", "PetService")
             bindAsync("EggService", "EggService")
