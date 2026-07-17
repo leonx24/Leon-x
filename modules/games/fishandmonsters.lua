@@ -96,7 +96,7 @@ local function findRemotes()
             services.TreasureService = Knit.GetService("TreasureService")
             services.QuestService = Knit.GetService("QuestService")
             
-            -- Bind Pet and Egg services asynchronously to prevent infinite yielding if they don't exist
+            -- Bind Pet, Egg, Rod, and Potion services asynchronously to prevent infinite yielding if they don't exist
             local function bindAsync(name, key)
                 task.spawn(function()
                     pcall(function()
@@ -108,11 +108,13 @@ local function findRemotes()
                     end)
                 end)
             end
-            -- asdasd
+            
             bindAsync("PetService", "PetService")
             bindAsync("PetShopService", "PetService")
             bindAsync("EggService", "EggService")
             bindAsync("EggShopService", "EggService")
+            bindAsync("RodShopService", "RodShopService")
+            bindAsync("PotionShopService", "PotionShopService")
             
             print("[Leon X] FAM: Bound all primary Knit services successfully!")
             
@@ -371,16 +373,32 @@ local function startUpgradeLoop()
             openShopGUI(true)
             task.wait(0.3)
             
-            if FAM.AutoBuyRod and services.FishermanShopService then
-                pcall(function() services.FishermanShopService:UpgradeRod() end)
-                pcall(function() services.FishermanShopService:BuyNextRod() end)
-                pcall(function() services.FishermanShopService:Upgrade("Rod") end)
+            if FAM.AutoBuyRod then
+                if services.FishermanShopService then
+                    pcall(function() services.FishermanShopService:UpgradeRod() end)
+                    pcall(function() services.FishermanShopService:BuyNextRod() end)
+                    pcall(function() services.FishermanShopService:Upgrade("Rod") end)
+                end
+                if services.RodShopService then
+                    pcall(function() services.RodShopService:BuyRod() end)
+                    pcall(function() services.RodShopService:UpgradeRod() end)
+                    pcall(function() services.RodShopService:BuyNextRod() end)
+                    pcall(function() services.RodShopService:Upgrade("Rod") end)
+                end
             end
             
-            if FAM.AutoBuyFloater and services.FishermanShopService then
-                pcall(function() services.FishermanShopService:UpgradeFloater() end)
-                pcall(function() services.FishermanShopService:BuyNextFloater() end)
-                pcall(function() services.FishermanShopService:Upgrade("Floater") end)
+            if FAM.AutoBuyFloater then
+                if services.FishermanShopService then
+                    pcall(function() services.FishermanShopService:UpgradeFloater() end)
+                    pcall(function() services.FishermanShopService:BuyNextFloater() end)
+                    pcall(function() services.FishermanShopService:Upgrade("Floater") end)
+                end
+                if services.RodShopService then
+                    pcall(function() services.RodShopService:BuyFloater() end)
+                    pcall(function() services.RodShopService:UpgradeFloater() end)
+                    pcall(function() services.RodShopService:BuyNextFloater() end)
+                    pcall(function() services.RodShopService:Upgrade("Floater") end)
+                end
             end
             
             if FAM.AutoBuyEgg then
@@ -1002,6 +1020,49 @@ local function teleportToIsland(islandName)
     end)
 end
 
+local function dumpPlayerGui()
+    pcall(function()
+        local list = {}
+        for _, gui in ipairs(lp.PlayerGui:GetChildren()) do
+            if gui:IsA("ScreenGui") then
+                table.insert(list, string.format("ScreenGui: %s (Enabled: %s)", gui.Name, tostring(gui.Enabled)))
+                for _, desc in ipairs(gui:GetDescendants()) do
+                    if desc:IsA("Frame") or desc:IsA("ScrollingFrame") or desc:IsA("TextButton") then
+                        table.insert(list, string.format("  - %s (%s, Visible: %s)", desc.Name, desc.ClassName, tostring(desc.Visible)))
+                    end
+                end
+            end
+        end
+        writefile("LeonX_GUIDump.txt", table.concat(list, "\n"))
+    end)
+end
+
+local function dumpRodShopService()
+    pcall(function()
+        local list = {}
+        if Knit then
+            local service = Knit.GetService("RodShopService")
+            if service then
+                table.insert(list, "RodShopService RF:")
+                if service.RF then
+                    for k, v in pairs(service.RF) do
+                        table.insert(list, string.format("  .RF.%s (%s)", tostring(k), type(v)))
+                    end
+                end
+                table.insert(list, "RodShopService Methods:")
+                for k, v in pairs(service) do
+                    table.insert(list, string.format("  .%s (%s)", tostring(k), type(v)))
+                end
+            else
+                table.insert(list, "RodShopService not found in Knit!")
+            end
+        else
+            table.insert(list, "Knit not initialized!")
+        end
+        writefile("LeonX_RodShopDump.txt", table.concat(list, "\n"))
+    end)
+end
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- MODULE INTERFACE
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -1009,6 +1070,13 @@ function FAM:Init()
     task.wait(1)
     findRemotes()
     getIslandNames()
+    
+    -- Diagnostics
+    task.spawn(function()
+        task.wait(2)
+        dumpPlayerGui()
+        dumpRodShopService()
+    end)
 end
 
 function FAM:Enable()
