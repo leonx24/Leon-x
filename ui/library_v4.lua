@@ -236,6 +236,13 @@ local notifGui = mk("ScreenGui", {
 	DisplayOrder = 10000; IgnoreGuiInset = true;
 })
 pcall(function() notifGui.Parent = lp:WaitForChild("PlayerGui") end)
+pcall(function()
+	notifGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+		if not notifGui.Enabled then
+			notifGui.Enabled = true
+		end
+	end)
+end)
 local activeNotifs = {}
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -265,6 +272,13 @@ function Library:CreateWindow(cfg)
 		DisplayOrder = 999; IgnoreGuiInset = true;
 		Parent = lp:WaitForChild("PlayerGui");
 	})
+	pcall(function()
+		sg:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if win._visible and not sg.Enabled then
+				sg.Enabled = true
+			end
+		end)
+	end)
 
 	-- ── Main frame ──
 	local scale = isMobile and 0.8 or 1.0
@@ -557,6 +571,13 @@ function Library:CreateWindow(cfg)
 		DisplayOrder = 998; IgnoreGuiInset = true;
 		Parent = lp:WaitForChild("PlayerGui");
 	})
+	pcall(function()
+		floatGui:GetPropertyChangedSignal("Enabled"):Connect(function()
+			if not floatGui.Enabled then
+				floatGui.Enabled = true
+			end
+		end)
+	end)
 	local floatBtn = mk("TextButton", {
 		Size = UDim2.fromOffset(56, 56); Position = UDim2.new(0, 16, 0.5, -28);
 		BackgroundColor3 = theme.Surface; Text = "";
