@@ -135,7 +135,7 @@ local function getEquippedFloater()
     end)
     return floater
 end
-
+-- asd
 local function logCast(step, detail)
     local msg = string.format("[Leon X Debug] [%s] Step: %s | Detail: %s", os.date("%H:%M:%S"), tostring(step), tostring(detail))
     print(msg)
