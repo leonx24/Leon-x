@@ -547,6 +547,40 @@ local activeUUID = nil
 
 local currentCastSession = 0
 
+local function getInventoryCount()
+    local fishCount = 0
+    pcall(function()
+        local inv = nil
+        local success = pcall(function()
+            if services.FishermanShopService and services.FishermanShopService.GetFishInventory then
+                inv = services.FishermanShopService:GetFishInventory()
+            end
+        end)
+        
+        if not success or not inv then
+            local rf = ReplicatedStorage:FindFirstChild("Packages")
+                and ReplicatedStorage.Packages:FindFirstChild("_Index")
+                and ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"]:FindFirstChild("knit")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit:FindFirstChild("Services")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services:FindFirstChild("FishermanShopService")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.FishermanShopService:FindFirstChild("RF")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.FishermanShopService.RF:FindFirstChild("GetFishInventory")
+                
+            if rf and rf:IsA("RemoteFunction") then
+                inv = rf:InvokeServer()
+            end
+        end
+        
+        if inv and type(inv) == "table" then
+            for _ in pairs(inv) do
+                fishCount = fishCount + 1
+            end
+        end
+    end)
+    return fishCount
+end
+
 local function doPull(uuid)
     if not uuid then return end
     logCast("Reel", "Starting pulling sequence for UUID: " .. tostring(uuid))
@@ -640,17 +674,7 @@ local function startAutoCast()
         if isFishing then return end
         
         -- Check if inventory limit reached before casting to allow Auto Sell to execute
-        local fishCount = 0
-        pcall(function()
-            if services.FishermanShopService then
-                local inv = services.FishermanShopService:GetFishInventory()
-                if inv and type(inv) == "table" then
-                    for _ in pairs(inv) do
-                        fishCount = fishCount + 1
-                    end
-                end
-            end
-        end)
+        local fishCount = getInventoryCount()
         local limit = FAM.SellLimit or 15
         if FAM.AutoSell and fishCount >= limit then
             return
@@ -850,15 +874,7 @@ local function startAutoSell()
                 if not hrp then return end
                 
                 -- Count fish in inventory
-                local fishCount = 0
-                pcall(function()
-                    local inv = services.FishermanShopService:GetFishInventory()
-                    if inv and type(inv) == "table" then
-                        for _ in pairs(inv) do
-                            fishCount = fishCount + 1
-                        end
-                    end
-                end)
+                local fishCount = getInventoryCount()
                 
                 -- Only sell if count meets the threshold (defaults to 15)
                 local limit = FAM.SellLimit or 15
