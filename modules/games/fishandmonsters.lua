@@ -214,74 +214,73 @@ local targetFrames = {
 }
 
 local function startUIHider()
-    disconnect("uihider")
+    stopUIHider() -- Ensure cleaned up first
     
-    local function processUI(child)
-        if not FAM.HideCatchUI then return end
-        
-        -- Fast exit for non-target class names
-        local isScreenGui = child:IsA("ScreenGui")
-        local isFrame = child:IsA("Frame") or child:IsA("ScrollingFrame")
-        if not isScreenGui and not isFrame then
-            return
-        end
-        
-        local name = child.Name
-        -- Only process if it is a target ScreenGui or a target Frame
-        if not targetGuis[name] and not targetFrames[name] then
-            return
-        end
-        
-        -- Ignore Leon X UI elements
-        if name == "LeonXNoir" or name == "LeonXNotif" or name == "LeonXFloat" then
-            return
-        end
-        
-        -- Fast parent name check to bypass our own UIs
-        local parentGui = isScreenGui and child or child:FindFirstAncestorOfClass("ScreenGui")
-        if parentGui then
-            local pName = parentGui.Name
-            if pName == "LeonXNoir" or pName == "LeonXNotif" or pName == "LeonXFloat" then
-                return
+    local function hideElement(child)
+        if child:IsA("ScreenGui") then
+            if originalStates[child] == nil then
+                originalStates[child] = child.Enabled
+            end
+            child.Enabled = false
+            if not uiConnections[child] then
+                uiConnections[child] = child:GetPropertyChangedSignal("Enabled"):Connect(function()
+                    if FAM.HideCatchUI and child.Enabled then
+                        child.Enabled = false
+                    end
+                end)
+            end
+        elseif child:IsA("GuiObject") then
+            if originalStates[child] == nil then
+                originalStates[child] = child.Visible
+            end
+            child.Visible = false
+            if not uiConnections[child] then
+                uiConnections[child] = child:GetPropertyChangedSignal("Visible"):Connect(function()
+                    if FAM.HideCatchUI and child.Visible then
+                        child.Visible = false
+                    end
+                end)
             end
         end
-        
-        -- Hide it!
-        pcall(function()
-            if isScreenGui then
-                if originalStates[child] == nil then
-                    originalStates[child] = child.Enabled
-                end
-                child.Enabled = false
-                if not uiConnections[child] then
-                    uiConnections[child] = child:GetPropertyChangedSignal("Enabled"):Connect(function()
-                        if FAM.HideCatchUI and child.Enabled then
-                            child.Enabled = false
-                        end
-                    end)
-                end
-            else
-                if originalStates[child] == nil then
-                    originalStates[child] = child.Visible
-                end
-                child.Visible = false
-                if not uiConnections[child] then
-                    uiConnections[child] = child:GetPropertyChangedSignal("Visible"):Connect(function()
-                        if FAM.HideCatchUI and child.Visible then
-                            child.Visible = false
-                        end
-                    end)
-                end
-            end
-        end)
     end
-    
-    pcall(function()
-        for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
-            processUI(child)
+
+    -- Process target ScreenGuis that already exist in PlayerGui
+    local targets = {"NewFishDiscovery", "PetGachaGui", "NotificationGui", "NotificationGuiV2", "DailyRewardGUI", "RewardGui"}
+    for _, name in ipairs(targets) do
+        local gui = lp.PlayerGui:FindFirstChild(name)
+        if gui then
+            hideElement(gui)
+            -- Hide target frames inside it
+            for _, desc in ipairs(gui:GetDescendants()) do
+                if targetFrames[desc.Name] then
+                    hideElement(desc)
+                end
+            end
+            -- Listen only to descendants added within this target Gui (extremely low frequency)
+            uiConnections[gui.Name .. "_DescAdded"] = gui.DescendantAdded:Connect(function(desc)
+                if targetFrames[desc.Name] then
+                    hideElement(desc)
+                end
+            end)
+        end
+    end
+
+    -- Listen to PlayerGui ChildAdded only for top-level ScreenGui additions (0% lag impact)
+    connections.uihider = lp.PlayerGui.ChildAdded:Connect(function(child)
+        if targetGuis[child.Name] then
+            hideElement(child)
+            for _, desc in ipairs(child:GetDescendants()) do
+                if targetFrames[desc.Name] then
+                    hideElement(desc)
+                end
+            end
+            uiConnections[child.Name .. "_DescAdded"] = child.DescendantAdded:Connect(function(desc)
+                if targetFrames[desc.Name] then
+                    hideElement(desc)
+                end
+            end)
         end
     end)
-    connections.uihider = lp.PlayerGui.DescendantAdded:Connect(processUI)
 end
 
 local function stopUIHider()
