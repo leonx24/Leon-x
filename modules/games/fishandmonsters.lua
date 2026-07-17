@@ -221,28 +221,30 @@ local function startAutoCast()
                 
                 logCast("Variables", string.format("Rod: %s | Floater: %s | Power: %f", tostring(rod), tostring(floater), power))
                 
-                -- Step 1: Stop any previous fishing session
+                                -- Step 1: Stop any previous fishing session
                 logCast("StopFishing", "Invoking StopFishing...")
                 pcall(function() services.FishingReplicationService:StopFishing() end)
                 task.wait(0.3)
                 
-                -- Step 2: Throw the floater
-                logCast("ThrowFloater", string.format("CharPos: %s | CastPos: %s", tostring(charPos), tostring(castPos)))
-                services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
-                task.wait(FAM.BlatantMode and 0.1 or 0.5)
-                
-                -- Step 3: Confirm the cast landed on water
-                logCast("ConfirmFloatingCast", "Invoking ConfirmFloatingCast...")
-                pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
-                task.wait(FAM.BlatantMode and 0.1 or 0.3)
-                
-                -- Step 4: Start fishing
+                -- Step 2: Start fishing (ready the rod)
                 logCast("StartFishing", "Invoking StartFishing...")
                 services.FishingReplicationService:StartFishing(rod, floater)
+                task.wait(0.2)
+                
+                -- Step 3: Throw the floater
+                logCast("ThrowFloater", string.format("CharPos: %s | CastPos: %s", tostring(charPos), tostring(castPos)))
+                services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
+                
+                -- Wait for flight simulation (1.2 seconds in normal, 0.4 seconds in blatant)
+                task.wait(FAM.BlatantMode and 0.4 or 1.2)
+                
+                -- Step 4: Confirm the cast landed on water
+                logCast("ConfirmFloatingCast", "Invoking ConfirmFloatingCast...")
+                pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
+                task.wait(FAM.BlatantMode and 0.2 or 0.5)
                 
                 -- Step 5: Instant Bite (force fish to bite immediately)
                 if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
-                    task.wait(FAM.BlatantMode and 0.2 or 1.0)
                     logCast("RequestFishBite", "Invoking RequestFishBite...")
                     local res = services.FishingRewardService:RequestFishBite(castPos)
                     logCast("RequestFishBite Result", tostring(res))
