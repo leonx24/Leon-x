@@ -163,17 +163,20 @@ local function doPull(uuid)
         pcall(function()
             services.FishingRewardService:FishingPullInput(uuid, "begin")
         end)
-        task.wait(0.05)
+        task.wait(0.02)
         
         for i = 1, 15 do
             if not FAM.AutoReel or not FAM.Enabled then break end
             pcall(function()
                 services.FishingRewardService:FishingPullInput(uuid, "tap")
             end)
-            if not FAM.BlatantMode then
-                task.wait(0.06)
-            end
+            task.wait(FAM.BlatantMode and 0.01 or 0.06)
         end
+        
+        -- Fallback: reset state if events miss
+        task.wait(0.2)
+        isFishing = false
+        activeUUID = nil
     end)
 end
 
@@ -181,6 +184,7 @@ local function startAutoCast()
     disconnect("cast")
     disconnect("castloop")
     disconnect("fishcaught")
+    disconnect("fishsuccess")
     
     pcall(function() writefile("LeonX_CastLog.txt", "=== Cast Log Started ===") end)
     logCast("Init", "AutoCast initialized")
@@ -193,6 +197,11 @@ local function startAutoCast()
                 isFishing = false
                 activeUUID = nil
             end)
+            connections.fishsuccess = services.FishingRewardService.FishingSuccess:Connect(function()
+                logCast("Event", "FishingSuccess event fired")
+                isFishing = false
+                activeUUID = nil
+            end)
         end
     end)
     
@@ -202,7 +211,7 @@ local function startAutoCast()
         if not FAM.Enabled or not FAM.AutoCast then return end
         if isFishing then return end
         
-        local CAST_INTERVAL = FAM.BlatantMode and 1.0 or 4.0
+        local CAST_INTERVAL = FAM.BlatantMode and 0.6 or 4.0
         actionTimer = actionTimer + dt
         if actionTimer < CAST_INTERVAL then return end
         actionTimer = 0
@@ -247,29 +256,29 @@ local function startAutoCast()
                 }
                 local power = FAM.CastPower or 8.8843638102214
                 
-                logCast("Variables", string.format("Rod: %s | Floater: %s | Power: %f", tostring(rod), tostring(floater), power))
+                logCast("Variables", string.format("Rod: %s | Floater: %s | Power: %f | AutoReel: %s", tostring(rod), tostring(floater), power, tostring(FAM.AutoReel)))
                 
                 -- Step 1: Stop any previous fishing session
                 logCast("StopFishing", "Invoking StopFishing...")
                 pcall(function() services.FishingReplicationService:StopFishing() end)
-                task.wait(0.3)
+                task.wait(0.15)
                 
                 -- Step 2: Start fishing (ready the rod)
                 logCast("StartFishing", "Invoking StartFishing...")
                 services.FishingReplicationService:StartFishing(rod, floater)
-                task.wait(0.2)
+                task.wait(0.1)
                 
                 -- Step 3: Throw the floater
                 logCast("ThrowFloater", string.format("CharPos: %s | CastPos: %s", tostring(charPos), tostring(castPos)))
                 services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
                 
-                -- Wait for flight simulation (1.2 seconds in normal, 0.4 seconds in blatant)
-                task.wait(FAM.BlatantMode and 0.4 or 1.2)
+                -- Wait for flight simulation (1.2 seconds in normal, 0.15 seconds in blatant)
+                task.wait(FAM.BlatantMode and 0.15 or 1.2)
                 
                 -- Step 4: Confirm the cast landed on water
                 logCast("ConfirmFloatingCast", "Invoking ConfirmFloatingCast...")
                 pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
-                task.wait(FAM.BlatantMode and 0.2 or 0.5)
+                task.wait(FAM.BlatantMode and 0.1 or 0.5)
                 
                 -- Step 5: Instant Bite (force fish to bite immediately)
                 if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
@@ -294,7 +303,7 @@ local function startAutoCast()
                             
                             -- Trigger auto reel immediately
                             if FAM.AutoReel then
-                                task.wait(0.1)
+                                task.wait(0.05)
                                 doPull(found)
                             end
                         end
@@ -307,11 +316,12 @@ local function startAutoCast()
                 isFishing = false
             end
             
-            -- Safety: reset fishing state after timeout so we don't get stuck
-            task.delay(FAM.BlatantMode and 5 or 15, function()
-                if isFishing and not activeUUID then
-                    logCast("Timeout Safety", "Resetting isFishing to false (no active UUID)")
+            -- Safety: reset fishing state unconditionally after a short time if stuck
+            task.delay(FAM.BlatantMode and 4 or 12, function()
+                if isFishing then
+                    logCast("Timeout Safety", "Resetting isFishing to false (timeout reached)")
                     isFishing = false
+                    activeUUID = nil
                 end
             end)
         end)
