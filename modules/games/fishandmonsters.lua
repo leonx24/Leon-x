@@ -149,6 +149,8 @@ end
 local isFishing = false
 local activeUUID = nil
 
+local currentCastSession = 0
+
 local function doPull(uuid)
     if not uuid then return end
     logCast("Reel", "Starting pulling sequence for UUID: " .. tostring(uuid))
@@ -173,10 +175,13 @@ local function doPull(uuid)
             task.wait(FAM.BlatantMode and 0.01 or 0.06)
         end
         
-        -- Fallback: reset state if events miss
-        task.wait(0.2)
-        isFishing = false
-        activeUUID = nil
+        -- Safe fallback: wait 2.0 seconds before unlocking, giving time for event to fire.
+        task.wait(2.0)
+        if activeUUID == uuid then
+            logCast("Reel Fallback", "Resetting isFishing after 2.0s pull fallback")
+            isFishing = false
+            activeUUID = nil
+        end
     end)
 end
 
@@ -211,13 +216,16 @@ local function startAutoCast()
         if not FAM.Enabled or not FAM.AutoCast then return end
         if isFishing then return end
         
-        local CAST_INTERVAL = FAM.BlatantMode and 0.6 or 4.0
+        local CAST_INTERVAL = FAM.BlatantMode and 0.5 or 3.0
         actionTimer = actionTimer + dt
         if actionTimer < CAST_INTERVAL then return end
         actionTimer = 0
         
         isFishing = true
-        logCast("Cast Loop", "Triggering cast sequence...")
+        currentCastSession = currentCastSession + 1
+        local mySession = currentCastSession
+        
+        logCast("Cast Loop", "Triggering cast sequence for session: " .. mySession)
         
         task.spawn(function()
             local success, err = pcall(function()
@@ -318,8 +326,8 @@ local function startAutoCast()
             
             -- Safety: reset fishing state unconditionally after a short time if stuck
             task.delay(FAM.BlatantMode and 4 or 12, function()
-                if isFishing then
-                    logCast("Timeout Safety", "Resetting isFishing to false (timeout reached)")
+                if isFishing and currentCastSession == mySession then
+                    logCast("Timeout Safety", "Resetting isFishing to false (timeout reached) for session: " .. mySession)
                     isFishing = false
                     activeUUID = nil
                 end
