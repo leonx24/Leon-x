@@ -116,6 +116,7 @@ local function findRemotes()
             bindAsync("EggShopService", "EggShopService")
             bindAsync("RodShopService", "RodShopService")
             bindAsync("PotionShopService", "PotionShopService")
+            bindAsync("SavePointService", "SavePointService")
             
             print("[Leon X] FAM: Bound all primary Knit services successfully!")
             
@@ -986,8 +987,16 @@ local function startAutoQuest()
         
         pcall(function()
             if services.QuestService then
-                -- Try to claim normal quest reward
+                -- Try to claim completed quest rewards
                 services.QuestService:ClaimReward()
+                
+                -- Auto Accept Daily Quest Status
+                safeQuestInvoke("GetDailyQuestStatus")
+                
+                -- Auto Accept Weekly Quests
+                safeQuestInvoke("AcceptWeeklyQuest", "weekly_abyssal_collector")
+                safeQuestInvoke("AcceptWeeklyQuest", "weekly_mythical_hunter")
+                safeQuestInvoke("AcceptWeeklyQuest", "weekly_grand_merchant")
             end
         end)
     end)
@@ -1104,20 +1113,87 @@ end
 local islandNames = {}
 
 local function getIslandNames()
-    islandNames = {
-        "Starter Island",
-        "My Plot",
-        "Boat Shop",
-        "Base",
-        "Sea 1",
-        "Sea 2",
-        "Sea 3",
-        "Deep Sea",
-        "Coral Reef",
-        "Monster Cove",
-        "Treasure Bay",
-    }
+    islandNames = {}
+    pcall(function()
+        local activeIslands = workspace:FindFirstChild("ActiveIslands")
+        if activeIslands then
+            for _, child in ipairs(activeIslands:GetChildren()) do
+                if child:IsA("Model") or child:IsA("Folder") then
+                    table.insert(islandNames, child.Name)
+                end
+            end
+        end
+    end)
+    -- Fallback list if ActiveIslands folder doesn't exist/load
+    if #islandNames == 0 then
+        islandNames = {
+            "Moosewood",
+            "Roslit Bay",
+            "Terrapin Island",
+            "Snowcap Island",
+            "Sunstone Island",
+            "Ancient Isle",
+            "Desolate Deep",
+            "Forsaken Shores",
+            "Bora Reef",
+            "Keepers Altar",
+            "Starter Island",
+            "My Plot",
+            "Boat Shop",
+            "Base"
+        }
+    end
+    -- Sort names alphabetically
+    table.sort(islandNames)
     return islandNames
+end
+
+local function getCurrentIsland()
+    local hrp = getHRP()
+    if not hrp then return nil end
+    
+    local closestIsland = nil
+    local minDistance = math.huge
+    
+    pcall(function()
+        local activeIslands = workspace:FindFirstChild("ActiveIslands")
+        if activeIslands then
+            for _, child in ipairs(activeIslands:GetChildren()) do
+                if child:IsA("Model") then
+                    local pos = child.PrimaryPart and child.PrimaryPart.Position or child:GetBoundingBox().Position
+                    local dist = (hrp.Position - pos).Magnitude
+                    if dist < minDistance then
+                        minDistance = dist
+                        closestIsland = child.Name
+                    end
+                end
+            end
+        end
+    end)
+    return closestIsland
+end
+
+local function setSavePoint(islandName)
+    pcall(function()
+        if services.SavePointService then
+            services.SavePointService:ConfirmSave(islandName)
+        else
+            local rfFolder = ReplicatedStorage:FindFirstChild("Packages")
+                and ReplicatedStorage.Packages:FindFirstChild("_Index")
+                and ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"]:FindFirstChild("knit")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit:FindFirstChild("Services")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services:FindFirstChild("SavePointService")
+                and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.SavePointService:FindFirstChild("RF")
+                
+            if rfFolder then
+                local remote = rfFolder:FindFirstChild("ConfirmSave")
+                if remote and remote:IsA("RemoteFunction") then
+                    remote:InvokeServer(islandName)
+                end
+            end
+        end
+    end)
 end
 
 local function teleportToIsland(islandName)
@@ -1147,6 +1223,77 @@ local function teleportToIsland(islandName)
             hrp.CFrame = CFrame.new(pos + Vector3.new(0, 10, 0))
         end
     end)
+end
+
+local function safeQuestInvoke(methodName, ...)
+    local args = {...}
+    local success, res = pcall(function()
+        if services.QuestService and services.QuestService[methodName] then
+            return services.QuestService[methodName](services.QuestService, unpack(args))
+        end
+    end)
+    if success and res ~= nil then return res end
+    
+    pcall(function()
+        local rfFolder = ReplicatedStorage:FindFirstChild("Packages")
+            and ReplicatedStorage.Packages:FindFirstChild("_Index")
+            and ReplicatedStorage.Packages._Index:FindFirstChild("sleitnick_knit@1.7.0")
+            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"]:FindFirstChild("knit")
+            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit:FindFirstChild("Services")
+            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services:FindFirstChild("QuestService")
+            and ReplicatedStorage.Packages._Index["sleitnick_knit@1.7.0"].knit.Services.QuestService:FindFirstChild("RF")
+            
+        if rfFolder then
+            local remote = rfFolder:FindFirstChild(methodName)
+            if remote and remote:IsA("RemoteFunction") then
+                return remote:InvokeServer(unpack(args))
+            end
+        end
+    end)
+end
+
+local function teleportToInnkeeper(islandName)
+    local targetNPC = nil
+    pcall(function()
+        local function findNPC(parent)
+            for _, child in ipairs(parent:GetChildren()) do
+                if child:IsA("Model") then
+                    local name = child.Name:lower()
+                    if name:find("innkeeper") or name:find("keeper") or name:find("spawn") then
+                        targetNPC = child
+                        break
+                    end
+                end
+                if child:IsA("Folder") or child:IsA("Model") or child == workspace then
+                    findNPC(child)
+                end
+                if targetNPC then break end
+            end
+        end
+
+        local island = workspace:FindFirstChild(islandName)
+            or (workspace:FindFirstChild("Islands") and workspace.Islands:FindFirstChild(islandName))
+            or (workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild(islandName))
+            
+        if island then
+            findNPC(island)
+        end
+        if not targetNPC then
+            findNPC(workspace)
+        end
+    end)
+    
+    if targetNPC then
+        pcall(function()
+            local hrp = getHRP()
+            if hrp then
+                local pos = targetNPC.PrimaryPart and targetNPC.PrimaryPart.Position or targetNPC:GetBoundingBox().Position
+                hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+            end
+        end)
+        return true
+    end
+    return false
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -1660,6 +1807,71 @@ function FAM:WireUI(Window, extras)
     })
     teleportBtn.Frame.Visible = false
     table.insert(travelComponents, teleportBtn)
+
+    local teleportNpcBtn = TravelTab:Button({
+        Title    = "Teleport to Spawn NPC (Innkeeper)",
+        Compact  = true,
+        Tooltip  = "Teleports you directly next to the Innkeeper/Beach Keeper on the selected island to set your spawn point",
+        Callback = function()
+            if FAM.SelectedIsland and FAM.SelectedIsland ~= "" then
+                task.spawn(function()
+                    N("Travel", "Teleporting to " .. FAM.SelectedIsland .. "...")
+                    teleportToIsland(FAM.SelectedIsland)
+                    task.wait(1.5) -- Wait for island and NPCs to stream in / load
+                    local ok = teleportToInnkeeper(FAM.SelectedIsland)
+                    if ok then
+                        N("Travel", "Teleported to Innkeeper NPC!")
+                    else
+                        -- Try fallback one more time
+                        task.wait(1.0)
+                        ok = teleportToInnkeeper(FAM.SelectedIsland)
+                        if ok then
+                            N("Travel", "Teleported to Innkeeper NPC!")
+                        else
+                            N("Travel", "Innkeeper NPC not found on this island!")
+                        end
+                    end
+                end)
+            else
+                N("Travel", "Select destination first!")
+            end
+        end
+    })
+    teleportNpcBtn.Frame.Visible = false
+    table.insert(travelComponents, teleportNpcBtn)
+
+    local saveSelectedSpawnBtn = TravelTab:Button({
+        Title    = "Save Spawn on Selected Island",
+        Compact  = true,
+        Tooltip  = "Automatically set your spawn location to the selected island",
+        Callback = function()
+            if FAM.SelectedIsland and FAM.SelectedIsland ~= "" then
+                setSavePoint(FAM.SelectedIsland)
+                N("Spawn Location", "Set spawn to: " .. FAM.SelectedIsland)
+            else
+                N("Spawn Location", "Select island first!")
+            end
+        end
+    })
+    saveSelectedSpawnBtn.Frame.Visible = false
+    table.insert(travelComponents, saveSelectedSpawnBtn)
+
+    local saveCurrentSpawnBtn = TravelTab:Button({
+        Title    = "Save Spawn on Current Island",
+        Compact  = true,
+        Tooltip  = "Automatically detects your current island and sets it as spawn location",
+        Callback = function()
+            local cur = getCurrentIsland()
+            if cur then
+                setSavePoint(cur)
+                N("Spawn Location", "Set spawn to: " .. cur)
+            else
+                N("Spawn Location", "Could not detect current island!")
+            end
+        end
+    })
+    saveCurrentSpawnBtn.Frame.Visible = false
+    table.insert(travelComponents, saveCurrentSpawnBtn)
 
     -- ══ SETTINGS TAB ═══════════════════════════════════════════════════════
     if ConfigMgr then
