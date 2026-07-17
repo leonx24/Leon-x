@@ -940,7 +940,7 @@ function FAM:WireUI(Window, extras)
     FishTab:Slider({
         Title    = "Inventory Limit to Sell",
         Flag     = "FAM_SellLimit",
-        Value    = { Min = 1, Max = 30, Default = 15 },
+        Value    = { Min = 1, Max = 100, Default = 15 },
         Step     = 1,
         Tooltip  = "Number of fish in inventory before teleporting to sell",
         Callback = function(v)
