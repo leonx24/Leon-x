@@ -174,19 +174,19 @@ local function startAutoCast()
                 local hrp = getHRP()
                 if not hrp then error("HRP nil") end
                 
-                local charPos = hrp.Position
+                                local charPos = hrp.Position
                 local castPos = charPos + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
                 local rod = getEquippedRod()
                 local floater = getEquippedFloater()
                 local visualData = {
                     LightInfluence = 0,
-                    Transparency = 0.08,
-                    Color = 1,
                     FaceCamera = true,
+                    Color = Color3.new(1, 0.27058824896812, 0),
+                    Transparency = 0.08,
                     LightEmission = 1,
                     Width = 0.16
                 }
-                local power = FAM.CastPower or 10
+                local power = FAM.CastPower or 8.8843638102214
                 
                 -- Step 1: Stop any previous fishing session
                 pcall(function() services.FishingReplicationService:StopFishing() end)
@@ -196,22 +196,14 @@ local function startAutoCast()
                 services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
                 task.wait(FAM.BlatantMode and 0.1 or 0.5)
                 
-                -- Step 3: Stage disconnect restore (crucial for validation)
-                if services.FishingRewardService then
-                    pcall(function()
-                        services.FishingRewardService:StageFishingDisconnectRestore(castPos)
-                    end)
-                end
-                task.wait(FAM.BlatantMode and 0.1 or 0.2)
-                
-                -- Step 4: Confirm the cast landed on water
+                -- Step 3: Confirm the cast landed on water
                 pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
                 task.wait(FAM.BlatantMode and 0.1 or 0.3)
                 
-                -- Step 5: Start fishing
+                -- Step 4: Start fishing
                 services.FishingReplicationService:StartFishing(rod, floater)
                 
-                -- Step 6: Instant Bite (force fish to bite immediately)
+                -- Step 5: Instant Bite (force fish to bite immediately)
                 if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
                     task.wait(FAM.BlatantMode and 0.2 or 1.0)
                     pcall(function()
