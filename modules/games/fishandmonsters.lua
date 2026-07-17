@@ -270,32 +270,70 @@ local function startAutoSell()
 end
 
 -- ═══════════════════════════════════════════════════════════════════════════
--- AUTO CHEST / TREASURE COLLECTOR
+-- AUTO CHEST / TREASURE COLLECTOR (Teleport → Open → Return)
 -- ═══════════════════════════════════════════════════════════════════════════
+local isCollecting = false
+
 local function startAutoCollect()
     disconnect("collect")
     
     local actionTimer = 0
-    local COLLECT_INTERVAL = 2
+    local COLLECT_INTERVAL = FAM.BlatantMode and 5 or 15
     
     connections.collect = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled or not FAM.AutoCollect then return end
+        if isCollecting then return end
         
         actionTimer = actionTimer + dt
         if actionTimer < COLLECT_INTERVAL then return end
         actionTimer = 0
         
-        pcall(function()
-            if services.TreasureService then
+        isCollecting = true
+        
+        task.spawn(function()
+            pcall(function()
+                if not services.TreasureService then isCollecting = false return end
+                
+                local hrp = getHRP()
+                if not hrp then isCollecting = false return end
+                
+                -- Save original position
+                local originalCFrame = hrp.CFrame
+                
+                -- Get all active chests
                 local chests = services.TreasureService:GetActiveChests()
-                if chests then
-                    for chestId, _ in pairs(chests) do
-                        pcall(function()
-                            services.TreasureService:RequestOpenChest(chestId)
-                        end)
-                    end
+                if not chests then isCollecting = false return end
+                
+                local opened = 0
+                for chestId, chestData in pairs(chests) do
+                    if not FAM.AutoCollect or not FAM.Enabled then break end
+                    
+                    pcall(function()
+                        -- Get chest position from Attachment
+                        local attachment = chestData.Attachment
+                        if attachment and typeof(attachment) == "Instance" then
+                            local pos = attachment.WorldPosition or attachment.Position
+                            if pos then
+                                -- Teleport to chest
+                                hrp.CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+                                task.wait(FAM.BlatantMode and 0.2 or 0.5)
+                            end
+                        end
+                        
+                        -- Open chest
+                        services.TreasureService:RequestOpenChest(chestId)
+                        opened = opened + 1
+                        task.wait(FAM.BlatantMode and 0.3 or 0.8)
+                    end)
                 end
-            end
+                
+                -- Teleport back to original position
+                if hrp and hrp.Parent and opened > 0 then
+                    hrp.CFrame = originalCFrame
+                end
+            end)
+            
+            isCollecting = false
         end)
     end)
 end
