@@ -32,6 +32,8 @@ FAM.TreasureESP    = false
 FAM.SelectedIsland = ""
 FAM.CastPower      = 100   -- 0-100%
 FAM.BlatantMode    = false
+FAM.HideCatchUI    = false
+FAM.SellLimit      = 15
 
 local connections = {}
 local espObjects  = {}
@@ -146,6 +148,46 @@ local function logCast(step, detail)
     end)
 end
 
+local function startUIHider()
+    disconnect("uihider")
+    local function processUI(child)
+        if not FAM.HideCatchUI then return end
+        local name = child.Name:lower()
+        if name:find("caught") or name:find("obtain") or name:find("reward") then
+            task.wait()
+            pcall(function()
+                if child:IsA("ScreenGui") then
+                    child.Enabled = false
+                else
+                    child.Visible = false
+                end
+            end)
+        end
+    end
+    pcall(function()
+        for _, child in ipairs(lp.PlayerGui:GetChildren()) do
+            processUI(child)
+        end
+    end)
+    connections.uihider = lp.PlayerGui.ChildAdded:Connect(processUI)
+end
+
+local function stopUIHider()
+    disconnect("uihider")
+    pcall(function()
+        for _, child in ipairs(lp.PlayerGui:GetChildren()) do
+            local name = child.Name:lower()
+            if name:find("caught") or name:find("obtain") or name:find("reward") then
+                if child:IsA("ScreenGui") then
+                    child.Enabled = true
+                else
+                    child.Visible = true
+                end
+            end
+        end
+    end)
+end
+
 local isFishing = false
 local activeUUID = nil
 
@@ -167,12 +209,13 @@ local function doPull(uuid)
         end)
         task.wait(0.02)
         
-        for i = 1, 15 do
-            if not FAM.AutoReel or not FAM.Enabled then break end
+        local tapInterval = FAM.BlatantMode and 0.02 or 0.08
+        for i = 1, 60 do
+            if not FAM.AutoReel or not FAM.Enabled or not activeUUID then break end
             pcall(function()
                 services.FishingRewardService:FishingPullInput(uuid, "tap")
             end)
-            task.wait(FAM.BlatantMode and 0.01 or 0.06)
+            task.wait(tapInterval)
         end
         
         -- Safe fallback: wait 2.0 seconds before unlocking, giving time for event to fire.
@@ -388,9 +431,6 @@ local function setAfkMode(v)
     end)
 end
 
--- ═══════════════════════════════════════════════════════════════════════════
--- AUTO SELL (Teleport to Fisherman → Sell → Teleport Back)
--- ═══════════════════════════════════════════════════════════════════════════
 local function startAutoSell()
     disconnect("sell")
     
@@ -398,28 +438,37 @@ local function startAutoSell()
     
     connections.sell = RunService.Heartbeat:Connect(function(dt)
         if not FAM.Enabled or not FAM.AutoSell then return end
+        if isFishing then return end -- Never sell while actively fishing
         
-        local SELL_INTERVAL = FAM.BlatantMode and 3 or 10
+        -- Check every 2 seconds for inventory limit
         actionTimer = actionTimer + dt
-        if actionTimer < SELL_INTERVAL then return end
+        if actionTimer < 2.0 then return end
         actionTimer = 0
         
         task.spawn(function()
-            pcall(function()
+            local success, err = pcall(function()
                 if not services.FishermanShopService then return end
                 
                 local hrp = getHRP()
                 if not hrp then return end
                 
-                -- Check if we have fish to sell
-                local hasFish = false
+                -- Count fish in inventory
+                local fishCount = 0
                 pcall(function()
                     local inv = services.FishermanShopService:GetFishInventory()
                     if inv and type(inv) == "table" then
-                        for _ in pairs(inv) do hasFish = true break end
+                        for _ in pairs(inv) do
+                            fishCount = fishCount + 1
+                        end
                     end
                 end)
-                if not hasFish then return end
+                
+                -- Only sell if count meets the threshold (defaults to 15)
+                local limit = FAM.SellLimit or 15
+                if fishCount < limit then return end
+                
+                -- Set state so we don't start fishing during sell
+                isFishing = true
                 
                 -- Save original position
                 local originalCFrame = hrp.CFrame
@@ -430,18 +479,26 @@ local function startAutoSell()
                 
                 if fishermanShop and fishermanShop:IsA("BasePart") then
                     hrp.CFrame = fishermanShop.CFrame + Vector3.new(0, 3, 0)
-                    task.wait(0.3)
+                    task.wait(0.4)
                 end
                 
                 -- Sell all fish
-                services.FishermanShopService:SellAllFish()
-                task.wait(0.3)
+                pcall(function()
+                    services.FishermanShopService:SellAllFish()
+                end)
+                task.wait(0.4)
                 
                 -- Teleport back to original position
                 if hrp and hrp.Parent then
                     hrp.CFrame = originalCFrame
                 end
+                
+                task.wait(0.2)
+                isFishing = false
             end)
+            if not success then
+                isFishing = false
+            end
         end)
     end)
 end
@@ -722,6 +779,8 @@ function FAM:Disable()
     self.MonsterESP     = false
     self.TreasureESP    = false
     self.BlatantMode    = false
+    self.HideCatchUI    = false
+    stopUIHider()
     setAfkMode(false)
     clearESP()
     disconnectAll()
@@ -811,6 +870,22 @@ function FAM:WireUI(Window, extras)
         end
     })
 
+    FishTab:Toggle({
+        Title    = "Hide Catch GUI",
+        Flag     = "FAM_HideCatchUI",
+        Default  = false,
+        Tooltip  = "Hides the obtain fish pop-up screen to reduce clutter",
+        Callback = function(v)
+            FAM.HideCatchUI = v
+            if v then
+                startUIHider()
+            else
+                stopUIHider()
+            end
+            N("Hide Catch GUI", v and "Enabled" or "Disabled")
+        end
+    })
+
     FishTab:Section({ Title = "Economy & Collection" })
 
     FishTab:Toggle({
@@ -827,6 +902,17 @@ function FAM:WireUI(Window, extras)
                 disconnect("sell")
             end
             N("Auto Sell", v and "Enabled" or "Disabled")
+        end
+    })
+
+    FishTab:Slider({
+        Title    = "Inventory Limit to Sell",
+        Flag     = "FAM_SellLimit",
+        Value    = { Min = 1, Max = 30, Default = 15 },
+        Step     = 1,
+        Tooltip  = "Number of fish in inventory before teleporting to sell",
+        Callback = function(v)
+            FAM.SellLimit = v
         end
     })
 
