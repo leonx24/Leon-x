@@ -203,7 +203,7 @@ local function startAutoCast()
                         castY = result.Position.Y
                     end
                 end)
-                
+                -- asd
                 local castPos = charPos + hrp.CFrame.LookVector * 15
                 castPos = Vector3.new(castPos.X, castY, castPos.Z)
                 
