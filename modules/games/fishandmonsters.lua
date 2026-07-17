@@ -215,7 +215,8 @@ local function startUIHider()
         local matches = {
             "caught", "obtain", "received", "success", "result", "collectionnotification", 
             "lootnotification", "loot", "reward", "popup", "congrat", "unbox", "catch", 
-            "roll", "won", "win", "alert", "notification"
+            "roll", "won", "win", "alert", "notification", "fish", "fishing", "item", 
+            "display", "show", "award", "hatch", "reveal", "unlock"
         }
         local shouldHide = false
         for _, match in ipairs(matches) do
@@ -1053,31 +1054,68 @@ function FAM:WireUI(Window, extras)
     local TravelTab   = Window:Tab({ Title = "Travel",   Icon = "🏝️" })
     local SettingsTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
 
-    -- ══ FISHING TAB ═══════════════════════════════════════════════════════
-    local isCollapsed = true
-    local autoFishingComponents = {}
-    
-    local function setButtonText(btnApi, text)
+    -- Helper function to make sections collapsible with right-aligned arrows
+    local function createCollapsible(tab, title, components)
+        local collapsed = true
+        local btnApi = tab:Button({
+            Title    = title,
+            Style    = "Surface",
+            Callback = function() end -- Handled by textBtn click below
+        })
+        
+        local arrow = Instance.new("TextLabel")
+        arrow.Name = "CollapseArrow"
+        arrow.Size = UDim2.new(0, 30, 1, 0)
+        arrow.Position = UDim2.new(1, -35, 0, 0)
+        arrow.BackgroundTransparency = 1
+        arrow.Text = "▶"
+        arrow.TextColor3 = Window._theme.TextSub
+        arrow.Font = Enum.Font.GothamBold
+        arrow.TextSize = 12
+        arrow.ZIndex = 8
+        
         pcall(function()
-            local button = btnApi.Frame:FindFirstChildWhichIsA("TextButton")
-            if button then
-                button.Text = text
+            local textBtn = btnApi.Frame:FindFirstChildOfClass("TextButton")
+            if textBtn then
+                arrow.Parent = textBtn
+                textBtn.TextXAlignment = Enum.TextXAlignment.Left
+                local pad = Instance.new("UIPadding")
+                pad.PaddingLeft = UDim.new(0, 14)
+                pad.Parent = textBtn
             end
         end)
-    end
-    
-    local collapsibleBtn
-    collapsibleBtn = FishTab:Button({
-        Title = "▶ Auto Fishing Settings",
-        Style = "Surface",
-        Callback = function()
-            isCollapsed = not isCollapsed
-            setButtonText(collapsibleBtn, isCollapsed and "▶ Auto Fishing Settings" or "▼ Auto Fishing Settings")
-            for _, comp in ipairs(autoFishingComponents) do
-                comp.Frame.Visible = not isCollapsed
+        
+        local function toggle()
+            collapsed = not collapsed
+            arrow.Text = collapsed and "▶" or "▼"
+            for _, comp in ipairs(components) do
+                if comp and comp.Frame then
+                    comp.Frame.Visible = not collapsed
+                end
             end
         end
-    })
+        
+        btnApi.Callback = toggle
+        
+        pcall(function()
+            local textBtn = btnApi.Frame:FindFirstChildOfClass("TextButton")
+            if textBtn then
+                textBtn.MouseButton1Click:Connect(toggle)
+            end
+        end)
+        
+        -- Start collapsed
+        for _, comp in ipairs(components) do
+            if comp and comp.Frame then
+                comp.Frame.Visible = false
+            end
+        end
+        
+        return btnApi
+    end
+
+    -- ══ FISHING TAB ═══════════════════════════════════════════════════════
+    local autoFishingComponents = {}
 
     local autoCastToggle = FishTab:Toggle({
         Title    = "Auto Cast",
@@ -1096,7 +1134,6 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, autoCastToggle)
-    autoCastToggle.Frame.Visible = false
 
     local instantBiteToggle = FishTab:Toggle({
         Title    = "Instant Bite",
@@ -1109,7 +1146,6 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, instantBiteToggle)
-    instantBiteToggle.Frame.Visible = false
 
     local blatantModeToggle = FishTab:Toggle({
         Title    = "Blatant Mode",
@@ -1122,7 +1158,6 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, blatantModeToggle)
-    blatantModeToggle.Frame.Visible = false
 
     local autoReelToggle = FishTab:Toggle({
         Title    = "Auto Reel",
@@ -1141,7 +1176,6 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, autoReelToggle)
-    autoReelToggle.Frame.Visible = false
 
     local afkModeToggle = FishTab:Toggle({
         Title    = "In-Game AFK Mode",
@@ -1155,7 +1189,6 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, afkModeToggle)
-    afkModeToggle.Frame.Visible = false
 
     local hideCatchToggle = FishTab:Toggle({
         Title    = "Hide Catch GUI",
@@ -1173,7 +1206,6 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, hideCatchToggle)
-    hideCatchToggle.Frame.Visible = false
 
     local antiAfkToggle = FishTab:Toggle({
         Title    = "Anti-AFK (Reconnect / Anti-Idle)",
@@ -1191,11 +1223,12 @@ function FAM:WireUI(Window, extras)
         end
     })
     table.insert(autoFishingComponents, antiAfkToggle)
-    antiAfkToggle.Frame.Visible = false
 
-    FishTab:Section({ Title = "Economy & Collection" })
+    createCollapsible(FishTab, "Auto Fishing Settings", autoFishingComponents)
 
-    FishTab:Toggle({
+    local ecoComponents = {}
+
+    local autoSellToggle = FishTab:Toggle({
         Title    = "Auto Sell Fish",
         Flag     = "FAM_AutoSell",
         Default  = false,
@@ -1211,8 +1244,9 @@ function FAM:WireUI(Window, extras)
             N("Auto Sell", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(ecoComponents, autoSellToggle)
 
-    FishTab:Slider({
+    local sellLimitSlider = FishTab:Slider({
         Title    = "Inventory Limit to Sell",
         Flag     = "FAM_SellLimit",
         Value    = { Min = 1, Max = 1000, Default = 15 },
@@ -1222,8 +1256,9 @@ function FAM:WireUI(Window, extras)
             FAM.SellLimit = v
         end
     })
+    table.insert(ecoComponents, sellLimitSlider)
 
-    FishTab:Button({
+    local sellAllBtn = FishTab:Button({
         Title    = "Sell All Fish Now",
         Style    = "Primary",
         Callback = function()
@@ -1254,8 +1289,9 @@ function FAM:WireUI(Window, extras)
             end)
         end
     })
+    table.insert(ecoComponents, sellAllBtn)
 
-    FishTab:Toggle({
+    local autoBuyRodToggle = FishTab:Toggle({
         Title    = "Auto Buy Rod Upgrades",
         Flag     = "FAM_AutoBuyRod",
         Default  = false,
@@ -1271,8 +1307,9 @@ function FAM:WireUI(Window, extras)
             N("Auto Buy Rods", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(ecoComponents, autoBuyRodToggle)
 
-    FishTab:Toggle({
+    local autoBuyFloaterToggle = FishTab:Toggle({
         Title    = "Auto Buy Floater Upgrades",
         Flag     = "FAM_AutoBuyFloater",
         Default  = false,
@@ -1288,8 +1325,9 @@ function FAM:WireUI(Window, extras)
             N("Auto Buy Floaters", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(ecoComponents, autoBuyFloaterToggle)
 
-    FishTab:Toggle({
+    local autoBuyEggToggle = FishTab:Toggle({
         Title    = "Auto Buy Egg Upgrades",
         Flag     = "FAM_AutoBuyEgg",
         Default  = false,
@@ -1305,8 +1343,9 @@ function FAM:WireUI(Window, extras)
             N("Auto Buy Eggs", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(ecoComponents, autoBuyEggToggle)
 
-    FishTab:Dropdown({
+    local selectEggDrop = FishTab:Dropdown({
         Title    = "Select Egg to Buy",
         Flag     = "FAM_SelectedEgg",
         Default  = "Common Egg",
@@ -1315,8 +1354,9 @@ function FAM:WireUI(Window, extras)
             FAM.SelectedEgg = v
         end
     })
+    table.insert(ecoComponents, selectEggDrop)
 
-    FishTab:Toggle({
+    local autoCollectToggle = FishTab:Toggle({
         Title    = "Auto Collect Chests",
         Flag     = "FAM_AutoCollect",
         Default  = false,
@@ -1332,8 +1372,9 @@ function FAM:WireUI(Window, extras)
             N("Auto Collect Chests", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(ecoComponents, autoCollectToggle)
 
-    FishTab:Toggle({
+    local autoQuestToggle = FishTab:Toggle({
         Title    = "Auto Claim Quests",
         Flag     = "FAM_AutoQuest",
         Default  = false,
@@ -1349,11 +1390,14 @@ function FAM:WireUI(Window, extras)
             N("Auto Quest", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(ecoComponents, autoQuestToggle)
+
+    createCollapsible(FishTab, "Economy & Collection", ecoComponents)
 
     -- ══ ESP TAB ═══════════════════════════════════════════════════════════
-    ESPTab:Section({ Title = "Entity ESP" })
+    local espComponents = {}
 
-    ESPTab:Toggle({
+    local fishEspToggle = ESPTab:Toggle({
         Title    = "Fish ESP",
         Flag     = "FAM_FishESP",
         Default  = false,
@@ -1368,8 +1412,9 @@ function FAM:WireUI(Window, extras)
             N("Fish ESP", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(espComponents, fishEspToggle)
 
-    ESPTab:Toggle({
+    local monsterEspToggle = ESPTab:Toggle({
         Title    = "Monster ESP",
         Flag     = "FAM_MonsterESP",
         Default  = false,
@@ -1385,8 +1430,9 @@ function FAM:WireUI(Window, extras)
             N("Monster ESP", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(espComponents, monsterEspToggle)
 
-    ESPTab:Toggle({
+    local chestEspToggle = ESPTab:Toggle({
         Title    = "Chest ESP",
         Flag     = "FAM_TreasureESP",
         Default  = false,
@@ -1402,11 +1448,14 @@ function FAM:WireUI(Window, extras)
             N("Chest ESP", v and "Enabled" or "Disabled")
         end
     })
+    table.insert(espComponents, chestEspToggle)
+
+    createCollapsible(ESPTab, "Entity ESP", espComponents)
 
     -- ══ TRAVEL TAB ═══════════════════════════════════════════════════════
-    TravelTab:Section({ Title = "Island & Shop Teleports" })
+    local travelComponents = {}
 
-    TravelTab:Dropdown({
+    local selectIslandDrop = TravelTab:Dropdown({
         Title    = "Select Island",
         Flag     = "FAM_SelectedIsland",
         Default  = islandNames[1] or "Starter Island",
@@ -1415,8 +1464,9 @@ function FAM:WireUI(Window, extras)
             FAM.SelectedIsland = v
         end
     })
+    table.insert(travelComponents, selectIslandDrop)
 
-    TravelTab:Button({
+    local teleportBtn = TravelTab:Button({
         Title    = "Teleport to Destination",
         Callback = function()
             if FAM.SelectedIsland and FAM.SelectedIsland ~= "" then
@@ -1427,6 +1477,9 @@ function FAM:WireUI(Window, extras)
             end
         end
     })
+    table.insert(travelComponents, teleportBtn)
+
+    createCollapsible(TravelTab, "Island & Shop Teleports", travelComponents)
 
     -- ══ SETTINGS TAB ═══════════════════════════════════════════════════════
     if ConfigMgr then
