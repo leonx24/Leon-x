@@ -195,6 +195,24 @@ end
 local uiConnections = {}
 local originalStates = {}
 
+local targetGuis = {
+    NewFishDiscovery = true,
+    PetGachaGui = true,
+    NotificationGui = true,
+    NotificationGuiV2 = true,
+    DailyRewardGUI = true,
+    RewardGui = true
+}
+
+local targetFrames = {
+    RewardPanel = true,
+    LootNotification = true,
+    CollectionNotification = true,
+    CollectionNotificationFrame = true,
+    Backdrop = true,
+    Card = true
+}
+
 local function startUIHider()
     disconnect("uihider")
     
@@ -214,37 +232,7 @@ local function startUIHider()
             return
         end
         
-        -- Target specific ScreenGuis that represent fish caught or reward screens
-        local targetGuis = {
-            "NewFishDiscovery",
-            "PetGachaGui",
-            "NotificationGui",
-            "NotificationGuiV2",
-            "DailyRewardGUI",
-            "RewardGui"
-        }
-        
-        -- Target specific Frame/Scroll names inside other GUIs
-        local targetFrames = {
-            "RewardPanel", "LootNotification", "CollectionNotification", "CollectionNotificationFrame", "Backdrop", "Card"
-        }
-        
-        local shouldHide = false
-        local name = child.Name
-        for _, tName in ipairs(targetGuis) do
-            if name == tName then
-                shouldHide = true
-                break
-            end
-        end
-        if not shouldHide then
-            for _, fName in ipairs(targetFrames) do
-                if name == fName then
-                    shouldHide = true
-                    break
-                end
-            end
-        end
+        local shouldHide = targetGuis[child.Name] or targetFrames[child.Name]
         
         if shouldHide then
             pcall(function()
@@ -1096,6 +1084,7 @@ function FAM:Init()
     task.wait(1)
     findRemotes()
     getIslandNames()
+    print("[Leon X] Booting Version 5.0 (Optimized Blatant & Hider Performance Hotfix)")
 end
 
 function FAM:Enable()
