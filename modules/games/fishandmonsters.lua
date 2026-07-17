@@ -112,20 +112,28 @@ local function findUUID(obj)
 end
 
 local function getEquippedRod()
-    local tool = lp.Character:FindFirstChildOfClass("Tool") or lp.Backpack:FindFirstChildOfClass("Tool")
-    return tool and tool.Name or "Default"
+    local rod = "Default"
+    pcall(function()
+        local tool = lp.Character:FindFirstChildOfClass("Tool") or lp.Backpack:FindFirstChildOfClass("Tool")
+        if tool then
+            rod = tool.Name
+        end
+    end)
+    return rod
 end
 
 local function getEquippedFloater()
-    -- Attempt to find equipped floater from player stats
-    local data = ReplicatedStorage:FindFirstChild("PlayerData") and ReplicatedStorage.PlayerData:FindFirstChild(tostring(lp.UserId))
-    if data then
-        local eq = data:FindFirstChild("Equipped") or data:FindFirstChild("EquippedFloater")
-        if eq and eq:FindFirstChild("Floater") then
-            return eq.Floater.Value
+    local floater = "Floater_Doll"
+    pcall(function()
+        local data = ReplicatedStorage:FindFirstChild("PlayerData") and ReplicatedStorage.PlayerData:FindFirstChild(tostring(lp.UserId))
+        if data then
+            local eq = data:FindFirstChild("Equipped") or data:FindFirstChild("EquippedFloater")
+            if eq and eq:FindFirstChild("Floater") then
+                floater = eq.Floater.Value
+            end
         end
-    end
-    return "Floater_Doll"
+    end)
+    return floater
 end
 
 local isFishing = false
@@ -160,11 +168,11 @@ local function startAutoCast()
         isFishing = true
         
         task.spawn(function()
-            pcall(function()
-                if not services.FishingReplicationService then isFishing = false return end
+            local success, err = pcall(function()
+                if not services.FishingReplicationService then error("FishingReplicationService nil") end
                 
                 local hrp = getHRP()
-                if not hrp then isFishing = false return end
+                if not hrp then error("HRP nil") end
                 
                 local charPos = hrp.Position
                 local castPos = charPos + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
@@ -173,7 +181,7 @@ local function startAutoCast()
                 local visualData = {
                     LightInfluence = 0,
                     Transparency = 0.08,
-                    Color = 1, -- representing default color or 1
+                    Color = 1,
                     FaceCamera = true,
                     LightEmission = 1,
                     Width = 0.16
@@ -218,6 +226,11 @@ local function startAutoCast()
                 end
             end)
             
+            if not success then
+                warn("[Leon X] AutoCast sequence failed: " .. tostring(err))
+                isFishing = false
+            end
+            
             -- Safety: reset fishing state after timeout so we don't get stuck
             task.delay(FAM.BlatantMode and 5 or 15, function()
                 if isFishing and not activeUUID then
@@ -250,6 +263,11 @@ local function startAutoReel()
                 elseif found2 then
                     uuid = found2
                     state = arg1
+                end
+                
+                if state == false then
+                    isFishing = false
+                    activeUUID = nil
                 end
                 
                 if state and FAM.AutoReel then
