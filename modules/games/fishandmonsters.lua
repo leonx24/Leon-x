@@ -96,10 +96,25 @@ local function findRemotes()
             services.TreasureService = Knit.GetService("TreasureService")
             services.QuestService = Knit.GetService("QuestService")
             
-            pcall(function() services.PetService = Knit.GetService("PetService") or Knit.GetService("PetShopService") end)
-            pcall(function() services.EggService = Knit.GetService("EggService") or Knit.GetService("EggShopService") end)
+            -- Bind Pet and Egg services asynchronously to prevent infinite yielding if they don't exist
+            local function bindAsync(name, key)
+                task.spawn(function()
+                    pcall(function()
+                        local s = Knit.GetService(name)
+                        if s then
+                            services[key] = s
+                            print("[Leon X] FAM: Bound " .. name .. " successfully!")
+                        end
+                    end)
+                end)
+            end
             
-            print("[Leon X] FAM: Bound all Knit services successfully!")
+            bindAsync("PetService", "PetService")
+            bindAsync("PetShopService", "PetService")
+            bindAsync("EggService", "EggService")
+            bindAsync("EggShopService", "EggService")
+            
+            print("[Leon X] FAM: Bound all primary Knit services successfully!")
             
             pcall(function()
                 logCast("Service Dump", "Dumping FishermanShopService:")
