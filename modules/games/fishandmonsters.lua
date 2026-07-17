@@ -94,10 +94,42 @@ local function findRemotes()
     end)
 end
 
--- ═══════════════════════════════════════════════════════════════════════════
--- AUTO CAST & INSTANT BITE
--- ═══════════════════════════════════════════════════════════════════════════
+-- Helper to recursively find UUID in tables/strings
+local function findUUID(obj)
+    if type(obj) == "string" and #obj == 36 and obj:find("-") then
+        return obj
+    elseif type(obj) == "table" then
+        for k, v in pairs(obj) do
+            if type(v) == "string" and #v == 36 and v:find("-") then
+                return v
+            elseif type(v) == "table" then
+                local res = findUUID(v)
+                if res then return res end
+            end
+        end
+    end
+    return nil
+end
+
+local function getEquippedRod()
+    local tool = lp.Character:FindFirstChildOfClass("Tool") or lp.Backpack:FindFirstChildOfClass("Tool")
+    return tool and tool.Name or "Default"
+end
+
+local function getEquippedFloater()
+    -- Attempt to find equipped floater from player stats
+    local data = ReplicatedStorage:FindFirstChild("PlayerData") and ReplicatedStorage.PlayerData:FindFirstChild(tostring(lp.UserId))
+    if data then
+        local eq = data:FindFirstChild("Equipped") or data:FindFirstChild("EquippedFloater")
+        if eq and eq:FindFirstChild("Floater") then
+            return eq.Floater.Value
+        end
+    end
+    return "Floater_Doll"
+end
+
 local isFishing = false
+local activeUUID = nil
 
 local function startAutoCast()
     disconnect("cast")
@@ -109,6 +141,7 @@ local function startAutoCast()
         if services.FishingRewardService then
             connections.fishcaught = services.FishingRewardService.FishCaught:Connect(function()
                 isFishing = false
+                activeUUID = nil
             end)
         end
     end)
@@ -128,39 +161,68 @@ local function startAutoCast()
         
         task.spawn(function()
             pcall(function()
-                if not services.FishingReplicationService then return end
+                if not services.FishingReplicationService then isFishing = false return end
                 
                 local hrp = getHRP()
                 if not hrp then isFishing = false return end
-                local castPos = hrp.Position + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
+                
+                local charPos = hrp.Position
+                local castPos = charPos + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
+                local rod = getEquippedRod()
+                local floater = getEquippedFloater()
+                local visualData = {
+                    LightInfluence = 0,
+                    Transparency = 0.08,
+                    Color = 1, -- representing default color or 1
+                    FaceCamera = true,
+                    LightEmission = 1,
+                    Width = 0.16
+                }
+                local power = FAM.CastPower or 10
                 
                 -- Step 1: Stop any previous fishing session
                 pcall(function() services.FishingReplicationService:StopFishing() end)
                 task.wait(0.3)
                 
-                -- Step 2: Throw the floater
-                services.FishingReplicationService:ThrowFloater(castPos)
+                -- Step 2: Throw the floater with correct parameters matching the game
+                services.FishingReplicationService:ThrowFloater(charPos, castPos, rod, floater, visualData, power)
                 task.wait(FAM.BlatantMode and 0.1 or 0.5)
                 
-                -- Step 3: Confirm the cast landed on water
-                pcall(function() services.FishingReplicationService:ConfirmFloatingCast() end)
+                -- Step 3: Stage disconnect restore (crucial for validation)
+                if services.FishingRewardService then
+                    pcall(function()
+                        services.FishingRewardService:StageFishingDisconnectRestore(castPos)
+                    end)
+                end
+                task.wait(FAM.BlatantMode and 0.1 or 0.2)
+                
+                -- Step 4: Confirm the cast landed on water
+                pcall(function() services.FishingReplicationService:ConfirmFloatingCast(castPos) end)
                 task.wait(FAM.BlatantMode and 0.1 or 0.3)
                 
-                -- Step 4: Start fishing (waiting for bite)
-                services.FishingReplicationService:StartFishing()
+                -- Step 5: Start fishing
+                services.FishingReplicationService:StartFishing(rod, floater)
                 
-                -- Step 5: Instant Bite (force fish to bite immediately)
+                -- Step 6: Instant Bite (force fish to bite immediately)
                 if (FAM.InstantBite or FAM.BlatantMode) and services.FishingRewardService then
                     task.wait(FAM.BlatantMode and 0.2 or 1.0)
                     pcall(function()
-                        services.FishingRewardService:RequestFishBite()
+                        local res = services.FishingRewardService:RequestFishBite(castPos)
+                        if res then
+                            local found = findUUID(res)
+                            if found then
+                                activeUUID = found
+                            end
+                        end
                     end)
                 end
             end)
             
             -- Safety: reset fishing state after timeout so we don't get stuck
             task.delay(FAM.BlatantMode and 5 or 15, function()
-                isFishing = false
+                if isFishing and not activeUUID then
+                    isFishing = false
+                end
             end)
         end)
     end)
@@ -174,8 +236,25 @@ local function startAutoReel()
     
     pcall(function()
         if services.FishingRewardService and services.FishingReplicationService then
-            connections.reel = services.FishingRewardService.FishingPullState:Connect(function(active)
-                if active and FAM.AutoReel then
+            connections.reel = services.FishingRewardService.FishingPullState:Connect(function(arg1, arg2)
+                -- Determine which parameter is active and if there's a UUID
+                local state = arg1
+                local uuid = activeUUID
+                
+                -- Extract UUID from argument if present
+                local found1 = findUUID(arg1)
+                local found2 = findUUID(arg2)
+                if found1 then
+                    uuid = found1
+                    state = arg2
+                elseif found2 then
+                    uuid = found2
+                    state = arg1
+                end
+                
+                if state and FAM.AutoReel then
+                    activeUUID = uuid
+                    
                     -- Trigger client pull state
                     pcall(function()
                         services.FishingReplicationService:StartPulling()
@@ -183,10 +262,24 @@ local function startAutoReel()
                     
                     -- Send multiple pull inputs to complete minigame
                     task.spawn(function()
-                        for i = 1, 20 do
+                        -- First send "begin"
+                        if uuid then
+                            pcall(function()
+                                services.FishingRewardService:FishingPullInput(uuid, "begin")
+                            end)
+                            task.wait(0.05)
+                        end
+                        
+                        -- Then send "tap" inputs
+                        for i = 1, 15 do
                             if not FAM.AutoReel or not FAM.Enabled then break end
                             pcall(function()
-                                services.FishingRewardService:FishingPullInput(true)
+                                if uuid then
+                                    services.FishingRewardService:FishingPullInput(uuid, "tap")
+                                else
+                                    -- Fallback if UUID couldn't be extracted
+                                    services.FishingRewardService:FishingPullInput(true)
+                                end
                             end)
                             if not FAM.BlatantMode then
                                 task.wait(0.06)
