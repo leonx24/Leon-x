@@ -153,7 +153,7 @@ local function startUIHider()
     local function processUI(child)
         if not FAM.HideCatchUI then return end
         local name = child.Name:lower()
-        local matches = {"caught", "obtain"}
+        local matches = {"caught", "obtain", "received", "success", "result", "collectionnotification", "lootnotification"}
         local shouldHide = false
         for _, match in ipairs(matches) do
             if name:find(match) then
@@ -184,7 +184,7 @@ local function stopUIHider()
     pcall(function()
         for _, child in ipairs(lp.PlayerGui:GetDescendants()) do
             local name = child.Name:lower()
-            local matches = {"caught", "obtain"}
+            local matches = {"caught", "obtain", "received", "success", "result", "collectionnotification", "lootnotification"}
             local shouldHide = false
             for _, match in ipairs(matches) do
                 if name:find(match) then
