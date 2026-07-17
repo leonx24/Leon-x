@@ -357,6 +357,82 @@ local function openShopGUI(state)
     end)
 end
 
+local function buyNextEquipment(type)
+    pcall(function()
+        local shopGui = lp.PlayerGui:FindFirstChild("EquipmentShopGUI")
+        if not shopGui then return end
+        
+        -- Open Shop GUI to bypass server checks
+        shopGui.Enabled = true
+        local mainPanel = shopGui:FindFirstChild("MainPanel")
+        if mainPanel then mainPanel.Visible = true end
+        
+        task.wait(0.25)
+        
+        -- Switch Tab (RodsTab or FloatersTab)
+        local tabFrame = mainPanel and mainPanel:FindFirstChild("TabFrame")
+        local tabBtn = tabFrame and tabFrame:FindFirstChild(type .. "sTab")
+        if tabBtn and tabBtn:IsA("TextButton") then
+            -- Simulate clicking tab
+            local clicked = false
+            if getconnections then
+                for _, conn in ipairs(getconnections(tabBtn.MouseButton1Click)) do
+                    conn:Fire()
+                    clicked = true
+                end
+            end
+            if not clicked then
+                tabBtn.Visible = true
+            end
+        end
+        
+        task.wait(0.35)
+        
+        -- Find first buyable item in ContentFrame
+        local contentFrame = mainPanel and mainPanel:FindFirstChild("ContentFrame")
+        if contentFrame then
+            for _, card in ipairs(contentFrame:GetChildren()) do
+                if card:IsA("Frame") and card.Name:find(type .. "Card_") then
+                    local actionBtn = card:FindFirstChild("BottomContainer") 
+                        and card.BottomContainer:FindFirstChild("ActionButton")
+                    if actionBtn and actionBtn:IsA("TextButton") then
+                        local txt = actionBtn.Text:lower()
+                        -- If it is a buy button (doesn't say equip/equipped/owned)
+                        if not txt:find("equip") and not txt:find("owned") and txt ~= "" then
+                            -- Click buy button
+                            local clicked = false
+                            if getconnections then
+                                for _, conn in ipairs(getconnections(actionBtn.MouseButton1Click)) do
+                                    conn:Fire()
+                                    clicked = true
+                                end
+                            end
+                            
+                            -- Knit service fallback
+                            local itemId = card.Name:match(type .. "Card_(.+)")
+                            if itemId and services.RodShopService then
+                                pcall(function()
+                                    if type == "Rod" then
+                                        services.RodShopService:BuyRod(itemId)
+                                    else
+                                        services.RodShopService:BuyFloater(itemId)
+                                    end
+                                end)
+                            end
+                            
+                            task.wait(0.2)
+                            break -- Buy one item per loop iteration to be safe
+                        end
+                    end
+                end
+            end
+        end
+        
+        task.wait(0.25)
+        if mainPanel then mainPanel.Visible = false end
+    end)
+end
+
 local function startUpgradeLoop()
     disconnect("upgrade")
     local actionTimer = 0
@@ -369,39 +445,19 @@ local function startUpgradeLoop()
         actionTimer = 0
         
         task.spawn(function()
-            -- Open Shop GUI to bypass server checks
-            openShopGUI(true)
-            task.wait(0.3)
-            
             if FAM.AutoBuyRod then
-                if services.FishermanShopService then
-                    pcall(function() services.FishermanShopService:UpgradeRod() end)
-                    pcall(function() services.FishermanShopService:BuyNextRod() end)
-                    pcall(function() services.FishermanShopService:Upgrade("Rod") end)
-                end
-                if services.RodShopService then
-                    pcall(function() services.RodShopService:BuyRod() end)
-                    pcall(function() services.RodShopService:UpgradeRod() end)
-                    pcall(function() services.RodShopService:BuyNextRod() end)
-                    pcall(function() services.RodShopService:Upgrade("Rod") end)
-                end
+                buyNextEquipment("Rod")
             end
             
             if FAM.AutoBuyFloater then
-                if services.FishermanShopService then
-                    pcall(function() services.FishermanShopService:UpgradeFloater() end)
-                    pcall(function() services.FishermanShopService:BuyNextFloater() end)
-                    pcall(function() services.FishermanShopService:Upgrade("Floater") end)
-                end
-                if services.RodShopService then
-                    pcall(function() services.RodShopService:BuyFloater() end)
-                    pcall(function() services.RodShopService:UpgradeFloater() end)
-                    pcall(function() services.RodShopService:BuyNextFloater() end)
-                    pcall(function() services.RodShopService:Upgrade("Floater") end)
-                end
+                buyNextEquipment("Floater")
             end
             
             if FAM.AutoBuyEgg then
+                -- Open Egg Shop GUI to bypass server checks
+                openShopGUI(true)
+                task.wait(0.3)
+                
                 local eggToBuy = FAM.SelectedEgg or "Common Egg"
                 local eggTier = eggToBuy:gsub(" Egg", "")
                 
@@ -425,11 +481,10 @@ local function startUpgradeLoop()
                         services.PetService:HatchEgg(eggTier)
                     end
                 end)
+                
+                task.wait(0.2)
+                openShopGUI(false)
             end
-            
-            -- Close Shop GUI
-            task.wait(0.2)
-            openShopGUI(false)
         end)
     end)
 end
@@ -1020,49 +1075,6 @@ local function teleportToIsland(islandName)
     end)
 end
 
-local function dumpPlayerGui()
-    pcall(function()
-        local list = {}
-        for _, gui in ipairs(lp.PlayerGui:GetChildren()) do
-            if gui:IsA("ScreenGui") then
-                table.insert(list, string.format("ScreenGui: %s (Enabled: %s)", gui.Name, tostring(gui.Enabled)))
-                for _, desc in ipairs(gui:GetDescendants()) do
-                    if desc:IsA("Frame") or desc:IsA("ScrollingFrame") or desc:IsA("TextButton") then
-                        table.insert(list, string.format("  - %s (%s, Visible: %s)", desc.Name, desc.ClassName, tostring(desc.Visible)))
-                    end
-                end
-            end
-        end
-        writefile("LeonX_GUIDump.txt", table.concat(list, "\n"))
-    end)
-end
-
-local function dumpRodShopService()
-    pcall(function()
-        local list = {}
-        if Knit then
-            local service = Knit.GetService("RodShopService")
-            if service then
-                table.insert(list, "RodShopService RF:")
-                if service.RF then
-                    for k, v in pairs(service.RF) do
-                        table.insert(list, string.format("  .RF.%s (%s)", tostring(k), type(v)))
-                    end
-                end
-                table.insert(list, "RodShopService Methods:")
-                for k, v in pairs(service) do
-                    table.insert(list, string.format("  .%s (%s)", tostring(k), type(v)))
-                end
-            else
-                table.insert(list, "RodShopService not found in Knit!")
-            end
-        else
-            table.insert(list, "Knit not initialized!")
-        end
-        writefile("LeonX_RodShopDump.txt", table.concat(list, "\n"))
-    end)
-end
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- MODULE INTERFACE
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -1070,13 +1082,6 @@ function FAM:Init()
     task.wait(1)
     findRemotes()
     getIslandNames()
-    
-    -- Diagnostics
-    task.spawn(function()
-        task.wait(2)
-        dumpPlayerGui()
-        dumpRodShopService()
-    end)
 end
 
 function FAM:Enable()
