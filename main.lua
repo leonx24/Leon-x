@@ -526,6 +526,7 @@ if ActiveGameModule then
             PerfStats    = PerfStats,
             FullBright   = FullBright,
             RemoveFog    = RemoveFog,
+            Noclip       = Noclip,
             N            = N,
         })
     end)

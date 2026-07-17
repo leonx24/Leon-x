@@ -43,7 +43,7 @@ FAM.SelectedEgg    = "Common Egg"
 
 local connections = {}
 local espObjects  = {}
-local Fly, Speed, InfiniteJump, PerfStats, FullBright, RemoveFog, Rejoin, ServerHop
+local Fly, Speed, InfiniteJump, PerfStats, FullBright, RemoveFog, Rejoin, ServerHop, Noclip
 
 -- ── Connection Helpers ──────────────────────────────────────────────────────
 local function disconnect(key)
@@ -1341,6 +1341,7 @@ function FAM:Disable()
     pcall(function() if FullBright and FullBright.Disable then FullBright:Disable() end end)
     pcall(function() if RemoveFog and RemoveFog.Disable then RemoveFog:Disable() end end)
     pcall(function() if PerfStats and PerfStats.Disable then PerfStats:Disable() end end)
+    pcall(function() if Noclip and Noclip.Disable then Noclip:Disable() end end)
     
     -- Close any opened shop GUIs
     pcall(function()
@@ -1366,6 +1367,7 @@ function FAM:WireUI(Window, extras)
     RemoveFog    = extras.RemoveFog
     Rejoin       = extras.Rejoin
     ServerHop    = extras.ServerHop
+    Noclip       = extras.Noclip
 
     local FishTab     = Window:Tab({ Title = "Fishing",  Icon = "🎣" })
     local ESPTab      = Window:Tab({ Title = "ESP",      Icon = "👁️" })
@@ -1964,10 +1966,12 @@ function FAM:WireUI(Window, extras)
     -- ══ PLAYER TAB ════════════════════════════════════════════════════════
     local PlayerTab = Window:Tab({ Title = "Player", Icon = "👤" })
 
-    PlayerTab:Section({ Title = "Flight" })
+    PlayerTab:Section({ Title = "Flight & Noclip" })
     
     local flyToggle
     local flySpeedSlider
+    local flyKeybind
+    local flyKey = Enum.KeyCode.F
 
     flyToggle = PlayerTab:Toggle({
         Title    = "Fly",
@@ -1995,6 +1999,48 @@ function FAM:WireUI(Window, extras)
             if Fly and v >= 10 then
                 Fly:SetSpeed(v)
             end
+        end
+    })
+
+    flyKeybind = PlayerTab:Keybind({
+        Title    = "Fly Keybind",
+        Flag     = "FAM_FlyKey",
+        Default  = "F",
+        Tooltip  = "Press key to toggle flight",
+        Callback = function(k)
+            flyKey = Enum.KeyCode[k] or Enum.KeyCode.F
+            N("Fly Keybind", "Set to " .. k)
+        end
+    })
+
+    local noclipToggle
+    local noclipKeybind
+    local noclipKey = Enum.KeyCode.V
+
+    noclipToggle = PlayerTab:Toggle({
+        Title    = "Noclip",
+        Flag     = "FAM_Noclip",
+        Default  = false,
+        Compact  = true,
+        Tooltip  = "Walk through walls/objects",
+        Callback = function(v)
+            if Noclip then
+                if v then Noclip:Enable() else Noclip:Disable() end
+                N("Noclip", v and "Enabled" or "Disabled")
+            else
+                N("Error", "Noclip module not loaded")
+            end
+        end
+    })
+
+    noclipKeybind = PlayerTab:Keybind({
+        Title    = "Noclip Keybind",
+        Flag     = "FAM_NoclipKey",
+        Default  = "V",
+        Tooltip  = "Press key to toggle noclip",
+        Callback = function(k)
+            noclipKey = Enum.KeyCode[k] or Enum.KeyCode.V
+            N("Noclip Keybind", "Set to " .. k)
         end
     })
 
@@ -2088,9 +2134,25 @@ function FAM:WireUI(Window, extras)
         end
     })
 
+    UIS.InputBegan:Connect(function(i, gp)
+        if gp or not FAM.Enabled then return end
+        if i.KeyCode == flyKey then
+            if flyToggle then
+                flyToggle:Set(not flyToggle.Value)
+            end
+        elseif i.KeyCode == noclipKey then
+            if noclipToggle then
+                noclipToggle:Set(not noclipToggle.Value)
+            end
+        end
+    end)
+
     if ConfigMgr then
         ConfigMgr:Register("FAM_Fly", flyToggle)
         ConfigMgr:Register("FAM_FlySpeed", flySpeedSlider)
+        ConfigMgr:Register("FAM_FlyKey", flyKeybind)
+        ConfigMgr:Register("FAM_Noclip", noclipToggle)
+        ConfigMgr:Register("FAM_NoclipKey", noclipKeybind)
         ConfigMgr:Register("FAM_SpeedHack", speedToggle)
         ConfigMgr:Register("FAM_WalkSpeed", walkSpeedSlider)
         ConfigMgr:Register("FAM_JumpPower", jumpPowerSlider)
