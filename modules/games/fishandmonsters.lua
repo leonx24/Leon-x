@@ -189,8 +189,24 @@ local function startAutoCast()
                 local hrp = getHRP()
                 if not hrp then error("HRP nil") end
                 
-                local charPos = hrp.Position
-                local castPos = charPos + hrp.CFrame.LookVector * 15 + Vector3.new(0, -2, 0)
+                                local charPos = hrp.Position
+                
+                -- Use Raycast to find exact water height
+                local castY = 168.50004577637 -- Fallback to Sea 1 water level
+                pcall(function()
+                    local params = RaycastParams.new()
+                    params.IgnoreWater = false
+                    params.FilterType = Enum.RaycastFilterType.Exclude
+                    params.FilterDescendantsInstances = {lp.Character}
+                    local result = workspace:Raycast(charPos + hrp.CFrame.LookVector * 15, Vector3.new(0, -150, 0), params)
+                    if result then
+                        castY = result.Position.Y
+                    end
+                end)
+                
+                local castPos = charPos + hrp.CFrame.LookVector * 15
+                castPos = Vector3.new(castPos.X, castY, castPos.Z)
+                
                 local rod = getEquippedRod()
                 local floater = getEquippedFloater()
                 local visualData = {
@@ -230,7 +246,17 @@ local function startAutoCast()
                     logCast("RequestFishBite", "Invoking RequestFishBite...")
                     local res = services.FishingRewardService:RequestFishBite(castPos)
                     logCast("RequestFishBite Result", tostring(res))
-                    if res then
+                    if res and type(res) == "table" then
+                        -- Print full table structure
+                        for k, v in pairs(res) do
+                            logCast("BiteTableKey", string.format("key: %s | value: %s (%s)", tostring(k), tostring(v), type(v)))
+                            if type(v) == "table" then
+                                for k2, v2 in pairs(v) do
+                                    logCast("BiteTableKeySub", string.format("  .%s = %s (%s)", tostring(k2), tostring(v2), type(v2)))
+                                end
+                            end
+                        end
+                        
                         local found = findUUID(res)
                         logCast("UUID Search", "Found: " .. tostring(found))
                         if found then
