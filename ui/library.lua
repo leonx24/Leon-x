@@ -803,8 +803,10 @@ function Library:CreateWindow(cfg)
 
 			for _, entry in ipairs(win._allComps) do
 				if entry._tab == tab then
-					if entry.Comp and entry.Comp._isSection then
-						entry.Frame.Visible = active
+					if not active then
+						entry.Frame.Visible = false
+					elseif entry.Comp and entry.Comp._isSection then
+						entry.Frame.Visible = true
 					else
 						local inSec = nil
 						for _, sec in ipairs(tab._sections or {}) do
@@ -817,20 +819,21 @@ function Library:CreateWindow(cfg)
 							if inSec then break end
 						end
 						if inSec then
-							entry.Frame.Visible = active and inSec.Expanded
+							entry.Frame.Visible = (inSec.Expanded ~= false)
 						else
-							entry.Frame.Visible = active
+							entry.Frame.Visible = true
 						end
 					end
-				else
+				elseif active then
 					entry.Frame.Visible = false
 				end
 			end
 		end
 
 		btn.MouseButton1Click:Connect(function()
-			for _, t in ipairs(win._tabs) do t._setActive(false) end
-			setActive(true); win._active = tab
+			win._active = tab
+			for _, t in ipairs(win._tabs) do if t ~= tab then t._setActive(false) end end
+			setActive(true)
 		end)
 		btn.MouseEnter:Connect(function()
 			if not isActive then
@@ -891,9 +894,9 @@ function Library:CreateWindow(cfg)
 	function win:SelectTab(target)
 		for idx, t in ipairs(win._tabs) do
 			if t == target or t.Name == target or (type(target) == "number" and idx == target) then
-				for _, o in ipairs(win._tabs) do o._setActive(false) end
-				t._setActive(true)
 				win._active = t
+				for _, o in ipairs(win._tabs) do if o ~= t then o._setActive(false) end end
+				t._setActive(true)
 				return t
 			end
 		end
