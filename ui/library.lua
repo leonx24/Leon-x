@@ -387,15 +387,17 @@ function Library:CreateWindow(cfg)
 		Size = UDim2.new(1, -16, 1, -92); Position = UDim2.fromOffset(8, 82);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 0; CanvasSize = UDim2.fromOffset(0, 0);
-		ClipsDescendants = true; ZIndex = 11; Parent = sidebar;
+		ClipsDescendants = false; ZIndex = 11; Parent = sidebar;
 	})
 	local tabListLayout = mk("UIListLayout", {
 		SortOrder = Enum.SortOrder.LayoutOrder;
+		HorizontalAlignment = Enum.HorizontalAlignment.Left;
 		Padding = UDim.new(0, 6); Parent = tabList;
 	})
 	tabListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
 		tabList.CanvasSize = UDim2.fromOffset(0, tabListLayout.AbsoluteContentSize.Y + 10)
 	end)
+	pcall(function() tabList.AutomaticCanvasSize = Enum.AutomaticSize.Y end)
 
 	-- ════════════════════════════════════════════════════════════════════════
 	-- RIGHT CONTENT CONTAINER — Header + Dynamic Page Content
@@ -537,7 +539,7 @@ function Library:CreateWindow(cfg)
 	})
 	local contentLayout = mk("UIListLayout", {
 		SortOrder = Enum.SortOrder.LayoutOrder;
-		HorizontalAlignment = Enum.HorizontalAlignment.Right;
+		HorizontalAlignment = Enum.HorizontalAlignment.Left;
 		Padding = UDim.new(0, 6); Parent = content;
 	})
 	mk("UIPadding", {
