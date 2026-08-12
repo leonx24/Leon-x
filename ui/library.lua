@@ -313,18 +313,18 @@ function Library:CreateWindow(cfg)
 	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = brandBox }), "bordersub")
 
 	-- Logo Icon Badge (34x34 rounded tile with custom LX logo)
-	local logoTile = tagBg(mk("Frame", {
+	local logoTile = mk("Frame", {
 		Size = UDim2.fromOffset(34, 34); Position = UDim2.fromOffset(8, 9);
-		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.85;
-		BorderSizePixel = 0; ClipsDescendants = true; ZIndex = 12; Parent = brandBox;
-	}), "accent")
+		BackgroundTransparency = 1; BorderSizePixel = 0;
+		ClipsDescendants = true; ZIndex = 12; Parent = brandBox;
+	})
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = logoTile })
 	
 	local logoAsset = getCustomLogoAsset()
 	if logoAsset then
 		local logoImg = mk("ImageLabel", {
 			Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1;
-			BorderSizePixel = 0; Image = logoAsset; ScaleType = Enum.ScaleType.Crop;
+			BorderSizePixel = 0; Image = logoAsset; ScaleType = Enum.ScaleType.Fit;
 			ZIndex = 13; Parent = logoTile;
 		})
 	else
@@ -550,7 +550,7 @@ function Library:CreateWindow(cfg)
 	if logoAsset then
 		mk("ImageLabel", {
 			Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1;
-			BorderSizePixel = 0; Image = logoAsset; ScaleType = Enum.ScaleType.Crop;
+			BorderSizePixel = 0; Image = logoAsset; ScaleType = Enum.ScaleType.Fit;
 			ZIndex = 11; Parent = floatBtn;
 		})
 	else

@@ -136,8 +136,7 @@ end
 local LogoTile = Instance.new("Frame")
 LogoTile.Size             = UDim2.fromOffset(38, 38)
 LogoTile.Position         = UDim2.fromOffset(20, 20)
-LogoTile.BackgroundColor3 = Color3.fromRGB(139, 92, 246)
-LogoTile.BackgroundTransparency = 0.85
+LogoTile.BackgroundTransparency = 1
 LogoTile.BorderSizePixel  = 0
 LogoTile.ClipsDescendants = true
 LogoTile.ZIndex           = 202
@@ -148,9 +147,9 @@ TileCorner.CornerRadius = UDim.new(0, 10)
 TileCorner.Parent       = LogoTile
 
 local TileStroke = Instance.new("UIStroke")
-TileStroke.Color        = Color3.fromRGB(139, 92, 246)
+TileStroke.Color        = Color3.fromRGB(45, 45, 65)
 TileStroke.Thickness    = 1
-TileStroke.Transparency = 0.5
+TileStroke.Transparency = 0.6
 TileStroke.Parent       = LogoTile
 
 -- Logo Icon Image (Custom Metallic LX Logo)
@@ -161,7 +160,7 @@ LogoImg.AnchorPoint            = Vector2.new(0.5, 0.5)
 LogoImg.Position               = UDim2.fromScale(0.5, 0.5)
 LogoImg.BackgroundTransparency = 1
 LogoImg.BorderSizePixel        = 0
-LogoImg.ScaleType              = Enum.ScaleType.Crop
+LogoImg.ScaleType              = Enum.ScaleType.Fit
 LogoImg.ZIndex                 = 203
 LogoImg.Parent                 = LogoTile
 
