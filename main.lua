@@ -2026,6 +2026,18 @@ PlayerTab:Button({
 })
 
 PlayerTab:Section({ Title = "Server Utilities" })
+autoRejoinToggle = PlayerTab:Toggle({
+    Title    = "Auto Rejoin on Disconnect",
+    Flag     = "AutoRejoin",
+    Value    = false,
+    Tooltip  = "Automatically reconnect to server if disconnected or kicked",
+    Callback = function(v)
+        if v then Rejoin:EnableAutoRejoin() else Rejoin:DisableAutoRejoin() end
+        N("Auto Rejoin", v and "Enabled" or "Disabled")
+    end
+})
+ConfigMgr:Register("AutoRejoin", autoRejoinToggle)
+
 PlayerTab:Button({
     Title    = "Rejoin Current Server",
     Icon     = "refresh-cw",
