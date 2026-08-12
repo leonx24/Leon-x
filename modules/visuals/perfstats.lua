@@ -82,7 +82,7 @@ local function buildGui()
     bar.BackgroundTransparency = 0.15
     bar.BorderSizePixel        = 0
     bar.AnchorPoint            = Vector2.new(0.5, 0)
-    bar.Position               = UDim2.new(0.5, 0, 0, 10)
+    bar.Position               = UDim2.new(0.5, 0, 0, 46)
     bar.Size                   = UDim2.new(0, 480, 0, 32)
     bar.Active                 = true
     bar.Parent                 = root
@@ -191,8 +191,7 @@ local function buildGui()
     UIS.InputChanged:Connect(function(input)
         if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             local delta = input.Position - dragStart
-            bar.Position = UDim2.new(0, startPos.X.Offset + delta.X, 0, startPos.Y.Offset + delta.Y)
-            bar.AnchorPoint = Vector2.new(0, 0)
+            bar.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
     UIS.InputEnded:Connect(function(input)

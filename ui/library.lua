@@ -1187,7 +1187,7 @@ function Dropdown(tab, data)
 	tagText(searchBox, "text")
 
 	local scroll = mk("ScrollingFrame", {
-		Size = UDim2.new(1, -24, 0, 0); Position = UDim2.fromOffset(12, inSec Dinner and 70 or 84);
+		Size = UDim2.new(1, -24, 0, 0); Position = UDim2.fromOffset(12, inSec and 70 or 84);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 2; ScrollBarImageColor3 = theme.AccentDim;
 		Visible = false; ZIndex = 3; Parent = f;
