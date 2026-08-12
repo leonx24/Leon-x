@@ -220,6 +220,78 @@ function ConfigManager:SetDefault(name)
     return true
 end
 
+-- ── BASE64 SHARE CODE ENCODER / DECODER ─────────────────────────────────────────
+local b64chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+local function base64Encode(data)
+    return ((data:gsub('.', function(x) 
+        local r,b='',x:byte()
+        for i=8,1,-1 do r=r..(b%2^i-b%2^(i-1)>0 and '1' or '0') end
+        return r
+    end)..'0000'):gsub('%d%d%d?%d?%d?%d?', function(x)
+        if (#x < 6) then return '' end
+        local c=0
+        for i=1,6 do c=c+(x:sub(i,i)=='1' and 2^(6-i) or 0) end
+        return b64chars:sub(c+1,c+1)
+    end)..({ '', '==', '=' })[#data%3+1])
+end
+
+local function base64Decode(data)
+    data = string.gsub(data, '[^'..b64chars..'=]', '')
+    return (data:gsub('.', function(x)
+        if (x == '=') then return '' end
+        local r,f='',(b64chars:find(x)-1)
+        for i=6,1,-1 do r=r..(f%2^i-f%2^(i-1)>0 and '1' or '0') end
+        return r
+    end):gsub('%d%d%d%d%d%d%d%d', function(x)
+        local c=0
+        for i=1,8 do c=c+(x:sub(i,i)=='1' and 2^(8-i) or 0) end
+        return string.char(c)
+    end))
+end
+
+function ConfigManager:ExportCode()
+    local data = {}
+    for flag, entry in pairs(Registry) do
+        pcall(function()
+            local val = getElementValue(entry.element)
+            if val ~= nil then
+                data[flag] = entry.serialize(val)
+            end
+        end)
+    end
+    local json = HttpService:JSONEncode(data)
+    return "LX1-" .. base64Encode(json)
+end
+
+function ConfigManager:ImportCode(code)
+    if not code or code == "" then return false, "Empty code" end
+    code = code:gsub("%s+", "")
+    if code:sub(1, 4) == "LX1-" then
+        code = code:sub(5)
+    end
+    local ok, jsonStr = pcall(base64Decode, code)
+    if not ok or not jsonStr or jsonStr == "" then return false, "Invalid base64 code" end
+    local okJson, data = pcall(function() return HttpService:JSONDecode(jsonStr) end)
+    if not okJson or type(data) ~= "table" then return false, "Invalid JSON in code" end
+
+    local loaded = 0
+    self._isLoading = true
+    for flag, val in pairs(data) do
+        local entry = Registry[flag]
+        if entry then
+            local des = entry.deserialize(val)
+            setElementValue(entry.element, des)
+            if entry.element and type(entry.element.Callback) == "function" then
+                pcall(entry.element.Callback, des)
+            end
+            loaded = loaded + 1
+        end
+    end
+    self._isLoading = false
+    notify("Config Share Code", "Successfully imported " .. loaded .. " settings!")
+    return true, loaded
+end
+
 function ConfigManager:AutoLoad()
     local target = "default"
     if isfile(DOT) then
@@ -229,7 +301,6 @@ function ConfigManager:AutoLoad()
         end
     end
 
-    -- Check if config file actually exists before loading
     local p = path(target)
     if not isfile(p) then
         return false

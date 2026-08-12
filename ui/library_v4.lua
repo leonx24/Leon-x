@@ -450,6 +450,55 @@ function Library:CreateWindow(cfg)
 		return b
 	end
 
+	-- Global Search Bar Box (Top Header)
+	local searchContainer = tagBg(mk("Frame", {
+		Size = UDim2.new(0, 160, 0, 32);
+		Position = UDim2.new(1, -240, 0.5, -16);
+		BackgroundColor3 = theme.Sidebar; BorderSizePixel = 0;
+		ZIndex = 15; Parent = headerBg;
+	}, {
+		mk("UICorner", { CornerRadius = UDim.new(0, 9) }),
+	}), "sidebar")
+	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = searchContainer }), "bordersub")
+
+	local searchIco = mkIcon(searchContainer, "search", 14, theme.TextDim, 16)
+	if searchIco then
+		searchIco.Position = UDim2.new(0, 8, 0.5, -7)
+		tagIcon(searchIco, "textdim")
+	end
+
+	local globalSearchBox = mk("TextBox", {
+		Size = UDim2.new(1, -28, 1, 0); Position = UDim2.fromOffset(26, 0);
+		BackgroundTransparency = 1; PlaceholderText = "Search...";
+		PlaceholderColor3 = theme.TextDim; Text = "";
+		Font = Enum.Font.GothamMedium; TextSize = 11;
+		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
+		ClearTextOnFocus = false; ZIndex = 16; Parent = searchContainer;
+	})
+	tagText(globalSearchBox, "text")
+
+	globalSearchBox:GetPropertyChangedSignal("Text"):Connect(function()
+		local term = globalSearchBox.Text:lower():gsub("%s+", "")
+		if term == "" then
+			if win._active then win._active._setActive(true) end
+			return
+		end
+		headerTitleLabel.Text = "Search Results"
+		for _, entry in ipairs(win._allComps) do
+			local name = (entry.Comp and (entry.Comp.Name or entry.Comp.Title)) or ""
+			if name == "" and entry.Comp and entry.Comp.Frame then
+				for _, c in ipairs(entry.Comp.Frame:GetChildren()) do
+					if c:IsA("TextLabel") and c.Text ~= "" then name = c.Text; break end
+				end
+			end
+			if name:lower():gsub("%s+", ""):find(term, 1, true) then
+				entry.Frame.Visible = true
+			else
+				entry.Frame.Visible = false
+			end
+		end
+	end)
+
 	local minBtn = hdrIconBtn(-70, "minus")
 	local closeBtn = hdrIconBtn(-34, "x")
 
@@ -571,22 +620,32 @@ function Library:CreateWindow(cfg)
 		end
 	end)
 
-	-- Resize Handle
+	-- Resize Handle Widget (Bottom-Right Corner)
 	local resizing, rStart, rSize = false, nil, nil
-	local rHandle = mk("TextButton", {
-		Size = UDim2.fromOffset(18, 18); Position = UDim2.new(1, -18, 1, -18);
-		BackgroundTransparency = 1; Text = ""; AutoButtonColor = false;
-		ZIndex = 10; Parent = bgFrame;
-	})
-	for i = 0, 2 do
-		mk("Frame", {
-			Size = UDim2.fromOffset(6, 1.5);
-			Position = UDim2.new(1, -3-(i*3.5), 1, -3-(i*3.5));
-			BackgroundColor3 = theme.TextDim; BackgroundTransparency = 0.4;
-			BorderSizePixel = 0; Rotation = 45; AnchorPoint = Vector2.new(1,1);
-			ZIndex = 11; Parent = rHandle;
-		})
+	local rHandle = tagBg(mk("TextButton", {
+		Size = UDim2.fromOffset(22, 22); Position = UDim2.new(1, -26, 1, -26);
+		BackgroundColor3 = theme.Elevated; BackgroundTransparency = 0.3; Text = "";
+		AutoButtonColor = false; ZIndex = 20; Parent = bgFrame;
+	}, {
+		mk("UICorner", { CornerRadius = UDim.new(0, 7) }),
+		tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1 }), "border")
+	}), "elevated")
+
+	local rIco = mkIcon(rHandle, "scaling", 14, theme.Accent, 21)
+	if not rIco then rIco = mkIcon(rHandle, "maximize-2", 14, theme.Accent, 21) end
+	if rIco then
+		rIco.AnchorPoint = Vector2.new(0.5, 0.5)
+		rIco.Position = UDim2.fromScale(0.5, 0.5)
+		tagIcon(rIco, "accent")
 	end
+
+	rHandle.MouseEnter:Connect(function()
+		tw(rHandle, 0.12, { BackgroundTransparency = 0, BackgroundColor3 = theme.Card })
+	end)
+	rHandle.MouseLeave:Connect(function()
+		tw(rHandle, 0.12, { BackgroundTransparency = 0.3, BackgroundColor3 = theme.Elevated })
+	end)
+
 	rHandle.InputBegan:Connect(function(i)
 		if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
 			resizing = true; rStart = i.Position; rSize = main.Size

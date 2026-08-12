@@ -2547,6 +2547,44 @@ SetTab:Button({
         if not s or s == "(none)" then return end
         local ok = ConfigMgr:SetDefault(s)
         N("Config", ok and s.." is default" or "Failed")
+SetTab:Section({ Title = "Config Share Code (Base64)" })
+
+shareCodeInput = SetTab:Input({
+    Title       = "Share Code",
+    Placeholder = "Paste LX1-... code here",
+    Value       = "",
+    Tooltip     = "Base64 config code for sharing settings",
+    Callback    = function() end
+})
+
+SetTab:Button({
+    Title    = "Export Config Share Code",
+    Icon     = "share",
+    Tooltip  = "Copy Base64 share code of current settings to clipboard",
+    Callback = function()
+        local code = ConfigMgr:ExportCode()
+        if setclipboard then
+            pcall(setclipboard, code)
+            N("Config Share Code", "Copied share code to clipboard!")
+        else
+            N("Config Share Code", "Exported code (check console)")
+            print("[LeonX Share Code] " .. tostring(code))
+        end
+    end
+})
+
+SetTab:Button({
+    Title    = "Import Config Share Code",
+    Icon     = "download",
+    Tooltip  = "Import and set all settings from typed share code",
+    Callback = function()
+        local code = shareCodeInput.Value
+        local ok, msg = ConfigMgr:ImportCode(code)
+        if ok then
+            N("Config Share Code", "Imported successfully!")
+        else
+            N("Config Share Code", "Failed: " .. tostring(msg))
+        end
     end
 })
 
