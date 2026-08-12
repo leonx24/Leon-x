@@ -561,7 +561,7 @@ function Library:CreateWindow(cfg)
 	end)
 
 	-- ════════════════════════════════════════════════════════════════════════
-	-- PUBLIC API
+	-- PUBLIC API & DYNAMIC THEME UPDATE
 	-- ════════════════════════════════════════════════════════════════════════
 	function win:SetToggleKey(k) win._toggleKey = k end
 	function win:SetTheme(name)
@@ -569,6 +569,20 @@ function Library:CreateWindow(cfg)
 		if not t then return end
 		win._theme = t; win._themeName = name; Library._lastTheme = name
 		retagAll(main, t); retagAll(floatBtn, t)
+
+		-- Dynamic Theme Update for Toggles and Buttons
+		for _, entry in ipairs(Library._allComponents) do
+			if entry._isToggle then
+				if entry.Track then
+					entry.Track.BackgroundColor3 = entry.Value and t.Accent or t.Border
+				end
+				if entry.Icon then
+					entry.Icon.ImageColor3 = entry.Value and t.Accent or t.TextDim
+				end
+			elseif entry._isButton and entry.ApplyThemeStyle then
+				entry:ApplyThemeStyle(t)
+			end
+		end
 	end
 
 	UIS.InputBegan:Connect(function(i, gp)
@@ -588,7 +602,7 @@ function Library:CreateWindow(cfg)
 		cfg = cfg or {}
 		local tabName = cfg.Title or cfg.Name or "Tab"
 		local tabIconName = cfg.Icon or "folder"
-		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = win }
+		local tab = { Name = tabName; _layoutOrder = 0; _page = content; _win = win; _sections = {} }
 		local idx = #win._tabs + 1
 
 		-- Sidebar Tab Button (Sleek Item Card)
@@ -668,7 +682,20 @@ function Library:CreateWindow(cfg)
 			end
 
 			for _, entry in ipairs(win._allComps) do
-				if entry._tab == tab then entry.Frame.Visible = active end
+				if entry._tab == tab then
+					-- Check if component is in a collapsed section
+					local isCollapsed = false
+					for _, sec in ipairs(tab._sections or {}) do
+						for _, c in ipairs(sec._comps or {}) do
+							if c == entry.Comp and not sec.Expanded then
+								isCollapsed = true
+								break
+							end
+						end
+						if isCollapsed then break end
+					end
+					entry.Frame.Visible = active and not isCollapsed
+				end
 			end
 		end
 
@@ -698,7 +725,13 @@ function Library:CreateWindow(cfg)
 				local d = maybeData or selfOrData
 				local r = fn(tab, d)
 				if r and r.Frame then
-					win._allComps[#win._allComps + 1] = { _tab = tab; Frame = r.Frame }
+					win._allComps[#win._allComps + 1] = { _tab = tab; Frame = r.Frame; Comp = r }
+					if fn ~= Section and tab._currentSection then
+						table.insert(tab._currentSection._comps, r)
+						if not tab._currentSection.Expanded then
+							r.Frame.Visible = false
+						end
+					end
 					local cCount = 0
 					for _, entry in ipairs(win._allComps) do
 						if entry._tab == tab then cCount = cCount + 1 end
@@ -738,42 +771,94 @@ local function nextOrder(tab)
 end
 
 -- ════════════════════════════════════════════════════════════════════════════
--- COMPONENTS — CARD CONTAINERS WITH BOLD ICON ACCENTS
+-- COMPONENTS — COLLAPSIBLE SECTION ACCORDION & SLEEK CARDS
 -- ════════════════════════════════════════════════════════════════════════════
 
--- ── Section ──
+-- ── Collapsible Section Accordion ──
 function Section(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
-	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 32); BackgroundTransparency = 1;
-		LayoutOrder = nextOrder(tab); Parent = tab._page;
+	local secIcon = data.SectionIcon or data.Icon or "layers"
+	local expanded = data.Collapsed ~= true
+
+	local sec = {
+		Expanded = expanded,
+		_comps = {},
+	}
+
+	-- Section Header Card Frame
+	local f = tagBg(mk("Frame", {
+		Size = UDim2.new(1, 0, 0, 36); BackgroundColor3 = theme.Card;
+		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
+	}), "card")
+	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = f })
+	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+
+	-- Header Button for Click to Fold/Unfold
+	local hdrBtn = mk("TextButton", {
+		Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1; Text = "";
+		AutoButtonColor = false; ZIndex = 3; Parent = f;
 	})
 
-	-- Glowing Dot / Icon Accent
-	local sIcoName = data.SectionIcon or "layers"
-	local sIco = mkIcon(f, sIcoName, 14, theme.Accent, 2)
-	local lx = 0
+	-- Left Icon Tile (24x24)
+	local iTile = tagBg(mk("Frame", {
+		Size = UDim2.fromOffset(24, 24); Position = UDim2.new(0, 8, 0.5, -12);
+		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0; ZIndex = 2; Parent = f;
+	}), "elevated")
+	mk("UICorner", { CornerRadius = UDim.new(0, 6); Parent = iTile })
+
+	local sIco = mkIcon(iTile, secIcon, 14, theme.Accent, 3)
 	if sIco then
-		sIco.Position = UDim2.fromOffset(2, 8)
+		sIco.AnchorPoint = Vector2.new(0.5, 0.5); sIco.Position = UDim2.fromScale(0.5, 0.5)
 		tagIcon(sIco, "accent")
-		lx = 22
 	end
 
+	-- Title Label
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -lx, 0, 16); Position = UDim2.fromOffset(lx, 6);
+		Size = UDim2.new(1, -90, 1, 0); Position = UDim2.fromOffset(40, 0);
 		BackgroundTransparency = 1; Text = label:upper();
 		Font = Enum.Font.GothamBold; TextSize = 11; TextColor3 = theme.TextSub;
-		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
+		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 2; Parent = f;
 	}), "textsub")
-	
-	-- Horizontal underline
-	tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 1); Position = UDim2.new(0, 0, 1, -2);
-		BackgroundColor3 = theme.BorderSub; BorderSizePixel = 0; Parent = f;
-	}), "bordersub")
 
-	return { Frame = f }
+	-- Chevron Arrow
+	local chev = mkIcon(f, "chevron-down", 14, theme.TextSub, 2)
+	if chev then
+		chev.AnchorPoint = Vector2.new(1, 0.5); chev.Position = UDim2.new(1, -10, 0.5, 0)
+		chev.Rotation = expanded and 0 or -90
+		tagIcon(chev, "textsub")
+	end
+
+	local function updateVisibility()
+		for _, comp in ipairs(sec._comps) do
+			if comp.Frame then
+				comp.Frame.Visible = sec.Expanded and (tab._win and tab._win._active == tab)
+			end
+		end
+		if chev then
+			tw(chev, 0.15, { Rotation = sec.Expanded and 0 or -90 })
+		end
+	end
+
+	hdrBtn.MouseButton1Click:Connect(function()
+		sec.Expanded = not sec.Expanded
+		updateVisibility()
+	end)
+
+	hdrBtn.MouseEnter:Connect(function()
+		tw(f, 0.1, { BackgroundColor3 = theme.Elevated })
+	end)
+	hdrBtn.MouseLeave:Connect(function()
+		tw(f, 0.1, { BackgroundColor3 = theme.Card })
+	end)
+
+	sec.Frame = f
+	sec.UpdateVisibility = updateVisibility
+
+	tab._currentSection = sec
+	table.insert(tab._sections, sec)
+
+	return sec
 end
 
 -- ── Paragraph ──
@@ -812,7 +897,7 @@ function Paragraph(tab, data)
 	return api
 end
 
--- ── Toggle (Card with Left Icon & Pill Switch) ──
+-- ── Toggle (Card with Left Icon & Switch Pill) ──
 function Toggle(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
@@ -854,14 +939,15 @@ function Toggle(tab, data)
 	})
 	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = knob })
 
-	local api = { Value = val; Frame = f; Name = data.Title or data.Name or "Toggle"; Callback = data.Callback }
+	local api = { Value = val; Frame = f; Name = data.Title or data.Name or "Toggle"; Callback = data.Callback; _isToggle = true; Track = track; Icon = tIco }
 	function api:Set(v)
 		v = not not v
 		if self.Value == v then return end
 		self.Value = v
-		tw(track, 0.2, { BackgroundColor3 = v and theme.Accent or theme.Border }, Enum.EasingStyle.Back)
+		local curTheme = th(tab)
+		tw(track, 0.2, { BackgroundColor3 = v and curTheme.Accent or curTheme.Border }, Enum.EasingStyle.Back)
 		tw(knob, 0.2, { Position = v and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, Enum.EasingStyle.Back)
-		if tIco then tw(tIco, 0.15, { ImageColor3 = v and theme.Accent or theme.TextDim }) end
+		if tIco then tw(tIco, 0.15, { ImageColor3 = v and curTheme.Accent or curTheme.TextDim }) end
 		if self.Callback then pcall(self.Callback, v) end
 	end
 	function api:Get() return self.Value end
@@ -1120,43 +1206,112 @@ function Dropdown(tab, data)
 	return api
 end
 
--- ── Button ──
+-- ── Button (Sleek Dark Glass Cards) ──
 function Button(tab, data)
 	local theme = th(tab)
 	local style = data.Style or "Surface"
+	local label = getLabel(data)
 	local f = mk("Frame", {
 		Size = UDim2.new(1, 0, 0, 38); BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
-	local bgC, txC, brC, brT
-	if style == "Primary" then bgC = theme.Accent; txC = Color3.fromRGB(10,10,14); brC = theme.Accent; brT = 0
-	elseif style == "Outline" then bgC = Color3.new(); txC = theme.Accent; brC = theme.Accent; brT = 1
-	elseif style == "Danger" then bgC = Color3.fromRGB(235,65,80); txC = Color3.fromRGB(255,255,255); brC = bgC; brT = 0
-	elseif style == "Ghost" then bgC = Color3.new(); txC = theme.Text; brC = Color3.new(); brT = 0
-	else bgC = theme.Card; txC = theme.Text; brC = theme.BorderSub; brT = 1 end
 
 	local btn = mk("TextButton", {
-		Size = UDim2.fromScale(1, 1); BackgroundColor3 = bgC;
-		BackgroundTransparency = (style == "Outline" or style == "Ghost") and 1 or 0;
-		BorderSizePixel = 0; Text = getLabel(data);
-		Font = Enum.Font.GothamBold; TextSize = 12; TextColor3 = txC;
+		Size = UDim2.fromScale(1, 1); BorderSizePixel = 0; Text = "";
 		AutoButtonColor = false; Parent = f;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 10) }) })
-	mk("UIStroke", { Color = brC; Thickness = brT; Parent = btn })
+	local stroke = mk("UIStroke", { Thickness = 1; Parent = btn })
+
+	local bIco = nil; local lx = 0
+	if data.Icon then
+		bIco = mkIcon(btn, data.Icon, 16, theme.Text, 2)
+		if bIco then
+			bIco.AnchorPoint = Vector2.new(0.5, 0.5)
+			bIco.Position = UDim2.new(0.5, -(#label * 3.5), 0.5, 0)
+			lx = 20
+		end
+	end
+
+	local btnTxt = mk("TextLabel", {
+		Size = UDim2.new(1, -lx, 1, 0); Position = UDim2.fromOffset(lx, 0);
+		BackgroundTransparency = 1; Text = label;
+		Font = Enum.Font.GothamBold; TextSize = 12;
+		TextXAlignment = Enum.TextXAlignment.Center; ZIndex = 2; Parent = btn;
+	})
+
+	local api = { Frame = f; Name = data.Title or data.Name or "Button"; _isButton = true }
+
+	function api:ApplyThemeStyle(t)
+		t = t or theme
+		if style == "Primary" then
+			btn.BackgroundColor3 = t.Elevated
+			btn.BackgroundTransparency = 0
+			stroke.Color = t.Accent
+			stroke.Transparency = 0
+			btnTxt.TextColor3 = t.Accent
+			if bIco then bIco.ImageColor3 = t.Accent end
+		elseif style == "Outline" then
+			btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			btn.BackgroundTransparency = 1
+			stroke.Color = t.Accent
+			stroke.Transparency = 0
+			btnTxt.TextColor3 = t.Accent
+			if bIco then bIco.ImageColor3 = t.Accent end
+		elseif style == "Danger" then
+			-- Sleek Dark Crimson Glass Tile (NOT tacky solid red!)
+			btn.BackgroundColor3 = Color3.fromRGB(35, 18, 24)
+			btn.BackgroundTransparency = 0
+			stroke.Color = Color3.fromRGB(140, 45, 60)
+			stroke.Transparency = 0
+			btnTxt.TextColor3 = Color3.fromRGB(245, 110, 125)
+			if bIco then bIco.ImageColor3 = Color3.fromRGB(245, 110, 125) end
+		elseif style == "Ghost" then
+			btn.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+			btn.BackgroundTransparency = 1
+			stroke.Transparency = 1
+			btnTxt.TextColor3 = t.Text
+			if bIco then bIco.ImageColor3 = t.Text end
+		else
+			-- Surface / Default
+			btn.BackgroundColor3 = t.Card
+			btn.BackgroundTransparency = 0
+			stroke.Color = t.BorderSub
+			stroke.Transparency = 0
+			btnTxt.TextColor3 = t.Text
+			if bIco then bIco.ImageColor3 = t.Text end
+		end
+	end
+
+	api:ApplyThemeStyle(theme)
 
 	btn.MouseEnter:Connect(function()
-		if style == "Primary" then tw(btn, 0.1, { BackgroundColor3 = theme.Accent:Lerp(Color3.fromRGB(255,255,255), 0.15) })
-		elseif style == "Outline" then tw(btn, 0.1, { BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.88 })
-		elseif style == "Danger" then tw(btn, 0.1, { BackgroundColor3 = Color3.fromRGB(255,90,100) })
-		elseif style == "Ghost" then tw(btn, 0.1, { BackgroundColor3 = theme.Card; BackgroundTransparency = 0 })
-		else tw(btn, 0.1, { BackgroundColor3 = theme.Elevated }) end
+		local t = th(tab)
+		if style == "Primary" then
+			tw(btn, 0.1, { BackgroundColor3 = t.Accent })
+			tw(btnTxt, 0.1, { TextColor3 = Color3.fromRGB(10, 10, 14) })
+			if bIco then tw(bIco, 0.1, { ImageColor3 = Color3.fromRGB(10, 10, 14) }) end
+		elseif style == "Outline" then
+			tw(btn, 0.1, { BackgroundColor3 = t.Accent, BackgroundTransparency = 0.88 })
+		elseif style == "Danger" then
+			tw(btn, 0.1, { BackgroundColor3 = Color3.fromRGB(52, 24, 34) })
+		elseif style == "Ghost" then
+			tw(btn, 0.1, { BackgroundColor3 = t.Card, BackgroundTransparency = 0 })
+		else
+			tw(btn, 0.1, { BackgroundColor3 = t.Elevated })
+		end
 	end)
+
 	btn.MouseLeave:Connect(function()
-		btn.BackgroundColor3 = bgC; btn.BackgroundTransparency = (style == "Outline" or style == "Ghost") and 1 or 0
+		local t = th(tab)
+		api:ApplyThemeStyle(t)
 	end)
-	btn.MouseButton1Click:Connect(function() if data.Callback then pcall(data.Callback) end end)
-	local api = { Frame = f; Name = data.Title or data.Name or "Button" }
-	attachTooltip(api, data.Tooltip); return api
+
+	btn.MouseButton1Click:Connect(function()
+		if data.Callback then pcall(data.Callback) end
+	end)
+
+	attachTooltip(api, data.Tooltip)
+	return api
 end
 
 -- ── Keybind ──
@@ -1236,7 +1391,7 @@ function Input(tab, data)
 		ClearTextOnFocus = false; Parent = f;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }), stroke }), "elevated")
 	tagText(tb, "text")
-	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 10); pad.Parent = tb
+	pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 10); pad.Parent = tb
 
 	local api = { Value = data.Value or ""; Frame = f; Name = data.Title or data.Name or "Input"; Callback = data.Callback }
 	tb.FocusLost:Connect(function() api.Value = tb.Text; if data.Callback then pcall(data.Callback, tb.Text) end end)
@@ -1264,7 +1419,6 @@ function Library:Notify(cfg)
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 12) }) })
 	tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1; ZIndex = 1000; Parent = n }), "border")
 
-	-- Icon Tile Box
 	local nIcoTile = tagBg(mk("Frame", {
 		Size = UDim2.fromOffset(36, 36); Position = UDim2.fromOffset(12, 16);
 		BackgroundColor3 = theme.Card; BorderSizePixel = 0;
@@ -1297,7 +1451,6 @@ function Library:Notify(cfg)
 		})
 	end
 
-	-- Countdown Bar
 	local pBar = mk("Frame", {
 		Size = UDim2.new(1, -16, 0, 2.5); Position = UDim2.new(0, 8, 1, -6);
 		BackgroundColor3 = theme.BorderSub; BorderSizePixel = 0; ZIndex = 1001; Parent = n;
@@ -1306,7 +1459,7 @@ function Library:Notify(cfg)
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.Accent;
 		BorderSizePixel = 0; ZIndex = 1002; Parent = pBar;
 	}), "accent")
-	mk("UICorner", { CornerRadius = UDim.new(0, 1); Parent = pFill })
+	mk("UICorner", { CornerRadius = UDim.new(0, 1) })
 
 	activeNotifs[#activeNotifs + 1] = n
 	tw(n, 0.25, { Position = UDim2.new(1, -326, 0, 16 + (#activeNotifs-1) * 76) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
