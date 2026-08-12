@@ -55,21 +55,45 @@ local function mkIcon(parent, name, size, color, zindex)
 	return img
 end
 
+-- Custom Logo Asset Loader Helper
+local LOGO_URL = "https://raw.githubusercontent.com/leonx24/Leon-x/main/assets/logo.jpg"
+local cachedLogoAsset = nil
+local function getCustomLogoAsset()
+	if cachedLogoAsset then return cachedLogoAsset end
+	pcall(function()
+		local path = "Leon X/assets/logo.jpg"
+		if isfile and isfile(path) and getcustomasset then
+			cachedLogoAsset = getcustomasset(path)
+			return
+		end
+		if makefolder and not isfolder("Leon X") then makefolder("Leon X") end
+		if makefolder and not isfolder("Leon X/assets") then makefolder("Leon X/assets") end
+		if writefile and game and getcustomasset then
+			local data = game:HttpGet(LOGO_URL .. "?t=" .. tostring(os.time()), true)
+			if data and #data > 100 then
+				writefile(path, data)
+				cachedLogoAsset = getcustomasset(path)
+			end
+		end
+	end)
+	return cachedLogoAsset
+end
+
 -- ════════════════════════════════════════════════════════════════════════════
--- THEME ENGINE — Curated Vibrant Accent Palettes
+-- THEME ENGINE — Curated High-Contrast Accent Palettes
 -- ════════════════════════════════════════════════════════════════════════════
 local function mkTheme(accent, accentDim, glowTint)
 	return {
-		BG        = Color3.fromRGB(10, 10, 14),
-		Sidebar   = Color3.fromRGB(15, 15, 22),
-		Surface   = Color3.fromRGB(18, 18, 26),
-		Card      = Color3.fromRGB(22, 22, 32),
-		Elevated  = Color3.fromRGB(28, 28, 40),
-		Border    = Color3.fromRGB(38, 38, 54),
-		BorderSub = Color3.fromRGB(28, 28, 40),
-		Text      = Color3.fromRGB(240, 242, 250),
-		TextSub   = Color3.fromRGB(140, 145, 165),
-		TextDim   = Color3.fromRGB(80, 85, 105),
+		BG        = Color3.fromRGB(10, 10, 18),
+		Sidebar   = Color3.fromRGB(16, 16, 26),
+		Surface   = Color3.fromRGB(20, 20, 32),
+		Card      = Color3.fromRGB(24, 24, 38),
+		Elevated  = Color3.fromRGB(32, 32, 50),
+		Border    = Color3.fromRGB(48, 44, 75),
+		BorderSub = Color3.fromRGB(34, 32, 55),
+		Text      = Color3.fromRGB(242, 244, 252),
+		TextSub   = Color3.fromRGB(145, 150, 175),
+		TextDim   = Color3.fromRGB(85, 90, 115),
 		Accent    = Color3.fromRGB(table.unpack(accent)),
 		AccentDim = Color3.fromRGB(table.unpack(accentDim)),
 		Glow      = Color3.fromRGB(table.unpack(glowTint or accent)),
@@ -77,13 +101,13 @@ local function mkTheme(accent, accentDim, glowTint)
 end
 
 Library.Themes = {
-	Default = mkTheme({100, 140, 255}, {55, 85, 180},  {80, 120, 240}),  -- Cyber Cobalt
-	Gold    = mkTheme({245, 195, 70},  {180, 140, 40}, {230, 180, 50}),  -- Luxe Gold
-	Emerald = mkTheme({60, 225, 140},  {35, 155, 90},  {50, 210, 125}),  -- Neon Emerald
-	Rose    = mkTheme({245, 95, 140},  {180, 60, 95},  {230, 80, 125}),  -- Hot Crimson
-	Violet  = mkTheme({165, 110, 255}, {110, 65, 190}, {150, 95, 240}),  -- Royal Violet
-	Amber   = mkTheme({255, 160, 50},  {190, 110, 30}, {240, 145, 40}),  -- Sunset Amber
-	Neon    = mkTheme({50, 240, 210},  {30, 175, 150}, {40, 225, 195}),  -- Electric Cyan
+	Default = mkTheme({139, 92, 246}, {85, 50, 160},  {124, 58, 237}),  -- Electric Cyber Indigo
+	Cyan    = mkTheme({6, 182, 212},  {4, 120, 140},  {20, 195, 220}),  -- Obsidian Cyan / Teal
+	Gold    = mkTheme({245, 158, 11}, {170, 105, 10}, {230, 145, 15}),  -- Luxe Amber
+	Emerald = mkTheme({16, 185, 129}, {10, 130, 90},  {20, 200, 140}),  -- Neon Mint
+	Rose    = mkTheme({244, 63, 94},  {170, 40, 65},  {230, 50, 80}),   -- Hot Crimson
+	Violet  = mkTheme({168, 85, 247}, {115, 50, 175}, {150, 70, 230}),  -- Royal Purple
+	Frost   = mkTheme({226, 232, 240},{140, 150, 165},{200, 210, 225}), -- Ice Silver
 }
 
 -- ════════════════════════════════════════════════════════════════════════════
@@ -288,19 +312,28 @@ function Library:CreateWindow(cfg)
 	tagBg(brandBox, "card")
 	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = brandBox }), "bordersub")
 
-	-- Logo Icon Badge (32x32 rounded tile)
+	-- Logo Icon Badge (34x34 rounded tile with custom LX logo)
 	local logoTile = tagBg(mk("Frame", {
 		Size = UDim2.fromOffset(34, 34); Position = UDim2.fromOffset(8, 9);
 		BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.85;
-		BorderSizePixel = 0; ZIndex = 12; Parent = brandBox;
+		BorderSizePixel = 0; ClipsDescendants = true; ZIndex = 12; Parent = brandBox;
 	}), "accent")
 	mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = logoTile })
 	
-	local logoIco = mkIcon(logoTile, "zap", 20, theme.Accent, 13)
-	if logoIco then
-		logoIco.AnchorPoint = Vector2.new(0.5, 0.5)
-		logoIco.Position = UDim2.fromScale(0.5, 0.5)
-		tagIcon(logoIco, "accent")
+	local logoAsset = getCustomLogoAsset()
+	if logoAsset then
+		local logoImg = mk("ImageLabel", {
+			Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1;
+			BorderSizePixel = 0; Image = logoAsset; ScaleType = Enum.ScaleType.Crop;
+			ZIndex = 13; Parent = logoTile;
+		})
+	else
+		local logoIco = mkIcon(logoTile, "zap", 20, theme.Accent, 13)
+		if logoIco then
+			logoIco.AnchorPoint = Vector2.new(0.5, 0.5)
+			logoIco.Position = UDim2.fromScale(0.5, 0.5)
+			tagIcon(logoIco, "accent")
+		end
 	end
 
 	-- Title & Subtitle
@@ -458,17 +491,26 @@ function Library:CreateWindow(cfg)
 	local floatBtn = mk("TextButton", {
 		Size = UDim2.fromOffset(50, 50); Position = UDim2.new(0, 14, 0.5, -25);
 		BackgroundColor3 = theme.Sidebar; Text = "";
-		AutoButtonColor = false; Visible = false; ZIndex = 10; Parent = floatGui;
+		AutoButtonColor = false; Visible = false; ClipsDescendants = true; ZIndex = 10; Parent = floatGui;
 	}, {
 		mk("UICorner", { CornerRadius = UDim.new(0, 14) }),
 		mk("UIStroke", { Color = theme.Accent; Thickness = 1.5 }),
 	})
 	tagBg(floatBtn, "sidebar")
-	local floatIco = mkIcon(floatBtn, "menu", 22, theme.Accent, 11)
-	if floatIco then
-		floatIco.AnchorPoint = Vector2.new(0.5, 0.5)
-		floatIco.Position = UDim2.fromScale(0.5, 0.5)
-		tagIcon(floatIco, "accent")
+
+	if logoAsset then
+		mk("ImageLabel", {
+			Size = UDim2.fromScale(1, 1); BackgroundTransparency = 1;
+			BorderSizePixel = 0; Image = logoAsset; ScaleType = Enum.ScaleType.Crop;
+			ZIndex = 11; Parent = floatBtn;
+		})
+	else
+		local floatIco = mkIcon(floatBtn, "menu", 22, theme.Accent, 11)
+		if floatIco then
+			floatIco.AnchorPoint = Vector2.new(0.5, 0.5)
+			floatIco.Position = UDim2.fromScale(0.5, 0.5)
+			tagIcon(floatIco, "accent")
+		end
 	end
 
 	do

@@ -109,13 +109,37 @@ task.spawn(function()
     end
 end)
 
+local LOGO_URL = "https://raw.githubusercontent.com/leonx24/Leon-x/main/assets/logo.jpg"
+local cachedLogoAsset = nil
+local function getCustomLogoAsset()
+    if cachedLogoAsset then return cachedLogoAsset end
+    pcall(function()
+        local path = "Leon X/assets/logo.jpg"
+        if isfile and isfile(path) and getcustomasset then
+            cachedLogoAsset = getcustomasset(path)
+            return
+        end
+        if makefolder and not isfolder("Leon X") then makefolder("Leon X") end
+        if makefolder and not isfolder("Leon X/assets") then makefolder("Leon X/assets") end
+        if writefile and game and getcustomasset then
+            local data = game:HttpGet(LOGO_URL .. "?t=" .. tostring(os.time()), true)
+            if data and #data > 100 then
+                writefile(path, data)
+                cachedLogoAsset = getcustomasset(path)
+            end
+        end
+    end)
+    return cachedLogoAsset
+end
+
 -- Logo Icon Tile Box (38x38)
 local LogoTile = Instance.new("Frame")
 LogoTile.Size             = UDim2.fromOffset(38, 38)
 LogoTile.Position         = UDim2.fromOffset(20, 20)
-LogoTile.BackgroundColor3 = Color3.fromRGB(100, 140, 255)
+LogoTile.BackgroundColor3 = Color3.fromRGB(139, 92, 246)
 LogoTile.BackgroundTransparency = 0.85
 LogoTile.BorderSizePixel  = 0
+LogoTile.ClipsDescendants = true
 LogoTile.ZIndex           = 202
 LogoTile.Parent           = SplashCard
 
@@ -124,37 +148,28 @@ TileCorner.CornerRadius = UDim.new(0, 10)
 TileCorner.Parent       = LogoTile
 
 local TileStroke = Instance.new("UIStroke")
-TileStroke.Color        = Color3.fromRGB(100, 140, 255)
+TileStroke.Color        = Color3.fromRGB(139, 92, 246)
 TileStroke.Thickness    = 1
 TileStroke.Transparency = 0.5
 TileStroke.Parent       = LogoTile
 
--- Logo Icon Image (Placeholder until custom script logo provided)
+-- Logo Icon Image (Custom Metallic LX Logo)
 local LogoImg = Instance.new("ImageLabel")
 LogoImg.Name                   = "LogoIcon"
-LogoImg.Size                   = UDim2.fromOffset(22, 22)
+LogoImg.Size                   = UDim2.fromScale(1, 1)
 LogoImg.AnchorPoint            = Vector2.new(0.5, 0.5)
 LogoImg.Position               = UDim2.fromScale(0.5, 0.5)
 LogoImg.BackgroundTransparency = 1
 LogoImg.BorderSizePixel        = 0
-LogoImg.ImageColor3            = Color3.fromRGB(100, 140, 255)
-LogoImg.ScaleType              = Enum.ScaleType.Fit
+LogoImg.ScaleType              = Enum.ScaleType.Crop
 LogoImg.ZIndex                 = 203
 LogoImg.Parent                 = LogoTile
 
 task.spawn(function()
-    pcall(function()
-        local src = game:HttpGet("https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua", true)
-        if src and #src > 100 then
-            local fn = loadstring(src)
-            if fn then
-                local icons = fn()
-                if icons and icons["zap"] then
-                    LogoImg.Image = icons["zap"]
-                end
-            end
-        end
-    end)
+    local asset = getCustomLogoAsset()
+    if asset then
+        LogoImg.Image = asset
+    end
 end)
 
 -- Title
@@ -1393,6 +1408,17 @@ antiLagToggle = VisTab:Toggle({
 })
 ConfigMgr:Register("AntiLagMode", antiLagToggle)
 
+superAntiLagToggle = VisTab:Toggle({
+    Title    = "Super Anti-Lag (Potato Map)",
+    Tooltip  = "Convert map to smooth plastic low-poly blocks & strip textures for maximum FPS",
+    Value    = false,
+    Callback = function(v)
+        if v then PerfBooster:EnablePotato() else PerfBooster:DisablePotato() end
+        N("Super Anti-Lag", v and "Potato Mode Enabled" or "Potato Mode Disabled")
+    end
+})
+ConfigMgr:Register("SuperAntiLag", superAntiLagToggle)
+
 fpsCapSlider = VisTab:Slider({
     Title    = "FPS Cap",
     Tooltip  = "Set maximum FPS cap (30-240)",
@@ -2403,7 +2429,7 @@ SetTab:Keybind({
 })
 themeDrop = SetTab:Dropdown({
     Title    = "Theme",
-    Values   = {"Default","Gold","Emerald","Rose","Violet","Amber","Neon"},
+    Values   = {"Default","Cyan","Gold","Emerald","Rose","Violet","Frost"},
     Value    = "Default",
     Tooltip  = "Change the UI color theme",
     Callback = function(v)
