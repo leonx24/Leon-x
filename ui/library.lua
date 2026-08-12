@@ -314,7 +314,7 @@ function Library:CreateWindow(cfg)
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -54, 0, 14); Position = UDim2.fromOffset(48, 28);
-		BackgroundTransparency = 1; Text = "CyberNoir v5";
+		BackgroundTransparency = 1; Text = "v0.0.1";
 		Font = Enum.Font.GothamMedium; TextSize = 10;
 		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 12; Parent = brandBox;
