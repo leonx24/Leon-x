@@ -1,6 +1,6 @@
 -- ╔══════════════════════════════════════════════════════════════════╗
 -- ║  Leon X  |  Performance HUD Overlay v5                           ║
--- ║  "Segmented Dark Glass HUD with Realtime FPS, Ping & Stats"      ║
+-- ║  "Segmented Dark Glass HUD with Lucide Icons for FPS, Ping & Stats"║
 -- ╚══════════════════════════════════════════════════════════════════╝
 
 local PerfStats = {}
@@ -32,6 +32,21 @@ local function getPing()
         return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
     end)
     return (ok and type(val) == "number") and math.floor(val + 0.5) or 0
+end
+
+-- Remote Icon Table Loader
+local IconCache = nil
+local function getIconAsset(name)
+    if not IconCache then
+        pcall(function()
+            local src = game:HttpGet("https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua", true)
+            if src and #src > 100 then
+                local fn = loadstring(src)
+                if fn then IconCache = fn() end
+            end
+        end)
+    end
+    return IconCache and IconCache[name] or nil
 end
 
 local function buildGui()
@@ -68,7 +83,7 @@ local function buildGui()
     bar.BorderSizePixel        = 0
     bar.AnchorPoint            = Vector2.new(0.5, 0)
     bar.Position               = UDim2.new(0.5, 0, 0, 10)
-    bar.Size                   = UDim2.new(0, 460, 0, 32)
+    bar.Size                   = UDim2.new(0, 480, 0, 32)
     bar.Active                 = true
     bar.Parent                 = root
 
@@ -82,10 +97,10 @@ local function buildGui()
     barStroke.Transparency = 0.2
     barStroke.Parent       = bar
 
-    -- Subtle Ambient Gradient
+    -- Ambient UIGradient
     local grad = Instance.new("UIGradient")
     grad.Color = ColorSequence.new({
-        ColorSequenceKeypoint.new(0, Color3.fromRGB(15, 15, 24)),
+        ColorSequenceKeypoint.new(0, Color3.fromRGB(16, 16, 26)),
         ColorSequenceKeypoint.new(1, Color3.fromRGB(8, 8, 14)),
     })
     grad.Rotation = 90
@@ -105,10 +120,10 @@ local function buildGui()
     pad.PaddingRight  = UDim.new(0, 8)
     pad.Parent        = bar
 
-    -- Segment Creation Helper
-    local function mkSegment(order, width, titleText)
+    -- Segment Creation Helper (with Lucide Icons instead of dots!)
+    local function mkSegment(order, width, iconName, defaultColor)
         local card = Instance.new("Frame")
-        card.Size                = UDim2.new(0, width, 0, 22)
+        card.Size                = UDim2.new(0, width, 0, 24)
         card.BackgroundColor3    = Color3.fromRGB(20, 20, 30)
         card.BackgroundTransparency = 0.2
         card.BorderSizePixel     = 0
@@ -124,24 +139,30 @@ local function buildGui()
         cStroke.Thickness    = 1
         cStroke.Parent       = card
 
-        -- Status Indicator Dot (Left)
-        local dot = Instance.new("Frame")
-        dot.Size             = UDim2.fromOffset(6, 6)
-        dot.Position         = UDim2.new(0, 8, 0.5, -3)
-        dot.BackgroundColor3 = Color3.fromRGB(100, 220, 100)
-        dot.BorderSizePixel  = 0
-        dot.Parent           = card
+        -- Lucide Icon Image
+        local icoImg = Instance.new("ImageLabel")
+        icoImg.Name                   = "Ico"
+        icoImg.Size                   = UDim2.fromOffset(14, 14)
+        icoImg.Position               = UDim2.new(0, 7, 0.5, -7)
+        icoImg.BackgroundTransparency = 1
+        icoImg.BorderSizePixel        = 0
+        icoImg.ImageColor3            = defaultColor
+        icoImg.ScaleType              = Enum.ScaleType.Fit
+        icoImg.ZIndex                 = 2
+        icoImg.Parent                 = card
 
-        local dCorner = Instance.new("UICorner")
-        dCorner.CornerRadius = UDim.new(1, 0)
-        dCorner.Parent       = dot
+        local assetId = getIconAsset(iconName)
+        if assetId then
+            icoImg.Image = assetId
+        end
 
-        -- Stat Value Label
+        -- Stat Value Text Label
         local lbl = Instance.new("TextLabel")
-        lbl.Size                = UDim2.new(1, -20, 1, 0)
-        lbl.Position            = UDim2.fromOffset(18, 0)
+        lbl.Name                = "Value"
+        lbl.Size                = UDim2.new(1, -26, 1, 0)
+        lbl.Position            = UDim2.fromOffset(24, 0)
         lbl.BackgroundTransparency = 1
-        lbl.Text                = titleText
+        lbl.Text                = "..."
         lbl.TextColor3          = Color3.fromRGB(220, 225, 240)
         lbl.TextSize            = 11
         lbl.Font                = Enum.Font.GothamBold
@@ -149,14 +170,14 @@ local function buildGui()
         lbl.RichText            = true
         lbl.Parent              = card
 
-        return { Card = card, Dot = dot, Label = lbl }
+        return { Card = card, Icon = icoImg, Label = lbl }
     end
 
-    local fpsSeg  = mkSegment(1, 88,  "60 FPS")
-    local msSeg   = mkSegment(2, 70,  "16 ms")
-    local pingSeg = mkSegment(3, 98,  "130 ms ping")
-    local pcSeg   = mkSegment(4, 95,  "8 players")
-    local timeSeg = mkSegment(5, 68,  "21:30")
+    local fpsSeg  = mkSegment(1, 92,  "activity", Color3.fromRGB(100, 230, 120))
+    local msSeg   = mkSegment(2, 70,  "zap",      Color3.fromRGB(180, 185, 215))
+    local pingSeg = mkSegment(3, 102, "wifi",     Color3.fromRGB(100, 180, 255))
+    local pcSeg   = mkSegment(4, 96,  "users",    Color3.fromRGB(190, 195, 215))
+    local timeSeg = mkSegment(5, 68,  "clock",    Color3.fromRGB(150, 155, 175))
 
     -- Dragging Support
     local dragging, dragStart, startPos = false, nil, nil
@@ -182,11 +203,11 @@ local function buildGui()
 
     gui = sg
     return {
-        FPS = fpsSeg,
-        MS  = msSeg,
-        Ping = pingSeg,
+        FPS     = fpsSeg,
+        MS      = msSeg,
+        Ping    = pingSeg,
         Players = pcSeg,
-        Time = timeSeg,
+        Time    = timeSeg,
     }
 end
 
@@ -245,31 +266,31 @@ function PerfStats:_startLoop(comps)
         local t = os.date("*t")
         local clock = string.format("%02d:%02d", t.hour, t.min)
 
-        -- FPS Color & Dot
+        -- FPS Color & Icon Tint
         if fps >= 50 then
             comps.FPS.Label.Text = string.format('<font color="rgb(100,230,120)">%d</font> FPS', fps)
-            comps.FPS.Dot.BackgroundColor3 = Color3.fromRGB(100, 230, 120)
+            comps.FPS.Icon.ImageColor3 = Color3.fromRGB(100, 230, 120)
         elseif fps >= 30 then
             comps.FPS.Label.Text = string.format('<font color="rgb(255,200,60)">%d</font> FPS', fps)
-            comps.FPS.Dot.BackgroundColor3 = Color3.fromRGB(255, 200, 60)
+            comps.FPS.Icon.ImageColor3 = Color3.fromRGB(255, 200, 60)
         else
             comps.FPS.Label.Text = string.format('<font color="rgb(245,80,95)">%d</font> FPS', fps)
-            comps.FPS.Dot.BackgroundColor3 = Color3.fromRGB(245, 80, 95)
+            comps.FPS.Icon.ImageColor3 = Color3.fromRGB(245, 80, 95)
         end
 
         -- Frame latency
-        comps.MS.Label.Text = string.format('<font color="rgb(180,185,205)">%d ms</font>', ms)
+        comps.MS.Label.Text = string.format('<font color="rgb(180,185,215)">%d ms</font>', ms)
 
-        -- Ping Color
+        -- Ping Color & Icon Tint
         if pingCache <= 80 then
             comps.Ping.Label.Text = string.format('<font color="rgb(100,180,255)">%d ms</font> ping', pingCache)
-            comps.Ping.Dot.BackgroundColor3 = Color3.fromRGB(100, 180, 255)
+            comps.Ping.Icon.ImageColor3 = Color3.fromRGB(100, 180, 255)
         elseif pingCache <= 160 then
             comps.Ping.Label.Text = string.format('<font color="rgb(255,190,60)">%d ms</font> ping', pingCache)
-            comps.Ping.Dot.BackgroundColor3 = Color3.fromRGB(255, 190, 60)
+            comps.Ping.Icon.ImageColor3 = Color3.fromRGB(255, 190, 60)
         else
             comps.Ping.Label.Text = string.format('<font color="rgb(245,80,95)">%d ms</font> ping', pingCache)
-            comps.Ping.Dot.BackgroundColor3 = Color3.fromRGB(245, 80, 95)
+            comps.Ping.Icon.ImageColor3 = Color3.fromRGB(245, 80, 95)
         end
 
         -- Players & Time

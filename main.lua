@@ -129,29 +129,32 @@ TileStroke.Thickness    = 1
 TileStroke.Transparency = 0.5
 TileStroke.Parent       = LogoTile
 
--- Pulsing Icon Dot
-local Dot = Instance.new("Frame")
-Dot.Size             = UDim2.fromOffset(12, 12)
-Dot.AnchorPoint      = Vector2.new(0.5, 0.5)
-Dot.Position         = UDim2.fromScale(0.5, 0.5)
-Dot.BackgroundColor3 = Color3.fromRGB(100, 140, 255)
-Dot.BorderSizePixel  = 0
-Dot.ZIndex           = 203
-Dot.Parent           = LogoTile
-
-local DotCorner = Instance.new("UICorner")
-DotCorner.CornerRadius = UDim.new(1, 0)
-DotCorner.Parent       = Dot
+-- Logo Icon Image (Placeholder until custom script logo provided)
+local LogoImg = Instance.new("ImageLabel")
+LogoImg.Name                   = "LogoIcon"
+LogoImg.Size                   = UDim2.fromOffset(22, 22)
+LogoImg.AnchorPoint            = Vector2.new(0.5, 0.5)
+LogoImg.Position               = UDim2.fromScale(0.5, 0.5)
+LogoImg.BackgroundTransparency = 1
+LogoImg.BorderSizePixel        = 0
+LogoImg.ImageColor3            = Color3.fromRGB(100, 140, 255)
+LogoImg.ScaleType              = Enum.ScaleType.Fit
+LogoImg.ZIndex                 = 203
+LogoImg.Parent                 = LogoTile
 
 task.spawn(function()
-    while Dot and Dot.Parent do
-        TweenService:Create(Dot, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
-            {Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 0.2}):Play()
-        task.wait(0.8)
-        TweenService:Create(Dot, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.In),
-            {Size = UDim2.fromOffset(10, 10), BackgroundTransparency = 0}):Play()
-        task.wait(0.8)
-    end
+    pcall(function()
+        local src = game:HttpGet("https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua", true)
+        if src and #src > 100 then
+            local fn = loadstring(src)
+            if fn then
+                local icons = fn()
+                if icons and icons["zap"] then
+                    LogoImg.Image = icons["zap"]
+                end
+            end
+        end
+    end)
 end)
 
 -- Title
@@ -888,7 +891,8 @@ macroStatusText = MacroTab:Paragraph({
 MacroTab:Section({ Title = "Recording" })
 
 MacroTab:Button({
-    Title = "⏺️ Start Recording",
+    Title = "Start Recording",
+    Icon  = "circle",
     Tooltip = "Begin recording your movement path",
     Callback = function()
         local name = macroNameInput.Value
@@ -902,7 +906,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "⏹️ Stop Recording",
+    Title = "Stop Recording",
+    Icon  = "square",
     Tooltip = "Stop and save the current recording",
     Callback = function()
         local macro = MacroRec:StopRecording()
@@ -915,7 +920,8 @@ MacroTab:Button({
 MacroTab:Section({ Title = "Playback" })
 
 MacroTab:Button({
-    Title = "▶️ Play Current Macro",
+    Title = "Play Current Macro",
+    Icon  = "play",
     Tooltip = "Play back the selected macro with smooth interpolation",
     Callback = function()
         local macro = MacroRec:GetCurrentMacro()
@@ -929,7 +935,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "⏸️ Pause / Resume",
+    Title = "Pause / Resume",
+    Icon  = "pause",
     Tooltip = "Pause or resume macro playback",
     Callback = function()
         MacroRec:PausePlayback()
@@ -937,7 +944,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "⏹️ Stop Playback",
+    Title = "Stop Playback",
+    Icon  = "square",
     Tooltip = "Stop macro playback immediately",
     Callback = function()
         MacroRec:StopPlayback()
@@ -980,7 +988,8 @@ ConfigMgr:Register("MacroRecordInputs", recordInputsToggle)
 MacroTab:Section({ Title = "Save / Load" })
 
 MacroTab:Button({
-    Title = "💾 Save Current Macro",
+    Title = "Save Current Macro",
+    Icon  = "save",
     Tooltip = "Save the recorded macro to disk",
     Callback = function()
         local macro = MacroRec:GetCurrentMacro()
@@ -1007,7 +1016,8 @@ macroDropdown = MacroTab:Dropdown({
 })
 
 MacroTab:Button({
-    Title = "🔄 Refresh List",
+    Title = "Refresh List",
+    Icon  = "refresh-cw",
     Tooltip = "Refresh the saved macros list",
     Callback = function()
         refreshMacroList()
@@ -1016,7 +1026,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "📂 Load Selected",
+    Title = "Load Selected",
+    Icon  = "folder-open",
     Tooltip = "Load the selected macro for playback",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
@@ -1031,7 +1042,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "🗑️ Delete Selected",
+    Title = "Delete Selected",
+    Icon  = "trash-2",
     Tooltip = "Permanently delete the selected macro",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
@@ -1045,7 +1057,8 @@ MacroTab:Button({
 MacroTab:Section({ Title = "Import / Export" })
 
 MacroTab:Button({
-    Title = "📤 Export to Clipboard",
+    Title = "Export to Clipboard",
+    Icon  = "share",
     Tooltip = "Copy macro data as JSON to clipboard",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
@@ -1068,7 +1081,8 @@ importInput = MacroTab:Input({
 })
 
 MacroTab:Button({
-    Title = "📥 Import from Clipboard",
+    Title = "Import from Clipboard",
+    Icon  = "download",
     Tooltip = "Import macro from clipboard or text field",
     Callback = function()
         local clipboard = ""
@@ -1122,7 +1136,8 @@ local function refreshQueueDisplay()
 end
 
 MacroTab:Button({
-    Title = "➕ Add Selected to Queue",
+    Title = "Add Selected to Queue",
+    Icon  = "plus",
     Tooltip = "Add selected macro to the playback queue",
     Callback = function()
         if selectedMacroName and selectedMacroName ~= "(no macros)" then
@@ -1139,7 +1154,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "➖ Remove Selected from Queue",
+    Title = "Remove Selected from Queue",
+    Icon  = "minus",
     Tooltip = "Remove selected macro from queue",
     Callback = function()
         if selectedQueueItem and selectedQueueItem ~= "(empty queue)" then
@@ -1154,7 +1170,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "🗑 Clear Queue",
+    Title = "Clear Queue",
+    Icon  = "trash",
     Tooltip = "Remove all macros from the queue",
     Callback = function()
         MacroRec:ClearQueue()
@@ -1185,7 +1202,8 @@ ConfigMgr:Register("MacroQueueLoop", queueLoopToggle)
 MacroTab:Section({ Title = "Queue Playback" })
 
 MacroTab:Button({
-    Title = "▶️ Start Queue Playback",
+    Title = "Start Queue Playback",
+    Icon  = "play",
     Tooltip = "Start sequential macro queue playback",
     Callback = function()
         if #MacroRec:GetQueue() == 0 then
@@ -1201,7 +1219,8 @@ MacroTab:Button({
 })
 
 MacroTab:Button({
-    Title = "⏹️ Stop Queue Playback",
+    Title = "Stop Queue Playback",
+    Icon  = "square",
     Tooltip = "Stop the macro queue playback",
     Callback = function()
         MacroRec:StopQueuePlayback()
@@ -1889,7 +1908,26 @@ PlayerTab:Button({
 })
 
 PlayerTab:Button({
-    Title    = "👔 Wear All Saved",
+    Title    = "Wear Selected",
+    Icon     = "shirt",
+    Tooltip  = "Equip the accessory selected in the dropdown",
+    Callback = function()
+        if not AvatarSpoof.Enabled then
+            N("Avatar Customizer", "Enable Avatar Customizer first!")
+            return
+        end
+        if not selectedSavedAcc or selectedSavedAcc == "(no accessories saved)" then
+            N("Avatar Customizer", "No accessory selected!")
+            return
+        end
+        AvatarSpoof:WearAccessory(selectedSavedAcc)
+        N("Avatar Customizer", "Equipped: " .. selectedSavedAcc)
+    end
+})
+
+PlayerTab:Button({
+    Title    = "Wear All Saved",
+    Icon     = "shirt",
     Tooltip  = "Equip all saved accessories at once",
     Callback = function()
         if not AvatarSpoof.Enabled then
@@ -1907,7 +1945,8 @@ PlayerTab:Button({
 })
 
 PlayerTab:Button({
-    Title    = "🗑️ Remove Selected",
+    Title    = "Remove Selected",
+    Icon     = "trash-2",
     Tooltip  = "Unequip and delete the selected accessory from saved list",
     Callback = function()
         if not selectedSavedAcc or selectedSavedAcc == "(no accessories saved)" then
@@ -1925,7 +1964,8 @@ PlayerTab:Button({
 })
 
 PlayerTab:Button({
-    Title    = "🧹 Remove All",
+    Title    = "Remove All",
+    Icon     = "trash",
     Tooltip  = "Unequip and clear all saved accessories",
     Callback = function()
         AvatarSpoof:ClearAllSaved()
@@ -1940,6 +1980,7 @@ PlayerTab:Paragraph({ Title = "Username", Content = lp.Name })
 PlayerTab:Paragraph({ Title = "User ID",  Content = tostring(lp.UserId) })
 PlayerTab:Button({
     Title    = "Copy Player ID",
+    Icon     = "copy",
     Tooltip = "Copy your Roblox user ID to clipboard",
     Callback = function()
         pcall(function() setclipboard(tostring(lp.UserId)) end)
@@ -1949,7 +1990,8 @@ PlayerTab:Button({
 
 PlayerTab:Section({ Title = "Server Utilities" })
 PlayerTab:Button({
-    Title    = "🔄 Rejoin Current Server",
+    Title    = "Rejoin Current Server",
+    Icon     = "refresh-cw",
     Tooltip  = "Reconnect to this server instance",
     Callback = function()
         N("Server", "Rejoining...")
@@ -1957,7 +1999,8 @@ PlayerTab:Button({
     end
 })
 PlayerTab:Button({
-    Title    = "🔀 Server Hop",
+    Title    = "Server Hop",
+    Icon     = "shuffle",
     Tooltip  = "Join a different server of the same game",
     Callback = function()
         N("Server", "Finding new server...")
@@ -1965,7 +2008,8 @@ PlayerTab:Button({
     end
 })
 PlayerTab:Button({
-    Title    = "📋 Copy Server JobID",
+    Title    = "Copy Server JobID",
+    Icon     = "copy",
     Tooltip  = "Copy current server JobID to clipboard",
     Callback = function()
         local ok, id = ServerUtils:CopyJobID()
@@ -1984,6 +2028,7 @@ TeleTab:Section({ Title = "Position" })
 
 TeleTab:Button({
     Title    = "Copy My Position",
+    Icon     = "map-pin",
     Tooltip = "Save your current position",
     Callback = function()
         local p = Teleport:SavePosition()
@@ -1993,6 +2038,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Go to Saved Position",
+    Icon     = "navigation",
     Tooltip = "Teleport to your last saved position",
     Callback = function()
         if Teleport:GotoSaved(Fly) then N("Teleport", "Teleported")
@@ -2014,6 +2060,7 @@ do local list = Teleport:GetPlayerList(); selectedPlayer = list[1] end
 
 TeleTab:Button({
     Title    = "Refresh Players",
+    Icon     = "refresh-cw",
     Tooltip = "Refresh the player list",
     Callback = function()
         local list = Teleport:GetPlayerList()
@@ -2024,6 +2071,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Teleport to Player",
+    Icon     = "send",
     Tooltip = "Teleport to the selected player",
     Callback = function()
         local name = selectedPlayer
@@ -2048,6 +2096,7 @@ local wpDrop
 
 TeleTab:Button({
     Title    = "Create Waypoint",
+    Icon     = "plus-circle",
     Tooltip = "Save current position as a waypoint",
     Callback = function()
         local name = wpNameIn.Value or ""
@@ -2076,6 +2125,7 @@ do local list = Waypoint:GetList(); selectedWaypoint = list[1] end
 
 TeleTab:Button({
     Title    = "Refresh Waypoints",
+    Icon     = "refresh-cw",
     Tooltip = "Refresh the waypoint list",
     Callback = function()
         local list = Waypoint:GetList()
@@ -2086,6 +2136,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Teleport to Waypoint",
+    Icon     = "navigation",
     Tooltip = "Teleport to the selected waypoint",
     Callback = function()
         local name = selectedWaypoint
@@ -2098,6 +2149,7 @@ TeleTab:Button({
 })
 TeleTab:Button({
     Title    = "Delete Waypoint",
+    Icon     = "trash-2",
     Tooltip = "Delete the selected waypoint",
     Callback = function()
         local name = selectedWaypoint
@@ -2149,7 +2201,8 @@ local function refreshWpQueue()
 end
 
 TeleTab:Button({
-    Title = "➕ Add Selected to Queue",
+    Title = "Add Selected to Queue",
+    Icon  = "plus",
     Tooltip = "Add selected waypoint to the queue",
     Callback = function()
         local name = selectedWaypoint
@@ -2166,7 +2219,8 @@ TeleTab:Button({
 })
 
 TeleTab:Button({
-    Title = "➖ Remove Selected from Queue",
+    Title = "Remove Selected from Queue",
+    Icon  = "minus",
     Tooltip = "Remove selected waypoint from queue",
     Callback = function()
         if selectedWpQueueItem and selectedWpQueueItem ~= "(empty queue)" then
@@ -2180,7 +2234,8 @@ TeleTab:Button({
 })
 
 TeleTab:Button({
-    Title = "🗑 Clear Queue",
+    Title = "Clear Queue",
+    Icon  = "trash",
     Tooltip = "Clear the waypoint queue",
     Callback = function()
         Waypoint:ClearQueue()
@@ -2207,7 +2262,8 @@ queueDelaySlider = TeleTab:Slider({
 ConfigMgr:Register("WpQueueDelay", queueDelaySlider)
 
 TeleTab:Button({
-    Title = "▶️ Start Queue",
+    Title = "Start Queue",
+    Icon  = "play",
     Tooltip = "Start sequential waypoint teleport",
     Callback = function()
         if #Waypoint:GetQueue() == 0 then
@@ -2222,7 +2278,8 @@ TeleTab:Button({
 })
 
 TeleTab:Button({
-    Title = "⏹️ Stop Queue",
+    Title = "Stop Queue",
+    Icon  = "square",
     Tooltip = "Stop the waypoint queue",
     Callback = function()
         Waypoint:StopQueue()
