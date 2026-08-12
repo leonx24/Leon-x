@@ -810,6 +810,7 @@ ConfigMgr:Register("WalkOnWater", wowToggle)
 -- ══════════════════════════════════════════════════════════════════════════════
 
 -- Macro name input
+MacroTab:Section({ Title = "Interface" })
 macroNameInput = MacroTab:Input({
     Title = "Macro Name",
     Placeholder = "e.g. route_to_peak",

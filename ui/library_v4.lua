@@ -683,18 +683,27 @@ function Library:CreateWindow(cfg)
 
 			for _, entry in ipairs(win._allComps) do
 				if entry._tab == tab then
-					-- Check if component is in a collapsed section
-					local isCollapsed = false
-					for _, sec in ipairs(tab._sections or {}) do
-						for _, c in ipairs(sec._comps or {}) do
-							if c == entry.Comp and not sec.Expanded then
-								isCollapsed = true
-								break
+					if entry.Comp and entry.Comp._isSection then
+						entry.Frame.Visible = active
+					else
+						local inSec = nil
+						for _, sec in ipairs(tab._sections or {}) do
+							for _, c in ipairs(sec._comps or {}) do
+								if c == entry.Comp then
+									inSec = sec
+									break
+								end
 							end
+							if inSec then break end
 						end
-						if isCollapsed then break end
+						if inSec then
+							entry.Frame.Visible = active and inSec.Expanded
+						else
+							entry.Frame.Visible = active
+						end
 					end
-					entry.Frame.Visible = active and not isCollapsed
+				else
+					entry.Frame.Visible = false
 				end
 			end
 		end
@@ -725,16 +734,23 @@ function Library:CreateWindow(cfg)
 				local d = maybeData or selfOrData
 				local r = fn(tab, d)
 				if r and r.Frame then
-					win._allComps[#win._allComps + 1] = { _tab = tab; Frame = r.Frame; Comp = r }
-					if fn ~= Section and tab._currentSection then
-						table.insert(tab._currentSection._comps, r)
-						if not tab._currentSection.Expanded then
-							r.Frame.Visible = false
+					local entry = { _tab = tab; Frame = r.Frame; Comp = r }
+					win._allComps[#win._allComps + 1] = entry
+
+					if fn ~= Section then
+						if tab._currentSection then
+							table.insert(tab._currentSection._comps, r)
+							r.Frame.Visible = tab._currentSection.Expanded and (win._active == tab)
+						else
+							r.Frame.Visible = (win._active == tab)
 						end
+					else
+						r.Frame.Visible = (win._active == tab)
 					end
+
 					local cCount = 0
-					for _, entry in ipairs(win._allComps) do
-						if entry._tab == tab then cCount = cCount + 1 end
+					for _, e in ipairs(win._allComps) do
+						if e._tab == tab then cCount = cCount + 1 end
 					end
 					countBadge.Text = tostring(cCount)
 				end
@@ -779,11 +795,11 @@ function Section(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
 	local secIcon = data.SectionIcon or data.Icon or "layers"
-	local expanded = data.Collapsed ~= true
-
+	local expanded = data.Expanded == true
 	local sec = {
 		Expanded = expanded,
 		_comps = {},
+		_isSection = true,
 	}
 
 	-- Section Header Card Frame
