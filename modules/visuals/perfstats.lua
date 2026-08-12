@@ -82,7 +82,7 @@ local function buildGui()
     bar.BackgroundTransparency = 0.15
     bar.BorderSizePixel        = 0
     bar.AnchorPoint            = Vector2.new(0.5, 0)
-    bar.Position               = UDim2.new(0.5, 0, 0, 46)
+    bar.Position               = UDim2.new(0.5, 0, 0, 10)
     bar.Size                   = UDim2.new(0, 480, 0, 32)
     bar.Active                 = true
     bar.Parent                 = root

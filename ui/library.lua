@@ -936,16 +936,6 @@ function Toggle(tab, data)
 	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
 	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
 
-	if inSec then
-		local mark = mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 16); Position = UDim2.new(0, 0, 0.5, -8);
-			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
-			BorderSizePixel = 0; Parent = f;
-		})
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
-		tagBg(mark, "accent")
-	end
-
 	-- Optional Component Icon
 	local tIco = nil; local lx = inSec and 12 or 14
 	if data.Icon then
@@ -1018,16 +1008,6 @@ function Slider(tab, data)
 	}), "card")
 	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
 	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
-
-	if inSec then
-		local mark = mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
-			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
-			BorderSizePixel = 0; Parent = f;
-		})
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
-		tagBg(mark, "accent")
-	end
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -74, 0, 14); Position = UDim2.fromOffset(12, inSec and 6 or 8);
@@ -1132,16 +1112,6 @@ function Dropdown(tab, data)
 	}), "card")
 	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
 	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
-
-	if inSec then
-		local mark = mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
-			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
-			BorderSizePixel = 0; Parent = f;
-		})
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
-		tagBg(mark, "accent")
-	end
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -28, 0, 12); Position = UDim2.fromOffset(12, 5);
@@ -1401,16 +1371,6 @@ function Keybind(tab, data)
 	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
 	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
 
-	if inSec then
-		local mark = mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 16); Position = UDim2.new(0, 0, 0.5, -8);
-			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
-			BorderSizePixel = 0; Parent = f;
-		})
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
-		tagBg(mark, "accent")
-	end
-
 	local lx = inSec and 12 or 14
 	local kIco = mkIcon(f, "keyboard", inSec and 14 or 16, theme.Accent, 1)
 	if kIco then kIco.Position = UDim2.new(0, lx, 0.5, inSec and -7 or -8); lx = lx + 24; tagIcon(kIco, "accent") end
@@ -1468,16 +1428,6 @@ function Input(tab, data)
 	}), "card")
 	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
 	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
-
-	if inSec then
-		local mark = mk("Frame", {
-			Size = UDim2.new(0, 3, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
-			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
-			BorderSizePixel = 0; Parent = f;
-		})
-		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
-		tagBg(mark, "accent")
-	end
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -24, 0, 12); Position = UDim2.fromOffset(12, 5);
