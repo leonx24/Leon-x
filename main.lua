@@ -72,17 +72,18 @@ SplashGui.Parent           = gui
 
 local SplashBg = Instance.new("Frame")
 SplashBg.Size                = UDim2.fromScale(1, 1)
-SplashBg.BackgroundColor3    = Color3.fromRGB(6, 6, 6)
+SplashBg.BackgroundColor3    = Color3.fromRGB(6, 6, 10)
 SplashBg.BackgroundTransparency = 0.15
 SplashBg.BorderSizePixel     = 0
 SplashBg.ZIndex              = 200
 SplashBg.Parent              = SplashGui
 
+-- Main Card Container (340x200)
 local SplashCard = Instance.new("Frame")
-SplashCard.Size                = UDim2.new(0, 260, 0, 160)
+SplashCard.Size                = UDim2.new(0, 340, 0, 200)
 SplashCard.AnchorPoint         = Vector2.new(0.5, 0.5)
 SplashCard.Position            = UDim2.fromScale(0.5, 0.5)
-SplashCard.BackgroundColor3    = Color3.fromRGB(14, 14, 14)
+SplashCard.BackgroundColor3    = Color3.fromRGB(14, 14, 22)
 SplashCard.BorderSizePixel     = 0
 SplashCard.ZIndex              = 201
 SplashCard.Parent              = SplashGui
@@ -92,151 +93,208 @@ SplashCorner.CornerRadius = UDim.new(0, 16)
 SplashCorner.Parent       = SplashCard
 
 local SplashStroke = Instance.new("UIStroke")
-SplashStroke.Color     = Color3.fromRGB(36, 36, 36)
-SplashStroke.Thickness = 1
+SplashStroke.Color     = Color3.fromRGB(45, 45, 65)
+SplashStroke.Thickness = 1.2
 SplashStroke.Parent    = SplashCard
 
--- Animated accent glow on card border
+-- Pulsing Ambient Border Glow
 task.spawn(function()
     while SplashCard and SplashCard.Parent do
-        TweenService:Create(SplashStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine),
-            {Color = Color3.fromRGB(80, 160, 255)}):Play()
+        TweenService:Create(SplashStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            {Color = Color3.fromRGB(100, 140, 255)}):Play()
         task.wait(1.5)
-        TweenService:Create(SplashStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine),
-            {Color = Color3.fromRGB(36, 36, 36)}):Play()
+        TweenService:Create(SplashStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+            {Color = Color3.fromRGB(45, 45, 65)}):Play()
         task.wait(1.5)
     end
 end)
 
--- Logo dot
-local SplashDot = Instance.new("Frame")
-SplashDot.Size             = UDim2.new(0, 10, 0, 10)
-SplashDot.Position         = UDim2.new(0, 22, 0, 30)
-SplashDot.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
-SplashDot.BorderSizePixel  = 0
-SplashDot.ZIndex           = 202
-SplashDot.Parent           = SplashCard
+-- Logo Icon Tile Box (38x38)
+local LogoTile = Instance.new("Frame")
+LogoTile.Size             = UDim2.fromOffset(38, 38)
+LogoTile.Position         = UDim2.fromOffset(20, 20)
+LogoTile.BackgroundColor3 = Color3.fromRGB(100, 140, 255)
+LogoTile.BackgroundTransparency = 0.85
+LogoTile.BorderSizePixel  = 0
+LogoTile.ZIndex           = 202
+LogoTile.Parent           = SplashCard
+
+local TileCorner = Instance.new("UICorner")
+TileCorner.CornerRadius = UDim.new(0, 10)
+TileCorner.Parent       = LogoTile
+
+local TileStroke = Instance.new("UIStroke")
+TileStroke.Color        = Color3.fromRGB(100, 140, 255)
+TileStroke.Thickness    = 1
+TileStroke.Transparency = 0.5
+TileStroke.Parent       = LogoTile
+
+-- Pulsing Icon Dot
+local Dot = Instance.new("Frame")
+Dot.Size             = UDim2.fromOffset(12, 12)
+Dot.AnchorPoint      = Vector2.new(0.5, 0.5)
+Dot.Position         = UDim2.fromScale(0.5, 0.5)
+Dot.BackgroundColor3 = Color3.fromRGB(100, 140, 255)
+Dot.BorderSizePixel  = 0
+Dot.ZIndex           = 203
+Dot.Parent           = LogoTile
 
 local DotCorner = Instance.new("UICorner")
-DotCorner.CornerRadius = UDim.new(0, 5)
-DotCorner.Parent       = SplashDot
+DotCorner.CornerRadius = UDim.new(1, 0)
+DotCorner.Parent       = Dot
 
--- Pulsing dot animation
 task.spawn(function()
-    while SplashDot and SplashDot.Parent do
-        TweenService:Create(SplashDot, TweenInfo.new(0.6, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
-            {Size = UDim2.new(0, 13, 0, 13)}):Play()
-        task.wait(0.6)
-        TweenService:Create(SplashDot, TweenInfo.new(0.6, Enum.EasingStyle.Quint),
-            {Size = UDim2.new(0, 10, 0, 10)}):Play()
-        task.wait(0.6)
+    while Dot and Dot.Parent do
+        TweenService:Create(Dot, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.Out),
+            {Size = UDim2.fromOffset(16, 16), BackgroundTransparency = 0.2}):Play()
+        task.wait(0.8)
+        TweenService:Create(Dot, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.In),
+            {Size = UDim2.fromOffset(10, 10), BackgroundTransparency = 0}):Play()
+        task.wait(0.8)
     end
 end)
 
 -- Title
 local SplashTitle = Instance.new("TextLabel")
-SplashTitle.Size                = UDim2.new(1, -50, 0, 26)
-SplashTitle.Position            = UDim2.new(0, 40, 0, 20)
+SplashTitle.Size                = UDim2.new(1, -140, 0, 22)
+SplashTitle.Position            = UDim2.fromOffset(68, 20)
 SplashTitle.BackgroundTransparency = 1
 SplashTitle.Text                = "Leon X"
-SplashTitle.TextColor3          = Color3.fromRGB(240, 240, 240)
-SplashTitle.TextSize            = 20
+SplashTitle.TextColor3          = Color3.fromRGB(240, 242, 250)
+SplashTitle.TextSize            = 18
 SplashTitle.Font                = Enum.Font.GothamBold
 SplashTitle.TextXAlignment      = Enum.TextXAlignment.Left
 SplashTitle.ZIndex              = 202
 SplashTitle.Parent              = SplashCard
 
--- Version
+-- Subtitle / Version Pill
+local SplashVerPill = Instance.new("Frame")
+SplashVerPill.Size             = UDim2.fromOffset(56, 18)
+SplashVerPill.Position         = UDim2.new(1, -76, 0, 20)
+SplashVerPill.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
+SplashVerPill.BorderSizePixel  = 0
+SplashVerPill.ZIndex           = 202
+SplashVerPill.Parent           = SplashCard
+
+local PillCorner = Instance.new("UICorner")
+PillCorner.CornerRadius = UDim.new(0, 6)
+PillCorner.Parent       = SplashVerPill
+
 local SplashVer = Instance.new("TextLabel")
-SplashVer.Size                = UDim2.new(0, 50, 0, 18)
-SplashVer.Position            = UDim2.new(0, 40, 0, 46)
+SplashVer.Size                = UDim2.fromScale(1, 1)
 SplashVer.BackgroundTransparency = 1
 SplashVer.Text                = "v" .. CURRENT_VERSION
-SplashVer.TextColor3          = Color3.fromRGB(90, 90, 90)
-SplashVer.TextSize            = 11
-SplashVer.Font                = Enum.Font.Gotham
-SplashVer.TextXAlignment      = Enum.TextXAlignment.Left
-SplashVer.ZIndex              = 202
-SplashVer.Parent              = SplashCard
+SplashVer.TextColor3          = Color3.fromRGB(100, 140, 255)
+SplashVer.TextSize            = 10
+SplashVer.Font                = Enum.Font.GothamBold
+SplashVer.TextXAlignment      = Enum.TextXAlignment.Center
+SplashVer.ZIndex              = 203
+SplashVer.Parent              = SplashVerPill
 
--- Status text
+-- Subtitle Tagline
+local SplashSub = Instance.new("TextLabel")
+SplashSub.Size                = UDim2.new(1, -140, 0, 14)
+SplashSub.Position            = UDim2.fromOffset(68, 42)
+SplashSub.BackgroundTransparency = 1
+SplashSub.Text                = "CyberNoir Boot Engine"
+SplashSub.TextColor3          = Color3.fromRGB(130, 135, 155)
+SplashSub.TextSize            = 10
+SplashSub.Font                = Enum.Font.GothamMedium
+SplashSub.TextXAlignment      = Enum.TextXAlignment.Left
+SplashSub.ZIndex              = 202
+SplashSub.Parent              = SplashCard
+
+-- Status Text Label
 local SplashStatus = Instance.new("TextLabel")
-SplashStatus.Size                = UDim2.new(1, -28, 0, 18)
-SplashStatus.Position            = UDim2.new(0, 14, 0, 80)
+SplashStatus.Size                = UDim2.new(1, -120, 0, 18)
+SplashStatus.Position            = UDim2.fromOffset(20, 110)
 SplashStatus.BackgroundTransparency = 1
-SplashStatus.Text                = "Initializing..."
-SplashStatus.TextColor3          = Color3.fromRGB(110, 110, 110)
+SplashStatus.Text                = "Initializing system engine..."
+SplashStatus.TextColor3          = Color3.fromRGB(180, 185, 205)
 SplashStatus.TextSize            = 11
-SplashStatus.Font                = Enum.Font.Gotham
+SplashStatus.Font                = Enum.Font.GothamMedium
 SplashStatus.TextXAlignment      = Enum.TextXAlignment.Left
 SplashStatus.ZIndex              = 202
 SplashStatus.Parent              = SplashCard
 
--- Progress bar background
+-- Percentage Label (Right Aligned)
+local SplashPct = Instance.new("TextLabel")
+SplashPct.Size                = UDim2.new(0, 50, 0, 18)
+SplashPct.Position            = UDim2.new(1, -70, 0, 110)
+SplashPct.BackgroundTransparency = 1
+SplashPct.Text                = "0%"
+SplashPct.TextColor3          = Color3.fromRGB(100, 140, 255)
+SplashPct.TextSize            = 11
+SplashPct.Font                = Enum.Font.GothamBold
+SplashPct.TextXAlignment      = Enum.TextXAlignment.Right
+SplashPct.ZIndex              = 202
+SplashPct.Parent              = SplashCard
+
+-- Progress Bar Background Track
 local SplashBarBg = Instance.new("Frame")
-SplashBarBg.Size             = UDim2.new(1, -28, 0, 4)
-SplashBarBg.Position         = UDim2.new(0, 14, 1, -28)
-SplashBarBg.BackgroundColor3 = Color3.fromRGB(24, 24, 24)
+SplashBarBg.Size             = UDim2.new(1, -40, 0, 6)
+SplashBarBg.Position         = UDim2.fromOffset(20, 140)
+SplashBarBg.BackgroundColor3 = Color3.fromRGB(24, 24, 36)
 SplashBarBg.BorderSizePixel  = 0
 SplashBarBg.ZIndex           = 202
 SplashBarBg.Parent           = SplashCard
 
 local BarBgCorner = Instance.new("UICorner")
-BarBgCorner.CornerRadius = UDim.new(0, 2)
+BarBgCorner.CornerRadius = UDim.new(0, 3)
 BarBgCorner.Parent       = SplashBarBg
 
--- Progress bar fill
+-- Progress Bar Fill
 local SplashBarFill = Instance.new("Frame")
 SplashBarFill.Size             = UDim2.new(0, 0, 1, 0)
-SplashBarFill.BackgroundColor3 = Color3.fromRGB(80, 160, 255)
+SplashBarFill.BackgroundColor3 = Color3.fromRGB(100, 140, 255)
 SplashBarFill.BorderSizePixel  = 0
 SplashBarFill.ZIndex           = 203
 SplashBarFill.Parent           = SplashBarBg
 
 local BarFillCorner = Instance.new("UICorner")
-BarFillCorner.CornerRadius = UDim.new(0, 2)
+BarFillCorner.CornerRadius = UDim.new(0, 3)
 BarFillCorner.Parent       = SplashBarFill
 
--- Animated dots
+-- Animated Loading Indicator (Pulsing dots)
 local SplashDots = Instance.new("TextLabel")
-SplashDots.Size                = UDim2.new(1, 0, 0, 16)
-SplashDots.Position            = UDim2.new(0, 0, 0, 106)
+SplashDots.Size                = UDim2.new(1, 0, 0, 14)
+SplashDots.Position            = UDim2.fromOffset(0, 160)
 SplashDots.BackgroundTransparency = 1
 SplashDots.Text                = "●  ○  ○"
-SplashDots.TextColor3          = Color3.fromRGB(80, 160, 255)
-SplashDots.TextSize            = 10
-SplashDots.Font                = Enum.Font.GothamMedium
+SplashDots.TextColor3          = Color3.fromRGB(100, 140, 255)
+SplashDots.TextSize            = 9
+SplashDots.Font                = Enum.Font.GothamBold
 SplashDots.TextXAlignment      = Enum.TextXAlignment.Center
 SplashDots.ZIndex              = 202
 SplashDots.Parent              = SplashCard
 
--- Splash entrance animation
+-- Entrance animation
 SplashCard.BackgroundTransparency = 1
-SplashCard.Size = UDim2.new(0, 210, 0, 130)
+SplashCard.Size = UDim2.new(0, 280, 0, 160)
 local function tw(o, t, p)
     TweenService:Create(o, TweenInfo.new(t, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), p):Play()
 end
-tw(SplashCard, 0.4, {BackgroundTransparency = 0, Size = UDim2.new(0, 260, 0, 160)})
-tw(SplashBg, 0.3, {BackgroundTransparency = 0.15})
+tw(SplashCard, 0.45, {BackgroundTransparency = 0, Size = UDim2.new(0, 340, 0, 200)})
+tw(SplashBg, 0.35, {BackgroundTransparency = 0.15})
 
 for _, child in ipairs(SplashCard:GetDescendants()) do
     if child:IsA("TextLabel") then
         child.TextTransparency = 1
-        TweenService:Create(child, TweenInfo.new(0.5), {TextTransparency = 0}):Play()
+        TweenService:Create(child, TweenInfo.new(0.4), {TextTransparency = 0}):Play()
     elseif child:IsA("Frame") then
         child.BackgroundTransparency = 1
-        TweenService:Create(child, TweenInfo.new(0.5), {BackgroundTransparency = 0}):Play()
+        TweenService:Create(child, TweenInfo.new(0.4), {BackgroundTransparency = 0}):Play()
     end
 end
 
--- Animated dots cycle
+-- Animated dots & status step cycle
 local dotFrames = {"●  ○  ○", "○  ●  ○", "○  ○  ●"}
 local statusSteps = {
-    "Initializing...",
-    "Loading UI engine...",
-    "Fetching modules...",
-    "Wiring features...",
-    "Almost ready...",
+    "Initializing system engine...",
+    "Loading UI core & components...",
+    "Fetching modules from GitHub...",
+    "Configuring game features...",
+    "Finalizing initialization...",
 }
 local dotIdx, stepIdx = 1, 1
 
@@ -244,12 +302,12 @@ task.spawn(function()
     local lastDot, lastStep = tick(), tick()
     while SplashCard and SplashCard.Parent do
         local now = tick()
-        if now - lastDot >= 0.3 then
+        if now - lastDot >= 0.25 then
             lastDot = now
             dotIdx = (dotIdx % #dotFrames) + 1
             pcall(function() SplashDots.Text = dotFrames[dotIdx] end)
         end
-        if now - lastStep >= 0.9 then
+        if now - lastStep >= 1.0 then
             lastStep = now
             stepIdx = (stepIdx % #statusSteps) + 1
             pcall(function() SplashStatus.Text = statusSteps[stepIdx] end)
@@ -258,10 +316,12 @@ task.spawn(function()
     end
 end)
 
--- Splash progress API (used below during module loading)
+-- Splash progress API
 local function setSplashProgress(pct)
     pcall(function()
-        tw(SplashBarFill, 0.25, {Size = UDim2.new(math.clamp(pct, 0, 1), 0, 1, 0)})
+        local clamped = math.clamp(pct, 0, 1)
+        tw(SplashBarFill, 0.25, {Size = UDim2.new(clamped, 0, 1, 0)})
+        SplashPct.Text = tostring(math.floor(clamped * 100)) .. "%"
     end)
 end
 
