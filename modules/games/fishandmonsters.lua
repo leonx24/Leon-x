@@ -1672,10 +1672,10 @@ function FAM:WireUI(Window, extras)
     ServerHop    = extras.ServerHop
     Noclip       = extras.Noclip
 
-    local FishTab     = Window:Tab({ Title = "Fishing",  Icon = "🎣" })
-    local ESPTab      = Window:Tab({ Title = "ESP",      Icon = "👁️" })
-    local TravelTab   = Window:Tab({ Title = "Travel",   Icon = "🏝️" })
-    local SettingsTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
+    local FishTab     = Window:Tab({ Title = "Fishing",  Icon = "fish" })
+    local ESPTab      = Window:Tab({ Title = "ESP",      Icon = "eye" })
+    local TravelTab   = Window:Tab({ Title = "Travel",   Icon = "map" })
+    local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 
     -- Helper function to make sections collapsible with right-aligned arrows
     local function createCollapsible(tab, title, components)
@@ -2267,7 +2267,7 @@ function FAM:WireUI(Window, extras)
     end
 
     -- ══ PLAYER TAB ════════════════════════════════════════════════════════
-    local PlayerTab = Window:Tab({ Title = "Player", Icon = "👤" })
+    local PlayerTab = Window:Tab({ Title = "Player", Icon = "user" })
 
     PlayerTab:Section({ Title = "Flight & Noclip" })
     
@@ -2465,7 +2465,7 @@ function FAM:WireUI(Window, extras)
 
 
     -- ══ MISC TAB ══════════════════════════════════════════════════════════
-    local MiscTab = Window:Tab({ Title = "Misc", Icon = "⚙️" })
+    local MiscTab = Window:Tab({ Title = "Misc", Icon = "wrench" })
 
     MiscTab:Section({ Title = "Visual Tweaks" })
 

@@ -575,14 +575,14 @@ if ActiveGameModule then
 else
 -- Universal mode: create all standard tabs
 
-local MovTab = Window:Tab({ Title = "Movement", Icon = "🏃" })
-local CombatTab = Window:Tab({ Title = "Combat", Icon = "⚔️" })
-local PlayerTab = Window:Tab({ Title = "Player", Icon = "🛡️" })
-local TeleTab = Window:Tab({ Title = "Teleport", Icon = "📍" })
-local VisTab = Window:Tab({ Title = "Visual", Icon = "👁️" })
-local AutoTab = Window:Tab({ Title = "Auto", Icon = "⚡" })
-local MacroTab = Window:Tab({ Title = "Macro", Icon = "🎬" })
-local SetTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
+local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
+local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
+local PlayerTab = Window:Tab({ Title = "Player", Icon = "shield" })
+local TeleTab = Window:Tab({ Title = "Teleport", Icon = "map-pin" })
+local VisTab = Window:Tab({ Title = "Visual", Icon = "eye" })
+local AutoTab = Window:Tab({ Title = "Auto", Icon = "zap" })
+local MacroTab = Window:Tab({ Title = "Macro", Icon = "clapperboard" })
+local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
 
 if AntiAFK then AntiAFK:Enable() end
 if PerfStats then PerfStats:Enable() end

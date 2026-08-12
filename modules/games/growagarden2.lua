@@ -1575,9 +1575,9 @@ function GAG:WireUI(Window, extras)
     local Speed = extras.Speed
     local PerfStats = extras.PerfStats
 
-    local FarmTab = Window:Tab({ Title = "Farming", Icon = "🍀" })
-    local ShopTab = Window:Tab({ Title = "Shop", Icon = "🛒" })
-    local UtilTab = Window:Tab({ Title = "Utility", Icon = "🛠️" })
+    local FarmTab = Window:Tab({ Title = "Farming", Icon = "leaf" })
+    local ShopTab = Window:Tab({ Title = "Shop", Icon = "shopping-cart" })
+    local UtilTab = Window:Tab({ Title = "Utility", Icon = "wrench" })
 
     -- ══ FARMING ═══════════════════════════════════════════════════════════
     FarmTab:Section({ Title = "Farming" })
@@ -2091,7 +2091,7 @@ function GAG:WireUI(Window, extras)
     local ConfigMgr = extras.ConfigMgr
     
     if ConfigMgr and Window then
-        local SettingsTab = Window:Tab({ Title = "Settings", Icon = "⚙️" })
+        local SettingsTab = Window:Tab({ Title = "Settings", Icon = "settings" })
         
         SettingsTab:Section({ Title = "Config" })
         
