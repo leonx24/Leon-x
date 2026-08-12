@@ -900,7 +900,7 @@ function Section(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
 	local secIcon = data.SectionIcon or data.Icon or "layers"
-	local expanded = data.Expanded == true
+	local expanded = data.Expanded ~= false
 	local sec = {
 		Expanded = expanded,
 		_comps = {},
