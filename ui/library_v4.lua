@@ -835,7 +835,7 @@ function Library:CreateWindow(cfg)
 
 		tab._setActive = setActive
 		win._tabs[#win._tabs + 1] = tab
-		if idx == 1 then setActive(true) end
+		if idx == 1 then win._active = tab; setActive(true) end
 
 		local function wrap(fn)
 			return function(selfOrData, maybeData)
