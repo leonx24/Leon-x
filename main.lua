@@ -379,7 +379,7 @@ local function load(p)
     end
 end
 
-local Library = load("ui/library_v4.lua")
+local Library = load("ui/library.lua")
 if not Library then warn("[LeonX] CRITICAL: UI library failed"); return end
 setSplashProgress(0.05)
 
