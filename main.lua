@@ -2547,6 +2547,9 @@ SetTab:Button({
         if not s or s == "(none)" then return end
         local ok = ConfigMgr:SetDefault(s)
         N("Config", ok and s.." is default" or "Failed")
+    end
+})
+
 SetTab:Section({ Title = "Config Share Code (Base64)" })
 
 shareCodeInput = SetTab:Input({
