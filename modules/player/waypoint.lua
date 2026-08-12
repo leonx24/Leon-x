@@ -14,9 +14,12 @@ local DIR = "Leon X/waypoints"
 -- ── Persistence ───────────────────────────────────────────────────────────────
 
 local function ensureDir()
-    if not isfolder(DIR) then
-        makefolder(DIR)
-    end
+    pcall(function()
+        if makefolder then
+            if isfolder and not isfolder("Leon X") then makefolder("Leon X") end
+            if isfolder and not isfolder(DIR) then makefolder(DIR) end
+        end
+    end)
 end
 
 local function getGameId()
@@ -55,11 +58,11 @@ end
 
 local function loadFromDisk()
     local file = getWaypointFile()
-    if not isfile(file) then return end
+    if not isfile or not isfile(file) then return end
 
     local raw
-    local ok1 = pcall(function() raw = readfile(file) end)
-    if not ok1 or not raw then return end
+    local ok1 = pcall(function() if readfile then raw = readfile(file) end end)
+    if not ok1 or not raw or raw == "" then return end
 
     local data
     local ok2 = pcall(function()

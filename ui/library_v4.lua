@@ -211,11 +211,16 @@ local function attachTooltip(component, text)
 	local tooltip, tooltipLabel = nil, nil
 	local function createTooltip()
 		if tooltip then return end
+		local targetParent = nil
+		pcall(function() targetParent = game:GetService("CoreGui") end)
+		if not targetParent then pcall(function() targetParent = lp:WaitForChild("PlayerGui") end) end
+		if not targetParent then return end
+
 		tooltip = mk("Frame", {
 			Name = "Tooltip"; Size = UDim2.fromOffset(220, 36);
 			BackgroundColor3 = Color3.fromRGB(15, 15, 24);
 			BorderSizePixel = 0; ZIndex = 300; Visible = false;
-			Parent = game:GetService("CoreGui");
+			Parent = targetParent;
 		})
 		mk("UICorner", { CornerRadius = UDim.new(0, 8); Parent = tooltip })
 		mk("UIStroke", { Color = Color3.fromRGB(45, 45, 65); Thickness = 1; Parent = tooltip })
@@ -231,7 +236,11 @@ local function attachTooltip(component, text)
 	local frame = component.Frame
 	if not frame then return end
 	frame.MouseEnter:Connect(function() createTooltip(); if tooltip then tooltip.Visible = true end end)
-	frame.MouseMoved:Connect(function(x, y) if tooltip then tooltip.Position = UDim2.fromOffset(x + 14, y + 14) end end)
+	frame.InputChanged:Connect(function(i)
+		if i.UserInputType == Enum.UserInputType.MouseMovement and tooltip then
+			tooltip.Position = UDim2.fromOffset(i.Position.X + 14, i.Position.Y + 14)
+		end
+	end)
 	frame.MouseLeave:Connect(function() if tooltip then tooltip.Visible = false end end)
 end
 
