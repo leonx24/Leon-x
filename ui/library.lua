@@ -262,6 +262,7 @@ function Library:CreateWindow(cfg)
 	cfg = cfg or {}
 	local title     = cfg.Title or "Leon X"
 	local author    = cfg.Author or ""
+	local versionStr = cfg.Version or Library.Version or "TEST-9.9.9"
 	local size      = cfg.Size or UDim2.new(0, 680, 0, 540)
 	local toggleKey = cfg.ToggleKey or Enum.KeyCode.U
 	local themeName = cfg.Theme or "Default"
@@ -368,7 +369,7 @@ function Library:CreateWindow(cfg)
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -54, 0, 14); Position = UDim2.fromOffset(48, 28);
-		BackgroundTransparency = 1; Text = "v0.0.1";
+		BackgroundTransparency = 1; Text = "v" .. tostring(versionStr);
 		Font = Enum.Font.GothamMedium; TextSize = 10;
 		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 12; Parent = brandBox;

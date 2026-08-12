@@ -564,6 +564,7 @@ local _winH   = isMobile and math.min(560, math.floor(_vp.Y * 0.88)) or 560
 local Window = Library:CreateWindow({
     Title      = windowTitle,
     Author     = windowAuthor,
+    Version    = CURRENT_VERSION,
     Size       = UDim2.new(0, _winW, 0, _winH),
     ToggleKey  = Enum.KeyCode.U,
     Theme      = "Default",
