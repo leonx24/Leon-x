@@ -485,7 +485,8 @@ function Library:CreateWindow(cfg)
 		PlaceholderColor3 = theme.TextDim; Text = "";
 		Font = Enum.Font.GothamMedium; TextSize = 11;
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
-		ClearTextOnFocus = false; ZIndex = 16; Parent = searchContainer;
+		ClearTextOnFocus = false; SelectionBackgroundColor3 = Color3.fromRGB(50, 45, 75);
+		ZIndex = 16; Parent = searchContainer;
 	})
 	tagText(globalSearchBox, "text")
 
@@ -755,20 +756,12 @@ function Library:CreateWindow(cfg)
 
 		-- Tab Title
 		local tLabel = tagText(mk("TextLabel", {
-			Size = UDim2.new(1, -78, 1, 0); Position = UDim2.fromOffset(46, 0);
+			Size = UDim2.new(1, -54, 1, 0); Position = UDim2.fromOffset(46, 0);
 			BackgroundTransparency = 1; Text = tabName;
 			Font = Enum.Font.GothamMedium; TextSize = 12;
 			TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left;
 			ZIndex = 13; Parent = btn;
 		}), "textsub")
-
-		-- Badge Counter Pill
-		local countBadge = mk("TextLabel", {
-			Size = UDim2.fromOffset(20, 16); Position = UDim2.new(1, -26, 0.5, -8);
-			BackgroundColor3 = theme.Elevated; BackgroundTransparency = 0.5;
-			BorderSizePixel = 0; Text = "0"; Font = Enum.Font.GothamBold; TextSize = 9;
-			TextColor3 = theme.TextDim; ZIndex = 13; Parent = btn;
-		}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
 
 		local isActive = false
 		local function setActive(active)
@@ -865,12 +858,6 @@ function Library:CreateWindow(cfg)
 					else
 						r.Frame.Visible = (win._active == tab)
 					end
-
-					local cCount = 0
-					for _, e in ipairs(win._allComps) do
-						if e._tab == tab then cCount = cCount + 1 end
-					end
-					countBadge.Text = tostring(cCount)
 				end
 				return r
 			end
@@ -1296,7 +1283,8 @@ function Dropdown(tab, data)
 		Position = UDim2.fromOffset(sIco and 24 or 6, 0);
 		BackgroundTransparency = 1; PlaceholderText = "Search..."; PlaceholderColor3 = theme.TextDim;
 		Text = ""; Font = Enum.Font.GothamMedium; TextSize = 10;
-		TextColor3 = theme.Text; ClearTextOnFocus = true;
+		TextColor3 = theme.Text; ClearTextOnFocus = false;
+		SelectionBackgroundColor3 = Color3.fromRGB(50, 45, 75);
 		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 4; Parent = sFrame;
 	})
 	tagText(searchBox, "text")
@@ -1588,7 +1576,8 @@ function Input(tab, data)
 		PlaceholderText = data.Placeholder or ""; Text = cur;
 		Font = Enum.Font.GothamMedium; TextSize = 11; TextColor3 = theme.Text;
 		PlaceholderColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
-		ClearTextOnFocus = false; Parent = f;
+		ClearTextOnFocus = false; SelectionBackgroundColor3 = Color3.fromRGB(50, 45, 75);
+		Parent = f;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }), stroke }), "elevated")
 	tagText(tb, "text")
 	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 8); pad.Parent = tb
