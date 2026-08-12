@@ -653,6 +653,7 @@ if ActiveGameModule then
 else
 -- Universal mode: create all standard tabs
 
+local FavTab = Window:Tab({ Title = "Favorites", Icon = "star" })
 local MovTab = Window:Tab({ Title = "Movement", Icon = "person-standing" })
 local CombatTab = Window:Tab({ Title = "Combat", Icon = "swords" })
 local PlayerTab = Window:Tab({ Title = "Player", Icon = "shield" })
@@ -661,6 +662,12 @@ local VisTab = Window:Tab({ Title = "Visual", Icon = "eye" })
 local AutoTab = Window:Tab({ Title = "Auto", Icon = "zap" })
 local MacroTab = Window:Tab({ Title = "Macro", Icon = "clapperboard" })
 local SetTab = Window:Tab({ Title = "Settings", Icon = "settings" })
+
+FavTab:Section({ Title = "Quick Access Features" })
+FavTab:Paragraph({
+    Title   = "Favorites & Quick Access",
+    Content = "Instant 1-tap shortcuts for your most used script features!"
+})
 
 if AntiAFK then AntiAFK:Enable() end
 if PerfStats then PerfStats:Enable() end
@@ -2410,6 +2417,67 @@ AutoTab:Keybind({
     Callback = function(k)
         autoClickerKey = Enum.KeyCode[k] or Enum.KeyCode.C
         N("AutoClicker Keybind", k)
+    end
+})
+
+-- Populate Favorites Quick Access Tab
+FavTab:Toggle({
+    Title    = "Fly",
+    Value    = false,
+    Tooltip  = "Quick toggle for Fly",
+    Callback = function(v)
+        if flyToggle then flyToggle:Set(v) end
+        if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
+    end
+})
+
+FavTab:Toggle({
+    Title    = "Speed Hack",
+    Value    = false,
+    Tooltip  = "Quick toggle for Speed Hack",
+    Callback = function(v)
+        if speedToggle then speedToggle:Set(v) end
+        if v and Speed then Speed:Enable() elseif Speed then Speed:Disable() end
+    end
+})
+
+FavTab:Toggle({
+    Title    = "Player ESP",
+    Value    = false,
+    Tooltip  = "Quick toggle for ESP",
+    Callback = function(v)
+        if espToggle then espToggle:Set(v) end
+        if v and ESP then ESP:Enable() elseif ESP then ESP:Disable() end
+    end
+})
+
+FavTab:Toggle({
+    Title    = "Super Anti-Lag (Potato Map)",
+    Value    = false,
+    Tooltip  = "Quick toggle for Super Anti-Lag Potato mode",
+    Callback = function(v)
+        if superAntiLagToggle then superAntiLagToggle:Set(v) end
+        if v and PerfBooster then PerfBooster:EnablePotato() elseif PerfBooster then PerfBooster:DisablePotato() end
+    end
+})
+
+FavTab:Toggle({
+    Title    = "Noclip",
+    Value    = false,
+    Tooltip  = "Quick toggle for Noclip",
+    Callback = function(v)
+        if noclipToggle then noclipToggle:Set(v) end
+        if v and Noclip then Noclip:Enable() elseif Noclip then Noclip:Disable() end
+    end
+})
+
+FavTab:Toggle({
+    Title    = "Auto Clicker",
+    Value    = false,
+    Tooltip  = "Quick toggle for Auto Clicker",
+    Callback = function(v)
+        if autoClickerToggle then autoClickerToggle:Set(v) end
+        if v and AutoClicker then AutoClicker:Enable() elseif AutoClicker then AutoClicker:Disable() end
     end
 })
 
