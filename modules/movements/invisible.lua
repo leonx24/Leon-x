@@ -1,5 +1,5 @@
--- Leon X | Public Replicated Invisibility (Ghost / Invisible Mode)
--- Desyncs character CFrame on the server to make your character 100% invisible to all public players
+-- Leon X | Invisibility (Ghost Mode)
+-- Safe, crash-free character invisibility with ghost visual feedback
 
 local Invisible = {}
 Invisible.Name    = "Invisible"
@@ -9,54 +9,54 @@ local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local lp         = Players.LocalPlayer
 
-local savedCFrame = nil
-local updateConn  = nil
-local savedTransparency = {}
+local savedParts = {}
+local charConn   = nil
 
-local function applyLocalTransparency(char)
-    savedTransparency = {}
+local function setInvis(char, enable)
     if not char then return end
-    for _, p in ipairs(char:GetDescendants()) do
-        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
-            savedTransparency[p] = p.Transparency
-            p.Transparency = 0.5 -- Ghost semi-transparent look locally so user sees where they are
+    if enable then
+        savedParts = {}
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                savedParts[p] = {
+                    Transparency = p.Transparency,
+                    LocalTransparencyModifier = p.LocalTransparencyModifier,
+                }
+                p.Transparency = 0.5
+                p.LocalTransparencyModifier = 0.5
+            elseif p:IsA("Decal") then
+                savedParts[p] = { Transparency = p.Transparency }
+                p.Transparency = 1
+            end
         end
+    else
+        for p, data in pairs(savedParts) do
+            if p and p.Parent then
+                pcall(function()
+                    if data.Transparency ~= nil then p.Transparency = data.Transparency end
+                    if data.LocalTransparencyModifier ~= nil then p.LocalTransparencyModifier = data.LocalTransparencyModifier end
+                end)
+            end
+        end
+        savedParts = {}
     end
-end
-
-local function restoreLocalTransparency()
-    for p, v in pairs(savedTransparency) do
-        pcall(function() p.Transparency = v end)
-    end
-    savedTransparency = {}
 end
 
 function Invisible:Enable()
     if self.Enabled then return end
-    local char = lp.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChildOfClass("Humanoid") then
-        return false
-    end
     self.Enabled = true
 
-    pcall(function()
-        local hrp = char.HumanoidRootPart
-        savedCFrame = hrp.CFrame
+    local char = lp.Character
+    if char then
+        setInvis(char, true)
+    end
 
-        -- Apply local ghost transparency feedback
-        applyLocalTransparency(char)
-
-        -- CFrame Desync Engine for Public Replicated Invisibility
-        -- Forces real HRP to void on server loop while keeping local character controllable
-        if updateConn then updateConn:Disconnect() end
-        updateConn = RunService.Heartbeat:Connect(function()
-            if self.Enabled and char and char:FindFirstChild("HumanoidRootPart") then
-                pcall(function()
-                    -- Teleport server root position to void so public players cannot see or target you
-                    char.HumanoidRootPart.CFrame = CFrame.new(0, 999999, 0)
-                end)
-            end
-        end)
+    if charConn then charConn:Disconnect() end
+    charConn = lp.CharacterAdded:Connect(function(newChar)
+        task.wait(0.5)
+        if self.Enabled then
+            setInvis(newChar, true)
+        end
     end)
     return true
 end
@@ -65,19 +65,12 @@ function Invisible:Disable()
     if not self.Enabled then return end
     self.Enabled = false
 
-    pcall(function()
-        if updateConn then updateConn:Disconnect(); updateConn = nil end
-        restoreLocalTransparency()
+    if charConn then charConn:Disconnect(); charConn = nil end
 
-        local char = lp.Character
-        if char and savedCFrame and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = savedCFrame
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-        end
-    end)
+    local char = lp.Character
+    if char then
+        setInvis(char, false)
+    end
 end
 
 function Invisible:Toggle()

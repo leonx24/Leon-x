@@ -901,9 +901,10 @@ antiRagdollToggle = MovTab:Toggle({
 })
 ConfigMgr:Register("AntiRagdoll", antiRagdollToggle)
 invisToggle = MovTab:Toggle({
-    Title    = "Invisible (local)",
+    Title    = "Invisible (Ghost Mode)",
+    Flag     = "Invisible",
     Value    = false,
-    Tooltip  = "Become invisible to other players",
+    Tooltip  = "Safe invisibility with ghost visual feedback",
     Callback = function(v)
         if v then Invisible:Enable() else Invisible:Disable() end
         N("Invisible", v and "Enabled" or "Disabled")

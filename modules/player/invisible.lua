@@ -1,5 +1,5 @@
--- Leon X | Public Replicated Invisibility (Ghost Mode)
--- Desyncs character CFrame on server to make character 100% invisible to all other players publically
+-- Leon X | Invisibility (Ghost Mode)
+-- Safe, crash-free character invisibility with ghost visual feedback
 
 local Invisible = {}
 Invisible.Name    = "Invisible"
@@ -7,42 +7,56 @@ Invisible.Enabled = false
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Workspace  = game:GetService("Workspace")
 local lp         = Players.LocalPlayer
 
-local savedCFrame = nil
-local fakeRoot    = nil
-local updateConn  = nil
+local savedParts = {}
+local charConn   = nil
+
+local function setInvis(char, enable)
+    if not char then return end
+    if enable then
+        savedParts = {}
+        for _, p in ipairs(char:GetDescendants()) do
+            if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
+                savedParts[p] = {
+                    Transparency = p.Transparency,
+                    LocalTransparencyModifier = p.LocalTransparencyModifier,
+                }
+                p.Transparency = 0.5
+                p.LocalTransparencyModifier = 0.5
+            elseif p:IsA("Decal") then
+                savedParts[p] = { Transparency = p.Transparency }
+                p.Transparency = 1
+            end
+        end
+    else
+        for p, data in pairs(savedParts) do
+            if p and p.Parent then
+                pcall(function()
+                    if data.Transparency ~= nil then p.Transparency = data.Transparency end
+                    if data.LocalTransparencyModifier ~= nil then p.LocalTransparencyModifier = data.LocalTransparencyModifier end
+                end)
+            end
+        end
+        savedParts = {}
+    end
+end
 
 function Invisible:Enable()
     if self.Enabled then return end
-    local char = lp.Character
-    if not char or not char:FindFirstChild("HumanoidRootPart") or not char:FindFirstChildOfClass("Humanoid") then
-        return false
-    end
     self.Enabled = true
 
-    pcall(function()
-        local hrp = char.HumanoidRootPart
-        savedCFrame = hrp.CFrame
+    local char = lp.Character
+    if char then
+        setInvis(char, true)
+    end
 
-        -- Create local physics root clone
-        hrp.Archivable = true
-        fakeRoot = hrp:Clone()
-        fakeRoot.Name = "LocalGhostRoot"
-        fakeRoot.Transparency = 1
-        fakeRoot.CanCollide = false
-        fakeRoot.Parent = char
-
-        -- Teleport real HRP far to void on server loop while keeping local control
-        updateConn = RunService.Heartbeat:Connect(function()
-            if self.Enabled and char and char:FindFirstChild("HumanoidRootPart") then
-                pcall(function()
-                    -- CFrame desync: server sees HRP in void (invisible to public players)
-                    char.HumanoidRootPart.CFrame = CFrame.new(0, 999999, 0)
-                end)
-            end
-        end)
+    if charConn then charConn:Disconnect() end
+    charConn = lp.CharacterAdded:Connect(function(newChar)
+        task.wait(0.5)
+        if self.Enabled then
+            setInvis(newChar, true)
+        end
     end)
     return true
 end
@@ -51,19 +65,12 @@ function Invisible:Disable()
     if not self.Enabled then return end
     self.Enabled = false
 
-    pcall(function()
-        if updateConn then updateConn:Disconnect(); updateConn = nil end
-        if fakeRoot then fakeRoot:Destroy(); fakeRoot = nil end
+    if charConn then charConn:Disconnect(); charConn = nil end
 
-        local char = lp.Character
-        if char and savedCFrame and char:FindFirstChild("HumanoidRootPart") then
-            char.HumanoidRootPart.CFrame = savedCFrame
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then
-                hum:ChangeState(Enum.HumanoidStateType.GettingUp)
-            end
-        end
-    end)
+    local char = lp.Character
+    if char then
+        setInvis(char, false)
+    end
 end
 
 function Invisible:Toggle()
