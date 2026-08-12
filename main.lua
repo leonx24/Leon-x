@@ -2307,7 +2307,8 @@ webhookUrlInput = SetTab:Input({
 ConfigMgr:Register("WebhookUrl", webhookUrlInput)
 
 SetTab:Button({
-    Title    = "🔔 Send Test Notification",
+    Title    = "Send Test Notification",
+    Icon     = "bell",
     Tooltip  = "Send test embed message to Discord Webhook",
     Callback = function()
         WebhookLogger:SetUrl(webhookUrlInput.Value)
@@ -2350,7 +2351,8 @@ cfgDrop = SetTab:Dropdown({
 do local list = getCfgList(); selectedConfig = list[1] end
 
 SetTab:Button({
-    Title    = "💾 Save",
+    Title    = "Save Config",
+    Icon     = "save",
     Style    = "Primary",
     Tooltip  = "Save current settings as a config",
     Callback = function()
@@ -2366,7 +2368,8 @@ SetTab:Button({
     end
 })
 SetTab:Button({
-    Title    = "📂 Load",
+    Title    = "Load Config",
+    Icon     = "folder-open",
     Style    = "Outline",
     Tooltip  = "Load the selected config",
     Callback = function()
@@ -2377,7 +2380,8 @@ SetTab:Button({
     end
 })
 SetTab:Button({
-    Title    = "🗑 Delete",
+    Title    = "Delete Config",
+    Icon     = "trash-2",
     Style    = "Danger",
     Tooltip  = "Delete the selected config permanently",
     Callback = function()
@@ -2391,7 +2395,8 @@ SetTab:Button({
     end
 })
 SetTab:Button({
-    Title    = "⭐ Set as Default",
+    Title    = "Set as Default",
+    Icon     = "star",
     Style    = "Outline",
     Tooltip  = "Auto-load this config on startup",
     Callback = function()

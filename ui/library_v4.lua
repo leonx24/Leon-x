@@ -1242,17 +1242,17 @@ function Button(tab, data)
 	if data.Icon then
 		bIco = mkIcon(btn, data.Icon, 16, theme.Text, 2)
 		if bIco then
-			bIco.AnchorPoint = Vector2.new(0.5, 0.5)
-			bIco.Position = UDim2.new(0.5, -(#label * 3.5), 0.5, 0)
-			lx = 20
+			bIco.AnchorPoint = Vector2.new(0, 0.5)
+			bIco.Position = UDim2.new(0, 14, 0.5, 0)
+			lx = 38
 		end
 	end
 
 	local btnTxt = mk("TextLabel", {
-		Size = UDim2.new(1, -lx, 1, 0); Position = UDim2.fromOffset(lx, 0);
+		Size = UDim2.new(1, -(lx > 0 and lx + 14 or 0), 1, 0); Position = UDim2.fromOffset(lx > 0 and lx or 0, 0);
 		BackgroundTransparency = 1; Text = label;
 		Font = Enum.Font.GothamBold; TextSize = 12;
-		TextXAlignment = Enum.TextXAlignment.Center; ZIndex = 2; Parent = btn;
+		TextXAlignment = lx > 0 and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center; ZIndex = 2; Parent = btn;
 	})
 
 	local api = { Frame = f; Name = data.Title or data.Name or "Button"; _isButton = true }
