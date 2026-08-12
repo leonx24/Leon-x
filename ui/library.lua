@@ -431,7 +431,9 @@ function Library:CreateWindow(cfg)
 		ClipsDescendants = true; ZIndex = 5; Parent = main;
 	})
 	local contentLayout = mk("UIListLayout", {
-		SortOrder = Enum.SortOrder.LayoutOrder; Padding = UDim.new(0, 8); Parent = content;
+		SortOrder = Enum.SortOrder.LayoutOrder;
+		HorizontalAlignment = Enum.HorizontalAlignment.Right;
+		Padding = UDim.new(0, 6); Parent = content;
 	})
 	mk("UIPadding", {
 		PaddingTop = UDim.new(0, 2); PaddingBottom = UDim.new(0, 16);
@@ -732,6 +734,9 @@ function Library:CreateWindow(cfg)
 		local function wrap(fn)
 			return function(selfOrData, maybeData)
 				local d = maybeData or selfOrData
+				if fn ~= Section and tab._currentSection ~= nil then
+					d._inSection = true
+				end
 				local r = fn(tab, d)
 				if r and r.Frame then
 					local entry = { _tab = tab; Frame = r.Frame; Comp = r }
@@ -918,39 +923,55 @@ function Toggle(tab, data)
 	local label = getLabel(data)
 	local theme = th(tab)
 	local val = data.Value ~= nil and data.Value or (data.Default ~= nil and data.Default or false)
+	local inSec = data._inSection == true
+
+	local cardH = inSec and 34 or 44
+	local cardW = inSec and UDim2.new(1, -16, 0, cardH) or UDim2.new(1, 0, 0, cardH)
+	local cardBg = inSec and Color3.fromRGB(14, 14, 20) or theme.Card
 
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 44); BackgroundColor3 = theme.Card;
+		Size = cardW; BackgroundColor3 = cardBg;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "card")
-	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = f })
-	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
+	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+
+	if inSec then
+		local mark = mk("Frame", {
+			Size = UDim2.new(0, 3, 0, 16); Position = UDim2.new(0, 0, 0.5, -8);
+			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
+			BorderSizePixel = 0; Parent = f;
+		})
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
+		tagBg(mark, "accent")
+	end
 
 	-- Optional Component Icon
-	local tIco = nil; local lx = 14
+	local tIco = nil; local lx = inSec and 12 or 14
 	if data.Icon then
-		tIco = mkIcon(f, data.Icon, 16, val and theme.Accent or theme.TextDim, 2)
-		if tIco then tIco.Position = UDim2.new(0, 14, 0.5, -8); lx = 38 end
+		tIco = mkIcon(f, data.Icon, inSec and 14 or 16, val and theme.Accent or theme.TextDim, 2)
+		if tIco then tIco.Position = UDim2.new(0, lx, 0.5, inSec and -7 or -8); lx = lx + 24 end
 	end
 
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -(lx + 60), 1, 0); Position = UDim2.fromOffset(lx, 0);
+		Size = UDim2.new(1, -(lx + 54), 1, 0); Position = UDim2.fromOffset(lx, 0);
 		BackgroundTransparency = 1; Text = label;
-		Font = Enum.Font.GothamMedium; TextSize = 12; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
 	-- Switch Pill
 	local track = mk("Frame", {
-		Size = UDim2.fromOffset(42, 22); Position = UDim2.new(1, -54, 0.5, -11);
+		Size = UDim2.fromOffset(inSec and 36 or 42, inSec and 18 or 22);
+		Position = UDim2.new(1, inSec and -46 or -54, 0.5, inSec and -9 or -11);
 		BackgroundColor3 = val and theme.Accent or theme.Border;
 		BorderSizePixel = 0; Parent = f;
 	})
-	mk("UICorner", { CornerRadius = UDim.new(0, 11); Parent = track })
+	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 9 or 11); Parent = track })
 
 	local knob = mk("Frame", {
-		Size = UDim2.fromOffset(16, 16);
-		Position = val and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8);
+		Size = UDim2.fromOffset(inSec and 14 or 16, inSec and 14 or 16);
+		Position = val and UDim2.new(1, inSec and -16 or -19, 0.5, inSec and -7 or -8) or UDim2.new(0, 2, 0.5, inSec and -7 or -8);
 		BackgroundColor3 = Color3.fromRGB(255,255,255); BorderSizePixel = 0; Parent = track;
 	})
 	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = knob })
@@ -962,7 +983,7 @@ function Toggle(tab, data)
 		self.Value = v
 		local curTheme = th(tab)
 		tw(track, 0.2, { BackgroundColor3 = v and curTheme.Accent or curTheme.Border }, Enum.EasingStyle.Back)
-		tw(knob, 0.2, { Position = v and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8) }, Enum.EasingStyle.Back)
+		tw(knob, 0.2, { Position = v and UDim2.new(1, inSec and -16 or -19, 0.5, inSec and -7 or -8) or UDim2.new(0, 2, 0.5, inSec and -7 or -8) }, Enum.EasingStyle.Back)
 		if tIco then tw(tIco, 0.15, { ImageColor3 = v and curTheme.Accent or curTheme.TextDim }) end
 		if self.Callback then pcall(self.Callback, v) end
 	end
@@ -971,7 +992,7 @@ function Toggle(tab, data)
 	local btn = mk("TextButton", { Size = UDim2.fromScale(1,1); BackgroundTransparency = 1; Text = ""; Parent = f })
 	btn.MouseButton1Click:Connect(function() api:Set(not api.Value) end)
 	btn.MouseEnter:Connect(function() tw(f, 0.1, { BackgroundColor3 = theme.Elevated }) end)
-	btn.MouseLeave:Connect(function() tw(f, 0.1, { BackgroundColor3 = theme.Card }) end)
+	btn.MouseLeave:Connect(function() tw(f, 0.1, { BackgroundColor3 = cardBg }) end)
 
 	reg(data, api); attachTooltip(api, data.Tooltip)
 	return api
@@ -985,34 +1006,49 @@ function Slider(tab, data)
 	local df = (data.Value and data.Value.Default) or mn
 	local step = data.Step or 1
 	local cur = df
+	local inSec = data._inSection == true
+
+	local cardH = inSec and 44 or 54
+	local cardW = inSec and UDim2.new(1, -16, 0, cardH) or UDim2.new(1, 0, 0, cardH)
+	local cardBg = inSec and Color3.fromRGB(14, 14, 20) or theme.Card
 
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 54); BackgroundColor3 = theme.Card;
+		Size = cardW; BackgroundColor3 = cardBg;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "card")
-	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = f })
-	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
+	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+
+	if inSec then
+		local mark = mk("Frame", {
+			Size = UDim2.new(0, 3, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
+			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
+			BorderSizePixel = 0; Parent = f;
+		})
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
+		tagBg(mark, "accent")
+	end
 
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -84, 0, 14); Position = UDim2.fromOffset(14, 8);
+		Size = UDim2.new(1, -74, 0, 14); Position = UDim2.fromOffset(12, inSec and 6 or 8);
 		BackgroundTransparency = 1; Text = getLabel(data);
-		Font = Enum.Font.GothamMedium; TextSize = 12; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
 	-- Value Numeric Box
 	local valLbl = mk("TextBox", {
-		Size = UDim2.new(0, 54, 0, 22); Position = UDim2.new(1, -68, 0, 4);
+		Size = UDim2.new(0, 48, 0, inSec and 18 or 22); Position = UDim2.new(1, -58, 0, inSec and 4 or 4);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = 11;
+		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = inSec and 10 or 11;
 		TextColor3 = theme.Accent; TextXAlignment = Enum.TextXAlignment.Center; Parent = f;
 	})
-	mk("UICorner", { CornerRadius = UDim.new(0, 6); Parent = valLbl })
+	mk("UICorner", { CornerRadius = UDim.new(0, 5); Parent = valLbl })
 	tagBg(valLbl, "elevated"); tagText(valLbl, "accent")
 
 	-- Slider Track
 	local trk = mk("Frame", {
-		Size = UDim2.new(1, -28, 0, 8); Position = UDim2.new(0, 14, 0, 34);
+		Size = UDim2.new(1, -24, 0, inSec and 6 or 8); Position = UDim2.new(0, 12, 0, inSec and 28 or 34);
 		BackgroundColor3 = theme.Border; BorderSizePixel = 0; Parent = f;
 	})
 	mk("UICorner", { CornerRadius = UDim.new(0, 4); Parent = trk })
@@ -1048,6 +1084,7 @@ function Slider(tab, data)
 		nv = math.floor(nv / step + 0.5) * step; nv = math.clamp(nv, mn, mx)
 		if nv ~= cur then cur = nv; upd(nv); if data.Callback then pcall(data.Callback, nv) end end
 		i.Changed:Connect(function()
+			if i.UserInputState == Enum.EasingStyle then return end
 			if i.UserInputState == Enum.UserInputState.End then
 				sDrag = false; tw(handle, 0.1, { Size = UDim2.new(0, 14, 0, 14) }); tw(hGlow, 0.1, { Thickness = 0 })
 			end
@@ -1083,34 +1120,48 @@ function Dropdown(tab, data)
 	local cur = data.Value or (vals[1] or "")
 	if type(cur) == "number" and vals[cur] then cur = vals[cur] end
 	local open = false; local searchTerm = ""
-	local CLOSED_H = 56; local ITEM_H = 28; local SEARCH_H = 32; local MAX_VIS = 6
+	local inSec = data._inSection == true
+
+	local CLOSED_H = inSec and 44 or 56; local ITEM_H = 26; local SEARCH_H = 30; local MAX_VIS = 6
+	local cardW = inSec and UDim2.new(1, -16, 0, CLOSED_H) or UDim2.new(1, 0, 0, CLOSED_H)
+	local cardBg = inSec and Color3.fromRGB(14, 14, 20) or theme.Card
 
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, CLOSED_H); BackgroundColor3 = theme.Card;
+		Size = cardW; BackgroundColor3 = cardBg;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "card")
-	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = f })
-	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
+	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+
+	if inSec then
+		local mark = mk("Frame", {
+			Size = UDim2.new(0, 3, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
+			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
+			BorderSizePixel = 0; Parent = f;
+		})
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
+		tagBg(mark, "accent")
+	end
 
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -28, 0, 12); Position = UDim2.fromOffset(14, 6);
+		Size = UDim2.new(1, -28, 0, 12); Position = UDim2.fromOffset(12, 5);
 		BackgroundTransparency = 1; Text = getLabel(data);
 		Font = Enum.Font.GothamBold; TextSize = 10; TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "textsub")
 
 	local box = mk("TextButton", {
-		Size = UDim2.new(1, -28, 0, 28); Position = UDim2.fromOffset(14, 20);
+		Size = UDim2.new(1, -24, 0, inSec and 22 or 28); Position = UDim2.fromOffset(12, inSec and 17 or 20);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		Text = ""; AutoButtonColor = false; ZIndex = 2; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }) })
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
 	tagBg(box, "elevated")
 	tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1; Parent = box }), "border")
 
 	local valTxt = tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -36, 1, 0); Position = UDim2.fromOffset(10, 0);
+		Size = UDim2.new(1, -32, 1, 0); Position = UDim2.fromOffset(8, 0);
 		BackgroundTransparency = 1; Text = tostring(cur);
-		Font = Enum.Font.GothamMedium; TextSize = 11; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = inSec and 10 or 11; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 3; Parent = box;
 	}), "text")
 
@@ -1118,7 +1169,7 @@ function Dropdown(tab, data)
 	if chev then chev.AnchorPoint = Vector2.new(1, 0.5); chev.Position = UDim2.new(1, -8, 0.5, 0); tagIcon(chev, "accent") end
 
 	local sFrame = mk("Frame", {
-		Size = UDim2.new(1, -28, 0, 26); Position = UDim2.fromOffset(14, 54);
+		Size = UDim2.new(1, -24, 0, 24); Position = UDim2.fromOffset(12, inSec and 42 or 54);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		Visible = false; ZIndex = 3; Parent = f;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) })
@@ -1136,7 +1187,7 @@ function Dropdown(tab, data)
 	tagText(searchBox, "text")
 
 	local scroll = mk("ScrollingFrame", {
-		Size = UDim2.new(1, -28, 0, 0); Position = UDim2.fromOffset(14, 84);
+		Size = UDim2.new(1, -24, 0, 0); Position = UDim2.fromOffset(12, inSec Dinner and 70 or 84);
 		BackgroundTransparency = 1; BorderSizePixel = 0;
 		ScrollBarThickness = 2; ScrollBarImageColor3 = theme.AccentDim;
 		Visible = false; ZIndex = 3; Parent = f;
@@ -1166,7 +1217,7 @@ function Dropdown(tab, data)
 			mk("TextLabel", {
 				Size = UDim2.new(1, -24, 1, 0); Position = UDim2.fromOffset(10, 0);
 				BackgroundTransparency = 1; Text = tostring(v);
-				Font = Enum.Font.GothamMedium; TextSize = 11;
+				Font = Enum.Font.GothamMedium; TextSize = inSec and 10 or 11;
 				TextColor3 = sel and theme.Accent or theme.Text;
 				TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 5; Parent = item;
 			})
@@ -1176,7 +1227,7 @@ function Dropdown(tab, data)
 				cur = v; valTxt.Text = tostring(v); api.Value = v
 				searchTerm = ""; searchBox.Text = ""
 				open = false; sFrame.Visible = false; scroll.Visible = false
-				tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H) })
+				tw(f, 0.15, { Size = cardW })
 				if chev then tw(chev, 0.15, { Rotation = 0 }) end
 				if data.Callback then pcall(data.Callback, v) end
 			end)
@@ -1184,8 +1235,8 @@ function Dropdown(tab, data)
 		scroll.CanvasSize = UDim2.fromOffset(0, #flt * (ITEM_H + 2))
 		if open then
 			local vc = math.min(#flt, MAX_VIS)
-			scroll.Size = UDim2.new(1, -28, 0, vc * (ITEM_H + 2))
-			tw(f, 0.1, { Size = UDim2.new(1, 0, 0, CLOSED_H + vc * (ITEM_H + 2) + SEARCH_H + 6) })
+			scroll.Size = UDim2.new(1, -24, 0, vc * (ITEM_H + 2))
+			tw(f, 0.1, { Size = UDim2.new(cardW.X.Scale, cardW.X.Offset, 0, CLOSED_H + vc * (ITEM_H + 2) + SEARCH_H + 6) })
 		end
 	end
 
@@ -1196,14 +1247,14 @@ function Dropdown(tab, data)
 		if open then
 			open = false; sFrame.Visible = false; scroll.Visible = false
 			searchTerm = ""; searchBox.Text = ""
-			tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H) })
+			tw(f, 0.15, { Size = cardW })
 			if chev then tw(chev, 0.15, { Rotation = 0 }) end
 		else
 			open = true; sFrame.Visible = true; scroll.Visible = true
 			searchBox.Text = ""; rebuild()
 			local vc = math.min(cntFilt(), MAX_VIS)
-			scroll.Size = UDim2.new(1, -28, 0, vc * (ITEM_H + 2))
-			tw(f, 0.15, { Size = UDim2.new(1, 0, 0, CLOSED_H + vc * (ITEM_H + 2) + SEARCH_H + 6) })
+			scroll.Size = UDim2.new(1, -24, 0, vc * (ITEM_H + 2))
+			tw(f, 0.15, { Size = UDim2.new(cardW.X.Scale, cardW.X.Offset, 0, CLOSED_H + vc * (ITEM_H + 2) + SEARCH_H + 6) })
 			if chev then tw(chev, 0.15, { Rotation = 180 }) end
 			task.wait(0.05); pcall(function() searchBox:CaptureFocus() end)
 		end
@@ -1227,31 +1278,36 @@ function Button(tab, data)
 	local theme = th(tab)
 	local style = data.Style or "Surface"
 	local label = getLabel(data)
+	local inSec = data._inSection == true
+
+	local cardH = inSec and 32 or 38
+	local cardW = inSec and UDim2.new(1, -16, 0, cardH) or UDim2.new(1, 0, 0, cardH)
+
 	local f = mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 38); BackgroundTransparency = 1;
+		Size = cardW; BackgroundTransparency = 1;
 		LayoutOrder = nextOrder(tab); Parent = tab._page;
 	})
 
 	local btn = mk("TextButton", {
 		Size = UDim2.fromScale(1, 1); BorderSizePixel = 0; Text = "";
 		AutoButtonColor = false; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 10) }) })
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10) }) })
 	local stroke = mk("UIStroke", { Thickness = 1; Parent = btn })
 
 	local bIco = nil; local lx = 0
 	if data.Icon then
-		bIco = mkIcon(btn, data.Icon, 16, theme.Text, 2)
+		bIco = mkIcon(btn, data.Icon, inSec and 14 or 16, theme.Text, 2)
 		if bIco then
 			bIco.AnchorPoint = Vector2.new(0, 0.5)
-			bIco.Position = UDim2.new(0, 14, 0.5, 0)
-			lx = 38
+			bIco.Position = UDim2.new(0, 12, 0.5, 0)
+			lx = 32
 		end
 	end
 
 	local btnTxt = mk("TextLabel", {
-		Size = UDim2.new(1, -(lx > 0 and lx + 14 or 0), 1, 0); Position = UDim2.fromOffset(lx > 0 and lx or 0, 0);
+		Size = UDim2.new(1, -(lx > 0 and lx + 12 or 0), 1, 0); Position = UDim2.fromOffset(lx > 0 and lx or 0, 0);
 		BackgroundTransparency = 1; Text = label;
-		Font = Enum.Font.GothamBold; TextSize = 12;
+		Font = Enum.Font.GothamBold; TextSize = inSec and 11 or 12;
 		TextXAlignment = lx > 0 and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center; ZIndex = 2; Parent = btn;
 	})
 
@@ -1274,7 +1330,6 @@ function Button(tab, data)
 			btnTxt.TextColor3 = t.Accent
 			if bIco then bIco.ImageColor3 = t.Accent end
 		elseif style == "Danger" then
-			-- Sleek Dark Crimson Glass Tile (NOT tacky solid red!)
 			btn.BackgroundColor3 = Color3.fromRGB(35, 18, 24)
 			btn.BackgroundTransparency = 0
 			stroke.Color = Color3.fromRGB(140, 45, 60)
@@ -1288,10 +1343,9 @@ function Button(tab, data)
 			btnTxt.TextColor3 = t.Text
 			if bIco then bIco.ImageColor3 = t.Text end
 		else
-			-- Surface / Default
-			btn.BackgroundColor3 = t.Card
+			btn.BackgroundColor3 = inSec and Color3.fromRGB(14, 14, 20) or t.Card
 			btn.BackgroundTransparency = 0
-			stroke.Color = t.BorderSub
+			stroke.Color = inSec and Color3.fromRGB(28, 28, 42) or t.BorderSub
 			stroke.Transparency = 0
 			btnTxt.TextColor3 = t.Text
 			if bIco then bIco.ImageColor3 = t.Text end
@@ -1334,29 +1388,47 @@ end
 function Keybind(tab, data)
 	local theme = th(tab)
 	local cur = data.Value or data.Default or "None"; local capturing = false
+	local inSec = data._inSection == true
+
+	local cardH = inSec and 34 or 42
+	local cardW = inSec and UDim2.new(1, -16, 0, cardH) or UDim2.new(1, 0, 0, cardH)
+	local cardBg = inSec and Color3.fromRGB(14, 14, 20) or theme.Card
+
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 42); BackgroundColor3 = theme.Card;
+		Size = cardW; BackgroundColor3 = cardBg;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "card")
-	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = f })
-	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
+	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
 
-	local kIco = mkIcon(f, "keyboard", 16, theme.Accent, 1)
-	if kIco then kIco.Position = UDim2.new(0, 14, 0.5, -8); tagIcon(kIco, "accent") end
+	if inSec then
+		local mark = mk("Frame", {
+			Size = UDim2.new(0, 3, 0, 16); Position = UDim2.new(0, 0, 0.5, -8);
+			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
+			BorderSizePixel = 0; Parent = f;
+		})
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
+		tagBg(mark, "accent")
+	end
+
+	local lx = inSec and 12 or 14
+	local kIco = mkIcon(f, "keyboard", inSec and 14 or 16, theme.Accent, 1)
+	if kIco then kIco.Position = UDim2.new(0, lx, 0.5, inSec and -7 or -8); lx = lx + 24; tagIcon(kIco, "accent") end
 
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -114, 1, 0); Position = UDim2.fromOffset(38, 0);
+		Size = UDim2.new(1, -(lx + 84), 1, 0); Position = UDim2.fromOffset(lx, 0);
 		BackgroundTransparency = 1; Text = getLabel(data);
-		Font = Enum.Font.GothamMedium; TextSize = 12; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
 	local kbtn = tagBg(mk("TextButton", {
-		Size = UDim2.fromOffset(78, 26); Position = UDim2.new(1, -90, 0.5, -13);
+		Size = UDim2.fromOffset(inSec and 68 or 78, inSec and 22 or 26);
+		Position = UDim2.new(1, inSec and -78 or -90, 0.5, inSec and -11 or -13);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Text = tostring(cur); Font = Enum.Font.GothamBold; TextSize = 11;
+		Text = tostring(cur); Font = Enum.Font.GothamBold; TextSize = inSec and 10 or 11;
 		TextColor3 = theme.Accent; AutoButtonColor = false; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 7) }) }), "elevated")
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) }), "elevated")
 	tagText(kbtn, "accent")
 	local kS = tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1; Parent = kbtn }), "border")
 
@@ -1383,15 +1455,32 @@ end
 -- ── Input ──
 function Input(tab, data)
 	local theme = th(tab)
+	local cur = data.Value or ""
+	local inSec = data._inSection == true
+
+	local cardH = inSec and 44 or 56
+	local cardW = inSec and UDim2.new(1, -16, 0, cardH) or UDim2.new(1, 0, 0, cardH)
+	local cardBg = inSec and Color3.fromRGB(14, 14, 20) or theme.Card
+
 	local f = tagBg(mk("Frame", {
-		Size = UDim2.new(1, 0, 0, 56); BackgroundColor3 = theme.Card;
+		Size = cardW; BackgroundColor3 = cardBg;
 		BorderSizePixel = 0; LayoutOrder = nextOrder(tab); Parent = tab._page;
 	}), "card")
-	mk("UICorner", { CornerRadius = UDim.new(0, 10); Parent = f })
-	tagBorder(mk("UIStroke", { Color = theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+	mk("UICorner", { CornerRadius = UDim.new(0, inSec and 8 or 10); Parent = f })
+	tagBorder(mk("UIStroke", { Color = inSec and Color3.fromRGB(28, 28, 42) or theme.BorderSub; Thickness = 1; Parent = f }), "bordersub")
+
+	if inSec then
+		local mark = mk("Frame", {
+			Size = UDim2.new(0, 3, 0, 20); Position = UDim2.new(0, 0, 0.5, -10);
+			BackgroundColor3 = theme.Accent; BackgroundTransparency = 0.5;
+			BorderSizePixel = 0; Parent = f;
+		})
+		mk("UICorner", { CornerRadius = UDim.new(0, 2); Parent = mark })
+		tagBg(mark, "accent")
+	end
 
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -28, 0, 12); Position = UDim2.fromOffset(14, 6);
+		Size = UDim2.new(1, -24, 0, 12); Position = UDim2.fromOffset(12, 5);
 		BackgroundTransparency = 1; Text = getLabel(data);
 		Font = Enum.Font.GothamBold; TextSize = 10; TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
@@ -1399,17 +1488,17 @@ function Input(tab, data)
 
 	local stroke = tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1 }), "border")
 	local tb = tagBg(mk("TextBox", {
-		Size = UDim2.new(1, -28, 0, 26); Position = UDim2.fromOffset(14, 22);
+		Size = UDim2.new(1, -24, 0, inSec and 22 or 26); Position = UDim2.fromOffset(12, inSec and 17 or 22);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		PlaceholderText = data.Placeholder or ""; Text = data.Value or "";
+		PlaceholderText = data.Placeholder or ""; Text = cur;
 		Font = Enum.Font.GothamMedium; TextSize = 11; TextColor3 = theme.Text;
 		PlaceholderColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ClearTextOnFocus = false; Parent = f;
-	}, { mk("UICorner", { CornerRadius = UDim.new(0, 8) }), stroke }), "elevated")
+	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }), stroke }), "elevated")
 	tagText(tb, "text")
-	pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 10); pad.Parent = tb
+	local pad = Instance.new("UIPadding"); pad.PaddingLeft = UDim.new(0, 8); pad.Parent = tb
 
-	local api = { Value = data.Value or ""; Frame = f; Name = data.Title or data.Name or "Input"; Callback = data.Callback }
+	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Input"; Callback = data.Callback }
 	tb.FocusLost:Connect(function() api.Value = tb.Text; if data.Callback then pcall(data.Callback, tb.Text) end end)
 	tb.Focused:Connect(function() stroke.Color = theme.AccentDim end)
 	tb.FocusLost:Connect(function() stroke.Color = theme.Border end)
