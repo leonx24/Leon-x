@@ -688,6 +688,66 @@ FavTab:Paragraph({
     Content = "Instant 1-tap shortcuts for your most used script features!"
 })
 
+FavTab:Toggle({
+    Title = "Fly",
+    Flag = "Fav_Fly",
+    Value = false,
+    Callback = function(v)
+        if v then if Fly then Fly:Enable() end else if Fly then Fly:Disable() end end
+        if flyToggle then flyToggle:Set(v) end
+    end
+})
+
+FavTab:Toggle({
+    Title = "Speed Boost",
+    Flag = "Fav_Speed",
+    Value = false,
+    Callback = function(v)
+        if v then if Speed then Speed:Enable() end else if Speed then Speed:Disable() end end
+        if speedToggle then speedToggle:Set(v) end
+    end
+})
+
+FavTab:Toggle({
+    Title = "Noclip",
+    Flag = "Fav_Noclip",
+    Value = false,
+    Callback = function(v)
+        if v then if Noclip then Noclip:Enable() end else if Noclip then Noclip:Disable() end end
+        if noclipToggle then noclipToggle:Set(v) end
+    end
+})
+
+FavTab:Toggle({
+    Title = "Player ESP",
+    Flag = "Fav_ESP",
+    Value = false,
+    Callback = function(v)
+        if v then if ESP then ESP:Enable() end else if ESP then ESP:Disable() end end
+        if espToggle then espToggle:Set(v) end
+    end
+})
+
+FavTab:Toggle({
+    Title = "FullBright",
+    Flag = "Fav_FullBright",
+    Value = false,
+    Callback = function(v)
+        if v then if FullBright then FullBright:Enable() end else if FullBright then FullBright:Disable() end end
+        if fbToggle then fbToggle:Set(v) end
+    end
+})
+
+FavTab:Toggle({
+    Title = "Infinite Jump",
+    Flag = "Fav_InfJump",
+    Value = false,
+    Callback = function(v)
+        if v then if InfJump then InfJump:Enable() end else if InfJump then InfJump:Disable() end end
+        if infJumpToggle then infJumpToggle:Set(v) end
+    end
+})
+
 if AntiAFK then AntiAFK:Enable() end
 if PerfStats then PerfStats:Enable() end
 
@@ -2850,6 +2910,12 @@ SetTab:Paragraph({
     Title = "Panic Key Info",
     Content = "Press to disable ALL features and hide the UI"
 })
+
+pcall(function()
+    if Window and Window.SelectTab then
+        Window:SelectTab(1)
+    end
+end)
 
 end, function(err)
     return tostring(err) .. "\n" .. debug.traceback()

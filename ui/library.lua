@@ -847,6 +847,7 @@ function Library:CreateWindow(cfg)
 
 		tab._setActive = setActive
 		win._tabs[#win._tabs + 1] = tab
+		tabList.CanvasSize = UDim2.fromOffset(0, #win._tabs * 48 + 30)
 		if idx == 1 then win._active = tab; setActive(true) end
 
 		local function wrap(fn)
@@ -885,6 +886,17 @@ function Library:CreateWindow(cfg)
 		tab.Input     = wrap(Input)
 
 		return tab
+	end
+
+	function win:SelectTab(target)
+		for idx, t in ipairs(win._tabs) do
+			if t == target or t.Name == target or (type(target) == "number" and idx == target) then
+				for _, o in ipairs(win._tabs) do o._setActive(false) end
+				t._setActive(true)
+				win._active = t
+				return t
+			end
+		end
 	end
 
 	win._sg = sg; win._main = main; win._header = headerBg
