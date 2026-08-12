@@ -706,6 +706,7 @@ MovTab:Section({ Title = "Flight" })
 -- Fly toggle
 flyToggle = MovTab:Toggle({
     Title    = "Fly",
+    Flag     = "Fly",
     Value    = false,
     Tooltip  = "Free flight with adjustable speed",
     Callback = function(v)
@@ -743,6 +744,7 @@ MovTab:Section({ Title = "Speed" })
 
 speedToggle = MovTab:Toggle({
     Title    = "Speed Hack",
+    Flag     = "SpeedHack",
     Value    = false,
     Tooltip  = "Customizable walk speed and jump power",
     Callback = function(v)
@@ -790,6 +792,7 @@ infJumpToggle = MovTab:Toggle({
 ConfigMgr:Register("InfiniteJump", infJumpToggle)
 noclipToggle = MovTab:Toggle({
     Title    = "Noclip",
+    Flag     = "Noclip",
     Value    = false,
     Tooltip  = "Walk through walls and objects",
     Callback = function(v)
@@ -1298,6 +1301,7 @@ perfStatsToggle = VisTab:Toggle({
 ConfigMgr:Register("PerfStats", perfStatsToggle)
 espToggle = VisTab:Toggle({
     Title    = "ESP",
+    Flag     = "ESP",
     Tooltip = "See players through walls",
     Value    = false,
     Callback = function(v)
@@ -1416,6 +1420,7 @@ ConfigMgr:Register("AntiLagMode", antiLagToggle)
 
 superAntiLagToggle = VisTab:Toggle({
     Title    = "Super Anti-Lag (Potato Map)",
+    Flag     = "SuperAntiLag",
     Tooltip  = "Convert map to smooth plastic low-poly blocks & strip textures for maximum FPS",
     Value    = false,
     Callback = function(v)
@@ -2357,6 +2362,7 @@ AutoTab:Section({ Title = "Auto Clicker" })
 
 autoClickerToggle = AutoTab:Toggle({
     Title    = "Auto Clicker",
+    Flag     = "AutoClicker",
     Value    = false,
     Tooltip  = "Automatically click at configurable speed",
     Callback = function(v)
@@ -2421,61 +2427,73 @@ AutoTab:Keybind({
 
 -- Populate Favorites Quick Access Tab
 FavTab:Toggle({
-    Title    = "Fly",
-    Value    = false,
-    Tooltip  = "Quick toggle for Fly",
-    Callback = function(v)
-        if flyToggle then flyToggle:Set(v) end
+    Title      = "Fly",
+    Flag       = "Fly",
+    Icon       = "plane",
+    _isStarred = true,
+    Value      = false,
+    Tooltip    = "Quick toggle for Fly",
+    Callback   = function(v)
         if v and Fly then Fly:Enable() elseif Fly then Fly:Disable() end
     end
 })
 
 FavTab:Toggle({
-    Title    = "Speed Hack",
-    Value    = false,
-    Tooltip  = "Quick toggle for Speed Hack",
-    Callback = function(v)
-        if speedToggle then speedToggle:Set(v) end
+    Title      = "Speed Hack",
+    Flag       = "SpeedHack",
+    Icon       = "zap",
+    _isStarred = true,
+    Value      = false,
+    Tooltip    = "Quick toggle for Speed Hack",
+    Callback   = function(v)
         if v and Speed then Speed:Enable() elseif Speed then Speed:Disable() end
     end
 })
 
 FavTab:Toggle({
-    Title    = "Player ESP",
-    Value    = false,
-    Tooltip  = "Quick toggle for ESP",
-    Callback = function(v)
-        if espToggle then espToggle:Set(v) end
+    Title      = "Player ESP",
+    Flag       = "ESP",
+    Icon       = "eye",
+    _isStarred = true,
+    Value      = false,
+    Tooltip    = "Quick toggle for ESP",
+    Callback   = function(v)
         if v and ESP then ESP:Enable() elseif ESP then ESP:Disable() end
     end
 })
 
 FavTab:Toggle({
-    Title    = "Super Anti-Lag (Potato Map)",
-    Value    = false,
-    Tooltip  = "Quick toggle for Super Anti-Lag Potato mode",
-    Callback = function(v)
-        if superAntiLagToggle then superAntiLagToggle:Set(v) end
+    Title      = "Super Anti-Lag (Potato Map)",
+    Flag       = "SuperAntiLag",
+    Icon       = "shield",
+    _isStarred = true,
+    Value      = false,
+    Tooltip    = "Quick toggle for Super Anti-Lag Potato mode",
+    Callback   = function(v)
         if v and PerfBooster then PerfBooster:EnablePotato() elseif PerfBooster then PerfBooster:DisablePotato() end
     end
 })
 
 FavTab:Toggle({
-    Title    = "Noclip",
-    Value    = false,
-    Tooltip  = "Quick toggle for Noclip",
-    Callback = function(v)
-        if noclipToggle then noclipToggle:Set(v) end
+    Title      = "Noclip",
+    Flag       = "Noclip",
+    Icon       = "ghost",
+    _isStarred = true,
+    Value      = false,
+    Tooltip    = "Quick toggle for Noclip",
+    Callback   = function(v)
         if v and Noclip then Noclip:Enable() elseif Noclip then Noclip:Disable() end
     end
 })
 
 FavTab:Toggle({
-    Title    = "Auto Clicker",
-    Value    = false,
-    Tooltip  = "Quick toggle for Auto Clicker",
-    Callback = function(v)
-        if autoClickerToggle then autoClickerToggle:Set(v) end
+    Title      = "Auto Clicker",
+    Flag       = "AutoClicker",
+    Icon       = "mouse-pointer",
+    _isStarred = true,
+    Value      = false,
+    Tooltip    = "Quick toggle for Auto Clicker",
+    Callback   = function(v)
         if v and AutoClicker then AutoClicker:Enable() elseif AutoClicker then AutoClicker:Disable() end
     end
 })

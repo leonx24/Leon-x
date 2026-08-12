@@ -185,11 +185,23 @@ end
 
 local function reg(data, api)
 	if data and data.Flag then
-		Library.Registry[data.Flag] = {
-			Get = function() return api:Get() end,
-			Set = function(v) api:Set(v) end,
-			Callback = data.Callback
-		}
+		local flag = data.Flag
+		if not Library.Registry[flag] then
+			Library.Registry[flag] = {
+				Get = function() return api:Get() end,
+				Set = function(v, silent)
+					if Library.Registry[flag]._elements then
+						for _, el in ipairs(Library.Registry[flag]._elements) do
+							pcall(function() el:Set(v, true) end)
+						end
+					end
+				end,
+				Callback = data.Callback,
+				_elements = { api }
+			}
+		else
+			table.insert(Library.Registry[flag]._elements, api)
+		end
 	end
 	Library._allComponents[#Library._allComponents + 1] = api
 end
@@ -1045,11 +1057,33 @@ function Toggle(tab, data)
 	end
 
 	tagText(mk("TextLabel", {
-		Size = UDim2.new(1, -(lx + 54), 1, 0); Position = UDim2.fromOffset(lx, 0);
+		Size = UDim2.new(1, -(lx + 82), 1, 0); Position = UDim2.fromOffset(lx, 0);
 		BackgroundTransparency = 1; Text = label;
 		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
+
+	-- Star (★) Favorite Pin Button
+	local isStar = data._isStarred == true
+	local starBtn = mk("TextButton", {
+		Size = UDim2.fromOffset(20, 20);
+		Position = UDim2.new(1, inSec and -70 or -80, 0.5, -10);
+		BackgroundTransparency = 1; Text = "★";
+		Font = Enum.Font.GothamBold; TextSize = 13;
+		TextColor3 = isStar and Color3.fromRGB(245, 158, 11) or Color3.fromRGB(80, 85, 105);
+		ZIndex = 15; Parent = f;
+	})
+	starBtn.MouseButton1Click:Connect(function()
+		isStar = not isStar
+		starBtn.TextColor3 = isStar and Color3.fromRGB(245, 158, 11) or Color3.fromRGB(80, 85, 105)
+		pcall(function()
+			Library:Notify({
+				Title = "Favorites ⭐",
+				Content = isStar and ("Pinned " .. label .. " to Favorites!") or ("Unpinned " .. label .. " from Favorites"),
+				Duration = 1.5
+			})
+		end)
+	end)
 
 	-- Switch Pill
 	local track = mk("Frame", {
@@ -1068,7 +1102,7 @@ function Toggle(tab, data)
 	mk("UICorner", { CornerRadius = UDim.new(1, 0); Parent = knob })
 
 	local api = { Value = val; Frame = f; Name = data.Title or data.Name or "Toggle"; Callback = data.Callback; _isToggle = true; Track = track; Icon = tIco }
-	function api:Set(v)
+	function api:Set(v, isSync)
 		v = not not v
 		if self.Value == v then return end
 		self.Value = v
@@ -1076,6 +1110,16 @@ function Toggle(tab, data)
 		tw(track, 0.2, { BackgroundColor3 = v and curTheme.Accent or curTheme.Border }, Enum.EasingStyle.Back)
 		tw(knob, 0.2, { Position = v and UDim2.new(1, inSec and -16 or -19, 0.5, inSec and -7 or -8) or UDim2.new(0, 2, 0.5, inSec and -7 or -8) }, Enum.EasingStyle.Back)
 		if tIco then tw(tIco, 0.15, { ImageColor3 = v and curTheme.Accent or curTheme.TextDim }) end
+
+		-- Two-way automatic sync for matching Flag components
+		if not isSync and data.Flag and Library.Registry[data.Flag] and Library.Registry[data.Flag]._elements then
+			for _, el in ipairs(Library.Registry[data.Flag]._elements) do
+				if el ~= api and type(el.Set) == "function" then
+					pcall(function() el:Set(v, true) end)
+				end
+			end
+		end
+
 		if self.Callback then pcall(self.Callback, v) end
 	end
 	function api:Get() return self.Value end
