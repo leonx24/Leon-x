@@ -645,10 +645,11 @@ function Library:CreateWindow(cfg)
 		local function setActive(active)
 			isActive = active
 			if active then
+				tLabel.Font = Enum.Font.GothamBold
 				tw(btn, 0.2, { BackgroundTransparency = 0, BackgroundColor3 = win._theme.Card })
 				tw(indicator, 0.2, { BackgroundTransparency = 0 })
 				tw(iconBox, 0.2, { BackgroundColor3 = win._theme.Accent, BackgroundTransparency = 0 })
-				tw(tLabel, 0.15, { TextColor3 = win._theme.Text, Font = Enum.Font.GothamBold })
+				tw(tLabel, 0.15, { TextColor3 = win._theme.Text })
 				if tIco then tw(tIco, 0.15, { ImageColor3 = Color3.fromRGB(10, 10, 14) }) end
 				
 				-- Update Header Display
@@ -658,10 +659,11 @@ function Library:CreateWindow(cfg)
 					if asset then headerTabIcon.Image = asset end
 				end
 			else
+				tLabel.Font = Enum.Font.GothamMedium
 				tw(btn, 0.2, { BackgroundTransparency = 1 })
 				tw(indicator, 0.2, { BackgroundTransparency = 1 })
 				tw(iconBox, 0.2, { BackgroundColor3 = win._theme.Elevated, BackgroundTransparency = 0 })
-				tw(tLabel, 0.15, { TextColor3 = win._theme.TextSub, Font = Enum.Font.GothamMedium })
+				tw(tLabel, 0.15, { TextColor3 = win._theme.TextSub })
 				if tIco then tw(tIco, 0.15, { ImageColor3 = win._theme.TextSub }) end
 			end
 

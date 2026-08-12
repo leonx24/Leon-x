@@ -645,10 +645,11 @@ function Library:CreateWindow(cfg)
 		local function setActive(active)
 			isActive = active
 			if active then
+				tLabel.Font = Enum.Font.GothamBold
 				tw(btn, 0.2, { BackgroundTransparency = 0, BackgroundColor3 = win._theme.Card })
 				tw(indicator, 0.2, { BackgroundTransparency = 0 })
 				tw(iconBox, 0.2, { BackgroundColor3 = win._theme.Accent, BackgroundTransparency = 0 })
-				tw(tLabel, 0.15, { TextColor3 = win._theme.Text, Font = Enum.Font.GothamBold })
+				tw(tLabel, 0.15, { TextColor3 = win._theme.Text })
 				if tIco then tw(tIco, 0.15, { ImageColor3 = Color3.fromRGB(10, 10, 14) }) end
 				
 				-- Update Header Display
@@ -658,10 +659,11 @@ function Library:CreateWindow(cfg)
 					if asset then headerTabIcon.Image = asset end
 				end
 			else
+				tLabel.Font = Enum.Font.GothamMedium
 				tw(btn, 0.2, { BackgroundTransparency = 1 })
 				tw(indicator, 0.2, { BackgroundTransparency = 1 })
 				tw(iconBox, 0.2, { BackgroundColor3 = win._theme.Elevated, BackgroundTransparency = 0 })
-				tw(tLabel, 0.15, { TextColor3 = win._theme.TextSub, Font = Enum.Font.GothamMedium })
+				tw(tLabel, 0.15, { TextColor3 = win._theme.TextSub })
 				if tIco then tw(tIco, 0.15, { ImageColor3 = win._theme.TextSub }) end
 			end
 
@@ -1240,7 +1242,7 @@ function Input(tab, data)
 	tb.FocusLost:Connect(function() api.Value = tb.Text; if data.Callback then pcall(data.Callback, tb.Text) end end)
 	tb.Focused:Connect(function() stroke.Color = theme.AccentDim end)
 	tb.FocusLost:Connect(function() stroke.Color = theme.Border end)
-	function api:Set(v) self.Value = tostring(v or ""); tb.Text = self.Value; if self.Callback then pcall(self.Callback, self.Value) end end
+	function api:Set(v) self.Value = tostring(v or ""); tb.Text = self.Value; if self.Callback then pcall(self.Callback, v) end end
 	function api:Get() return tb.Text end
 	reg(data, api); attachTooltip(api, data.Tooltip); return api
 end
@@ -1302,7 +1304,7 @@ function Library:Notify(cfg)
 		Size = UDim2.fromScale(1, 1); BackgroundColor3 = theme.Accent;
 		BorderSizePixel = 0; ZIndex = 1002; Parent = pBar;
 	}), "accent")
-	mk("UICorner", { CornerRadius = UDim.new(0, 1); Parent = pFill })
+	mk("UICorner", { CornerRadius = UDim.new(0, 1) })
 
 	activeNotifs[#activeNotifs + 1] = n
 	tw(n, 0.25, { Position = UDim2.new(1, -326, 0, 16 + (#activeNotifs-1) * 76) }, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
