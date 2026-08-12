@@ -1,5 +1,5 @@
--- Leon X | Public Replicated Invisibility (Ghost / Invisible Mode)
--- Desyncs character CFrame on the server to make your character 100% invisible to all public players
+-- Leon X | Public Replicated Invisibility (Ghost Mode)
+-- Desyncs character CFrame on server to make character 100% invisible to all other players publically
 
 local Invisible = {}
 Invisible.Name    = "Invisible"
@@ -7,29 +7,12 @@ Invisible.Enabled = false
 
 local Players    = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Workspace  = game:GetService("Workspace")
 local lp         = Players.LocalPlayer
 
 local savedCFrame = nil
+local fakeRoot    = nil
 local updateConn  = nil
-local savedTransparency = {}
-
-local function applyLocalTransparency(char)
-    savedTransparency = {}
-    if not char then return end
-    for _, p in ipairs(char:GetDescendants()) do
-        if p:IsA("BasePart") and p.Name ~= "HumanoidRootPart" then
-            savedTransparency[p] = p.Transparency
-            p.Transparency = 0.5 -- Ghost semi-transparent look locally so user sees where they are
-        end
-    end
-end
-
-local function restoreLocalTransparency()
-    for p, v in pairs(savedTransparency) do
-        pcall(function() p.Transparency = v end)
-    end
-    savedTransparency = {}
-end
 
 function Invisible:Enable()
     if self.Enabled then return end
@@ -43,16 +26,19 @@ function Invisible:Enable()
         local hrp = char.HumanoidRootPart
         savedCFrame = hrp.CFrame
 
-        -- Apply local ghost transparency feedback
-        applyLocalTransparency(char)
+        -- Create local physics root clone
+        hrp.Archivable = true
+        fakeRoot = hrp:Clone()
+        fakeRoot.Name = "LocalGhostRoot"
+        fakeRoot.Transparency = 1
+        fakeRoot.CanCollide = false
+        fakeRoot.Parent = char
 
-        -- CFrame Desync Engine for Public Replicated Invisibility
-        -- Forces real HRP to void on server loop while keeping local character controllable
-        if updateConn then updateConn:Disconnect() end
+        -- Teleport real HRP far to void on server loop while keeping local control
         updateConn = RunService.Heartbeat:Connect(function()
             if self.Enabled and char and char:FindFirstChild("HumanoidRootPart") then
                 pcall(function()
-                    -- Teleport server root position to void so public players cannot see or target you
+                    -- CFrame desync: server sees HRP in void (invisible to public players)
                     char.HumanoidRootPart.CFrame = CFrame.new(0, 999999, 0)
                 end)
             end
@@ -67,7 +53,7 @@ function Invisible:Disable()
 
     pcall(function()
         if updateConn then updateConn:Disconnect(); updateConn = nil end
-        restoreLocalTransparency()
+        if fakeRoot then fakeRoot:Destroy(); fakeRoot = nil end
 
         local char = lp.Character
         if char and savedCFrame and char:FindFirstChild("HumanoidRootPart") then
