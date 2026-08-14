@@ -10,6 +10,8 @@ Library.Registry = {}
 Library._allComponents = {}
 Library._windows = {}
 Library._icons = nil
+Library._favorites = {}
+Library._onFavoriteChanged = nil
 
 -- ════════════════════════════════════════════════════════════════════════════
 -- ICON ENGINE (Lucide Remote Asset Loader)
@@ -1064,7 +1066,9 @@ function Toggle(tab, data)
 	}), "text")
 
 	-- Star (★) Favorite Pin Button
-	local isStar = data._isStarred == true
+	local flagKey = data.Flag or label
+	local isStar = data._isStarred == true or Library._favorites[flagKey] == true
+	if isStar then Library._favorites[flagKey] = true end
 	local starBtn = mk("TextButton", {
 		Size = UDim2.fromOffset(20, 20);
 		Position = UDim2.new(1, inSec and -70 or -80, 0.5, -10);
@@ -1076,6 +1080,12 @@ function Toggle(tab, data)
 	starBtn.MouseButton1Click:Connect(function()
 		isStar = not isStar
 		starBtn.TextColor3 = isStar and Color3.fromRGB(245, 158, 11) or Color3.fromRGB(80, 85, 105)
+		-- Track in Library._favorites
+		if isStar then
+			Library._favorites[flagKey] = true
+		else
+			Library._favorites[flagKey] = nil
+		end
 		pcall(function()
 			Library:Notify({
 				Title = "Favorites ⭐",
@@ -1083,6 +1093,16 @@ function Toggle(tab, data)
 				Duration = 1.5
 			})
 		end)
+		-- Fire callback so main.lua can add/remove from FavTab
+		if Library._onFavoriteChanged then
+			pcall(Library._onFavoriteChanged, flagKey, isStar, {
+				Title = label,
+				Flag = data.Flag,
+				Icon = data.Icon,
+				Callback = data.Callback,
+				Tooltip = data.Tooltip,
+			})
+		end
 	end)
 
 	-- Switch Pill
