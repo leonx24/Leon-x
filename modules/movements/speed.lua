@@ -16,6 +16,11 @@ local lp         = Players.LocalPlayer
 local charConn, fallConn, enforceConn, stateConn
 local lastSafeY = 100 -- track last safe Y position
 
+-- Convert JumpPower to standard Roblox JumpHeight (50 JumpPower = 7.2 JumpHeight)
+local function calcJumpHeight(jp)
+    return (jp / 50) * 7.2
+end
+
 -- Apply speed values to humanoid (single application)
 local function applyToChar(char)
     if not char then return end
@@ -26,8 +31,9 @@ local function applyToChar(char)
             hum.WalkSpeed = Speed.WalkSpeed
         end
         if Speed.JumpPower ~= 50 then
-            hum.JumpPower  = Speed.JumpPower
-            hum.JumpHeight = Speed.JumpPower * 0.05
+            hum.UseJumpPower = true
+            hum.JumpPower    = Speed.JumpPower
+            hum.JumpHeight   = calcJumpHeight(Speed.JumpPower)
         end
     end)
 end
@@ -50,11 +56,12 @@ local function startEnforcement(char)
                 hum.WalkSpeed = Speed.WalkSpeed
             end
             if Speed.JumpPower ~= 50 then
+                hum.UseJumpPower = true
                 if hum.JumpPower ~= Speed.JumpPower then
                     hum.JumpPower = Speed.JumpPower
                 end
-                local targetJH = Speed.JumpPower * 0.05
-                if math.abs(hum.JumpHeight - targetJH) > 0.01 then
+                local targetJH = calcJumpHeight(Speed.JumpPower)
+                if math.abs(hum.JumpHeight - targetJH) > 0.05 then
                     hum.JumpHeight = targetJH
                 end
             end
@@ -149,8 +156,9 @@ function Speed:SetJumpPower(v)
     if char then
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then
-            hum.JumpPower  = v
-            hum.JumpHeight = v * 0.05
+            hum.UseJumpPower = true
+            hum.JumpPower    = v
+            hum.JumpHeight   = calcJumpHeight(v)
         end
     end
 end

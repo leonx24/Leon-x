@@ -7,7 +7,7 @@
 local Fly = {}
 Fly.Name    = "Fly"
 Fly.Enabled = false
-Fly.Speed   = 60
+Fly.Speed   = 100
 
 local Players    = game:GetService("Players")
 local UIS        = game:GetService("UserInputService")
@@ -21,7 +21,6 @@ local pendingSpawn = nil
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 -- ── Mobile vertical input via on-screen buttons ───────────────────────────
--- Two small buttons (▲ naik / ▼ turun) di kanan layar saat fly aktif
 local verticalInput = 0   -- -1, 0, or 1
 local flyGui        = nil
 
@@ -87,8 +86,10 @@ function Fly:Enable()
         if not pendingSpawn then
             pendingSpawn = lp.CharacterAdded:Connect(function(newChar)
                 task.wait(0.5) -- let character fully load
-                pendingSpawn:Disconnect()
-                pendingSpawn = nil
+                if pendingSpawn then
+                    pendingSpawn:Disconnect()
+                    pendingSpawn = nil
+                end
                 if self.Enabled then
                     self.Enabled = false -- reset so Enable() runs fresh
                     self:Enable()
@@ -108,36 +109,39 @@ function Fly:Enable()
         pendingSpawn = nil
     end
 
-    self.Enabled   = true
+    self.Enabled = true
 
-    -- Ensure speed is valid (prevent 0 speed from freezing character)
-    if not self.Speed or self.Speed < 10 then self.Speed = 60 end
+    -- Ensure speed is valid
+    if not self.Speed or self.Speed < 10 then self.Speed = 100 end
 
     -- Build on-screen up/down buttons for mobile
     if isMobile then buildFlyButtons() end
 
-    -- Error handling: safely disable auto rotate
-    pcall(function() hum.AutoRotate = false end)
+    -- Safely configure humanoid physics for smooth flight
+    pcall(function()
+        hum.AutoRotate = false
+        hum.PlatformStand = true
+    end)
 
     -- Cleanup old connections to prevent duplicates
     if conn then pcall(function() conn:Disconnect() end) end
     if bv then pcall(function() bv:Destroy() end) end
     if bg then pcall(function() bg:Destroy() end) end
 
-    -- Error handling: safely create physics objects
+    -- High-power BodyVelocity for instantaneous and responsive flight
     local bv_ok = pcall(function()
         bv           = Instance.new("BodyVelocity")
         bv.Velocity  = Vector3.zero
-        bv.MaxForce  = Vector3.new(1e5, 1e5, 1e5)
-        bv.P         = 1e4
+        bv.MaxForce  = Vector3.new(9e9, 9e9, 9e9)
+        bv.P         = 1e5
         bv.Parent    = hrp
     end)
 
     local bg_ok = pcall(function()
         bg           = Instance.new("BodyGyro")
-        bg.MaxTorque = Vector3.new(0, 1e5, 0)
-        bg.P         = 2e4
-        bg.D         = 200
+        bg.MaxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bg.P         = 3e4
+        bg.D         = 500
         bg.CFrame    = hrp.CFrame
         bg.Parent    = hrp
     end)
@@ -148,7 +152,6 @@ function Fly:Enable()
     end
 
     conn = RunService.RenderStepped:Connect(function()
-        -- Error handling: verify objects still exist
         pcall(function()
             local c2  = lp.Character
             if not c2 then return end
@@ -158,27 +161,29 @@ function Fly:Enable()
             if not hm2 then return end
             if not bv or not bg then return end
 
+            -- Keep PlatformStand enabled while flying
+            if not hm2.PlatformStand then
+                hm2.PlatformStand = true
+            end
+
             local cam = workspace.CurrentCamera
             local cf  = cam.CFrame
             local dir = Vector3.zero
 
             if isMobile then
                 -- ── Mobile: pakai MoveDirection dari thumbstick ───────────────────
-                local md = hm2.MoveDirection  -- sudah world-space dari thumbstick
+                local md = hm2.MoveDirection
                 if md.Magnitude > 0.01 then
-                    -- horizontal: ikut arah yaw kamera
                     local flat  = Vector3.new(cf.LookVector.X, 0, cf.LookVector.Z)
                     local right = Vector3.new(cf.RightVector.X, 0, cf.RightVector.Z)
                     if flat.Magnitude  > 0.01 then flat  = flat.Unit  end
                     if right.Magnitude > 0.01 then right = right.Unit end
-                    -- decompose MoveDirection ke forward/right lokal kamera
                     local fwd = md.Magnitude > 0 and md.Unit or Vector3.zero
                     local dot_f = fwd:Dot(flat)
                     local dot_r = fwd:Dot(right)
                     dir = dir + flat * dot_f + right * dot_r
                 end
 
-                -- naik/turun mobile: tombol ▲ ▼ di kanan layar
                 if verticalInput ~= 0 then
                     dir = dir + Vector3.new(0, verticalInput, 0)
                 end
@@ -213,7 +218,7 @@ function Fly:Enable()
             if dir.Magnitude > 0 then dir = dir.Unit end
             bv.Velocity = dir * self.Speed
 
-            -- gyro: hadap arah gerak, atau arah kamera saat diam
+            -- Gyro orientation
             local hDir = Vector3.new(dir.X, 0, dir.Z)
             if hDir.Magnitude > 0.01 then
                 bg.CFrame = CFrame.new(h2.Position) *
@@ -238,16 +243,19 @@ function Fly:Disable()
     -- Destroy mobile fly buttons
     if isMobile then destroyFlyButtons() end
 
-    -- Error handling: safely restore auto rotate
+    -- Safely restore humanoid state
     pcall(function()
         local char = lp.Character
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum then hum.AutoRotate = true end
+            if hum then
+                hum.AutoRotate = true
+                hum.PlatformStand = false
+            end
         end
     end)
 
-    -- Cleanup with error handling
+    -- Cleanup physics & connection
     if conn then
         pcall(function() conn:Disconnect() end)
         conn = nil
