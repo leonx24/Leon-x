@@ -1896,6 +1896,8 @@ function GAG:WireUI(Window, extras)
     if Speed then
         pTab:Section({ Title = "Movement" })
 
+        local gagWalkSpeedSlider, gagJumpPowerSlider
+
         pTab:Toggle({
             Title    = "Speed Hack",
             Flag     = "GAG_SpeedHack",
@@ -1903,8 +1905,10 @@ function GAG:WireUI(Window, extras)
             Callback = function(v)
                 pcall(function()
                     if v then
-                        Speed:SetWalkSpeed(50)
-                        Speed:SetJumpPower(50)
+                        local ws = (gagWalkSpeedSlider and gagWalkSpeedSlider.Value) or Speed.WalkSpeed or 16
+                        local jp = (gagJumpPowerSlider and gagJumpPowerSlider.Value) or Speed.JumpPower or 50
+                        Speed:SetWalkSpeed(ws)
+                        Speed:SetJumpPower(jp)
                         Speed:Enable()
                     else
                         Speed:Disable()
@@ -1913,15 +1917,15 @@ function GAG:WireUI(Window, extras)
             end
         })
 
-        pTab:Slider({
+        gagWalkSpeedSlider = pTab:Slider({
             Title    = "Walk Speed",
             Flag     = "GAG_WalkSpeed",
-            Value    = { Min = 16, Max = 250, Default = 50 },
+            Value    = { Min = 16, Max = 250, Default = 16 },
             Step     = 1,
             Callback = function(v) pcall(function() Speed:SetWalkSpeed(v) end) end
         })
 
-        pTab:Slider({
+        gagJumpPowerSlider = pTab:Slider({
             Title    = "Jump Power",
             Flag     = "GAG_JumpPower",
             Value    = { Min = 50, Max = 500, Default = 50 },
@@ -1961,18 +1965,27 @@ function GAG:WireUI(Window, extras)
     if Fly then
         pTab:Section({ Title = "Flight" })
 
+        local gagFlySpeedSlider
+        local gagFlyKey = Enum.KeyCode.F
+
         local gagFlyToggle = pTab:Toggle({
             Title    = "Fly",
             Flag     = "GAG_Fly",
             Default  = false,
             Callback = function(v)
                 pcall(function()
-                    if v then Fly:Enable() else Fly:Disable() end
+                    if v then
+                        local fs = (gagFlySpeedSlider and gagFlySpeedSlider.Value) or Fly.Speed or 60
+                        Fly:SetSpeed(fs)
+                        Fly:Enable()
+                    else
+                        Fly:Disable()
+                    end
                 end)
             end
         })
 
-        pTab:Slider({
+        gagFlySpeedSlider = pTab:Slider({
             Title    = "Fly Speed",
             Flag     = "GAG_FlySpeed",
             Value    = { Min = 10, Max = 300, Default = 60 },
@@ -1988,16 +2001,17 @@ function GAG:WireUI(Window, extras)
             Title    = "Fly Keybind",
             Flag     = "GAG_FlyKey",
             Default  = "F",
-            Callback = function() end
+            Callback = function(k)
+                gagFlyKey = Enum.KeyCode[k] or Enum.KeyCode.F
+            end
         })
 
         UIS.InputBegan:Connect(function(input, gameProcessed)
             if gameProcessed then return end
-            if input.KeyCode == Enum.KeyCode.F then
+            if input.KeyCode == gagFlyKey then
                 pcall(function()
                     local newState = not Fly.Enabled
                     gagFlyToggle:Set(newState)
-                    if newState then Fly:Enable() else Fly:Disable() end
                 end)
             end
         end)

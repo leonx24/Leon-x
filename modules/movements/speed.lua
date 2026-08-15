@@ -27,14 +27,10 @@ local function applyToChar(char)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
     pcall(function()
-        if Speed.WalkSpeed ~= 16 then
-            hum.WalkSpeed = Speed.WalkSpeed
-        end
-        if Speed.JumpPower ~= 50 then
-            hum.UseJumpPower = true
-            hum.JumpPower    = Speed.JumpPower
-            hum.JumpHeight   = calcJumpHeight(Speed.JumpPower)
-        end
+        hum.WalkSpeed = Speed.WalkSpeed
+        hum.UseJumpPower = true
+        hum.JumpPower    = Speed.JumpPower
+        hum.JumpHeight   = calcJumpHeight(Speed.JumpPower)
     end)
 end
 
@@ -52,18 +48,18 @@ local function startEnforcement(char)
         pcall(function()
             if not hum or not hum.Parent then return end
             -- Only write when values differ to minimize overhead
-            if Speed.WalkSpeed ~= 16 and hum.WalkSpeed ~= Speed.WalkSpeed then
+            if hum.WalkSpeed ~= Speed.WalkSpeed then
                 hum.WalkSpeed = Speed.WalkSpeed
             end
-            if Speed.JumpPower ~= 50 then
+            if not hum.UseJumpPower then
                 hum.UseJumpPower = true
-                if hum.JumpPower ~= Speed.JumpPower then
-                    hum.JumpPower = Speed.JumpPower
-                end
-                local targetJH = calcJumpHeight(Speed.JumpPower)
-                if math.abs(hum.JumpHeight - targetJH) > 0.05 then
-                    hum.JumpHeight = targetJH
-                end
+            end
+            if hum.JumpPower ~= Speed.JumpPower then
+                hum.JumpPower = Speed.JumpPower
+            end
+            local targetJH = calcJumpHeight(Speed.JumpPower)
+            if math.abs(hum.JumpHeight - targetJH) > 0.05 then
+                hum.JumpHeight = targetJH
             end
         end)
     end)
@@ -134,31 +130,39 @@ function Speed:Disable()
     if char then
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then
-            hum.WalkSpeed  = 16
-            hum.JumpPower  = 50
-            hum.JumpHeight = 7.2
+            pcall(function()
+                hum.WalkSpeed  = 16
+                hum.JumpPower  = 50
+                hum.JumpHeight = 7.2
+            end)
         end
     end
 end
 
 function Speed:SetWalkSpeed(v)
     self.WalkSpeed = v
-    local char = lp.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.WalkSpeed = v end
+    if self.Enabled then
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then pcall(function() hum.WalkSpeed = v end) end
+        end
     end
 end
 
 function Speed:SetJumpPower(v)
     self.JumpPower = v
-    local char = lp.Character
-    if char then
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then
-            hum.UseJumpPower = true
-            hum.JumpPower    = v
-            hum.JumpHeight   = calcJumpHeight(v)
+    if self.Enabled then
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then
+                pcall(function()
+                    hum.UseJumpPower = true
+                    hum.JumpPower    = v
+                    hum.JumpHeight   = calcJumpHeight(v)
+                end)
+            end
         end
     end
 end

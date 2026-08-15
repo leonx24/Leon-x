@@ -2284,7 +2284,13 @@ function FAM:WireUI(Window, extras)
         Tooltip  = "Allows you to fly around the map",
         Callback = function(v)
             if Fly then
-                if v then Fly:Enable() else Fly:Disable() end
+                if v then
+                    local fs = (flySpeedSlider and flySpeedSlider.Value) or Fly.Speed or 60
+                    Fly:SetSpeed(fs)
+                    Fly:Enable()
+                else
+                    Fly:Disable()
+                end
                 N("Fly", v and "Enabled" or "Disabled")
             else
                 N("Error", "Fly module not loaded")

@@ -7,7 +7,7 @@
 local Fly = {}
 Fly.Name    = "Fly"
 Fly.Enabled = false
-Fly.Speed   = 100
+Fly.Speed   = 60
 
 local Players    = game:GetService("Players")
 local UIS        = game:GetService("UserInputService")
@@ -112,7 +112,7 @@ function Fly:Enable()
     self.Enabled = true
 
     -- Ensure speed is valid
-    if not self.Speed or self.Speed < 10 then self.Speed = 100 end
+    if not self.Speed or self.Speed < 10 then self.Speed = 60 end
 
     -- Build on-screen up/down buttons for mobile
     if isMobile then buildFlyButtons() end
@@ -275,7 +275,9 @@ function Fly:Toggle()
 end
 
 function Fly:SetSpeed(s)
-    self.Speed = s
+    if type(s) == "number" and s >= 10 then
+        self.Speed = s
+    end
 end
 
 return Fly

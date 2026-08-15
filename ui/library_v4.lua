@@ -361,7 +361,7 @@ function Library:CreateWindow(cfg)
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -54, 0, 14); Position = UDim2.fromOffset(48, 28);
-		BackgroundTransparency = 1; Text = "v0.0.1";
+		BackgroundTransparency = 1; Text = "v" .. tostring(cfg.Version or "0.0.2"):gsub("^v", "");
 		Font = Enum.Font.GothamMedium; TextSize = 10;
 		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 12; Parent = brandBox;
@@ -1219,6 +1219,8 @@ function Slider(tab, data)
 		valLbl.Text = tostring(math.floor(v + 0.5))
 	end
 
+	local api = { Value = df; Frame = f; Name = data.Title or data.Name or "Slider"; Callback = data.Callback }
+
 	local sDrag = false
 	trk.InputBegan:Connect(function(i)
 		if i.UserInputType ~= Enum.UserInputType.MouseButton1 and i.UserInputType ~= Enum.UserInputType.Touch then return end
@@ -1227,7 +1229,12 @@ function Slider(tab, data)
 		local pos = (i.Position.X - trk.AbsolutePosition.X) / trk.AbsoluteSize.X
 		local nv = mn + math.clamp(pos, 0, 1) * (mx - mn)
 		nv = math.floor(nv / step + 0.5) * step; nv = math.clamp(nv, mn, mx)
-		if nv ~= cur then cur = nv; upd(nv); if data.Callback then pcall(data.Callback, nv) end end
+		if nv ~= cur then
+			cur = nv
+			api.Value = nv
+			upd(nv)
+			if data.Callback then pcall(data.Callback, nv) end
+		end
 		i.Changed:Connect(function()
 			if i.UserInputState == Enum.EasingStyle then return end
 			if i.UserInputState == Enum.UserInputState.End then
@@ -1241,18 +1248,35 @@ function Slider(tab, data)
 		local pos = (i.Position.X - trk.AbsolutePosition.X) / trk.AbsoluteSize.X
 		local nv = mn + math.clamp(pos, 0, 1) * (mx - mn)
 		nv = math.floor(nv / step + 0.5) * step; nv = math.clamp(nv, mn, mx)
-		if nv ~= cur then cur = nv; upd(nv); if data.Callback then pcall(data.Callback, nv) end end
+		if nv ~= cur then
+			cur = nv
+			api.Value = nv
+			upd(nv)
+			if data.Callback then pcall(data.Callback, nv) end
+		end
 	end)
 
 	valLbl.FocusLost:Connect(function(enter)
 		if not enter then valLbl.Text = tostring(cur); return end
 		local num = tonumber(valLbl.Text)
-		if num then num = math.clamp(num, mn, mx); cur = num; upd(cur); if data.Callback then pcall(data.Callback, cur) end end
+		if num then
+			num = math.clamp(num, mn, mx)
+			cur = num
+			api.Value = num
+			upd(cur)
+			if data.Callback then pcall(data.Callback, cur) end
+		end
 		valLbl.Text = tostring(cur)
 	end)
 
-	local api = { Value = df; Frame = f; Name = data.Title or data.Name or "Slider"; Callback = data.Callback }
-	function api:Set(v) v = math.clamp(v, mn, mx); if self.Value == v then return end; self.Value = v; cur = v; upd(v); if self.Callback then pcall(self.Callback, v) end end
+	function api:Set(v)
+		v = math.clamp(v, mn, mx)
+		if self.Value == v and cur == v then return end
+		self.Value = v
+		cur = v
+		upd(v)
+		if self.Callback then pcall(self.Callback, v) end
+	end
 	function api:Get() return self.Value end
 	reg(data, api); attachTooltip(api, data.Tooltip)
 	return api
@@ -1557,6 +1581,8 @@ function Keybind(tab, data)
 	tagText(kbtn, "accent")
 	local kS = tagBorder(mk("UIStroke", { Color = theme.Border; Thickness = 1; Parent = kbtn }), "border")
 
+	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Keybind"; Callback = data.Callback }
+
 	kbtn.MouseButton1Click:Connect(function()
 		if capturing then return end; capturing = true; kbtn.Text = "..."; kS.Color = theme.AccentDim
 	end)
@@ -1567,13 +1593,13 @@ function Keybind(tab, data)
 				capturing = false; kbtn.Text = tostring(cur); kS.Color = theme.Border
 			else
 				cur = i.KeyCode.Name; capturing = false; kbtn.Text = cur; kS.Color = theme.Border
+				api.Value = cur
 				if data.Callback then pcall(data.Callback, cur) end
 			end
 		end
 	end)
-	local api = { Value = cur; Frame = f; Name = data.Title or data.Name or "Keybind"; Callback = data.Callback }
-	function api:Set(v) cur = tostring(v); kbtn.Text = cur; if self.Callback then pcall(self.Callback, cur) end end
-	function api:Get() return cur end
+	function api:Set(v) cur = tostring(v); self.Value = cur; kbtn.Text = cur; if self.Callback then pcall(self.Callback, cur) end end
+	function api:Get() return self.Value end
 	reg(data, api); attachTooltip(api, data.Tooltip); return api
 end
 
