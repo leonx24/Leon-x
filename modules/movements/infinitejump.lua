@@ -16,8 +16,8 @@ function InfiniteJump:Enable()
         local char = lp.Character
         if not char then return end
         local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum and hum:GetState() ~= Enum.HumanoidStateType.Jumping then
-            hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        if hum then
+            pcall(function() hum:ChangeState(Enum.HumanoidStateType.Jumping) end)
         end
     end)
 end

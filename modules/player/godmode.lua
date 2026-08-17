@@ -12,6 +12,7 @@ local lp         = Players.LocalPlayer
 
 local conn     = nil
 local charConn = nil
+local origMaxHealth = nil  -- save original MaxHealth to restore on disable
 
 local function applyToChar(char)
     if not char then return end
@@ -53,9 +54,16 @@ end
 function GodMode:Enable()
     self.Enabled = true
 
-    -- Error handling: safely enable on current character
+    -- Save original MaxHealth before overwriting
     pcall(function()
-        if lp.Character then applyToChar(lp.Character) end
+        local char = lp.Character
+        if char then
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and not origMaxHealth then
+                origMaxHealth = hum.MaxHealth
+            end
+            applyToChar(char)
+        end
     end)
 
     -- Cleanup old connection
@@ -84,17 +92,19 @@ function GodMode:Disable()
         charConn = nil
     end
 
-    -- Restore normal health with error handling
+    -- Restore original health with error handling
     pcall(function()
         local char = lp.Character
         if char then
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum then
-                hum.MaxHealth = 100
-                hum.Health = 100
+                local restoreMax = origMaxHealth or 100
+                hum.MaxHealth = restoreMax
+                hum.Health = restoreMax
             end
         end
     end)
+    origMaxHealth = nil
 end
 
 function GodMode:Toggle()

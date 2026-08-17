@@ -8,6 +8,7 @@ local Fly = {}
 Fly.Name    = "Fly"
 Fly.Enabled = false
 Fly.Speed   = 60
+Fly.SprintMultiplier = 2  -- shift-sprint speed multiplier
 
 local Players    = game:GetService("Players")
 local UIS        = game:GetService("UserInputService")
@@ -22,6 +23,7 @@ local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
 
 -- ── Mobile vertical input via on-screen buttons ───────────────────────────
 local verticalInput = 0   -- -1, 0, or 1
+local sprintInput   = false  -- mobile sprint button state
 local flyGui        = nil
 
 local function buildFlyButtons()
@@ -67,6 +69,37 @@ local function buildFlyButtons()
 
     mkBtn("▲", 0,   function(v) verticalInput =  v end)
     mkBtn("▼", 1,   function(v) verticalInput = -v end)
+
+    -- Sprint button (bottom-right, above the down button)
+    local sprintBtn = Instance.new("TextButton")
+    sprintBtn.Size                  = UDim2.new(0, 56, 0, 56)
+    sprintBtn.AnchorPoint           = Vector2.new(1, 0.5)
+    sprintBtn.Position              = UDim2.new(1, -80, 0.5, 0)
+    sprintBtn.BackgroundColor3      = Color3.fromRGB(255, 180, 60)
+    sprintBtn.BackgroundTransparency = 0.55
+    sprintBtn.Text                  = "⚡"
+    sprintBtn.TextSize              = 26
+    sprintBtn.Font                  = Enum.Font.GothamBold
+    sprintBtn.TextColor3            = Color3.new(1, 1, 1)
+    sprintBtn.AutoButtonColor       = false
+    sprintBtn.BorderSizePixel       = 0
+    sprintBtn.ZIndex                = 10
+    sprintBtn.Parent                = gui2
+    local sc = Instance.new("UICorner")
+    sc.CornerRadius = UDim.new(1, 0); sc.Parent = sprintBtn
+
+    sprintBtn.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch then
+            sprintInput = true
+            sprintBtn.BackgroundTransparency = 0.2
+        end
+    end)
+    sprintBtn.InputEnded:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.Touch then
+            sprintInput = false
+            sprintBtn.BackgroundTransparency = 0.55
+        end
+    end)
 end
 
 local function destroyFlyButtons()
@@ -75,6 +108,7 @@ local function destroyFlyButtons()
         flyGui = nil
     end
     verticalInput = 0
+    sprintInput = false
 end
 
 function Fly:Enable()
@@ -216,7 +250,17 @@ function Fly:Enable()
             end
 
             if dir.Magnitude > 0 then dir = dir.Unit end
-            bv.Velocity = dir * self.Speed
+
+            -- Sprint boost: Shift on PC, sprint button on mobile
+            local sprinting = false
+            if isMobile then
+                sprinting = sprintInput
+            else
+                sprinting = UIS:IsKeyDown(Enum.KeyCode.LeftShift)
+            end
+            local finalSpeed = sprinting and (self.Speed * self.SprintMultiplier) or self.Speed
+
+            bv.Velocity = dir * finalSpeed
 
             -- Gyro orientation
             local hDir = Vector3.new(dir.X, 0, dir.Z)

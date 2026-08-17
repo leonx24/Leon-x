@@ -52,13 +52,12 @@ function AutoClicker:Enable()
     if self.Enabled then return end
     self.Enabled = true
     
-    -- Calculate interval from CPS
-    local baseInterval = 1 / math.max(1, self.CPS)
-    
     connection = RunService.Heartbeat:Connect(function(dt)
         if not self.Enabled then return end
         
         local now = tick()
+        -- Calculate interval from current CPS each frame (so slider changes apply live)
+        local baseInterval = 1 / math.max(1, self.CPS)
         local interval = baseInterval
         
         -- Add randomization (±10%) to avoid detection patterns

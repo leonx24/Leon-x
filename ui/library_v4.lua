@@ -95,7 +95,7 @@ local function mkTheme(accent, accentDim, glowTint)
 		BorderSub = Color3.fromRGB(34, 32, 55),
 		Text      = Color3.fromRGB(242, 244, 252),
 		TextSub   = Color3.fromRGB(145, 150, 175),
-		TextDim   = Color3.fromRGB(85, 90, 115),
+		TextDim   = Color3.fromRGB(130, 133, 148),
 		Accent    = Color3.fromRGB(table.unpack(accent)),
 		AccentDim = Color3.fromRGB(table.unpack(accentDim)),
 		Glow      = Color3.fromRGB(table.unpack(glowTint or accent)),
@@ -120,6 +120,10 @@ local UIS     = game:GetService("UserInputService")
 local Players = game:GetService("Players")
 local lp      = Players.LocalPlayer
 local isMobile = UIS.TouchEnabled and not UIS.KeyboardEnabled
+
+-- Mobile font size helper: bumps text +2px on mobile for readability
+local MOBILE_FONT_BUMP = isMobile and 2 or 0
+local function mts(baseSize) return baseSize + MOBILE_FONT_BUMP end
 
 local function mk(class, props, children)
 	local inst = Instance.new(class)
@@ -169,7 +173,11 @@ local function applyTheme(inst, theme)
 	if not role then return end
 	local color = ROLE_COLORS[role] and theme[ROLE_COLORS[role]]
 	if not color then return end
-	if inst:GetAttribute("_isText") then inst.TextColor3 = color
+	if inst:GetAttribute("_isText") then
+		inst.TextColor3 = color
+		if inst:IsA("TextBox") then
+			inst.PlaceholderColor3 = theme.TextDim
+		end
 	elseif inst:GetAttribute("_isStroke") then inst.Color = color
 	elseif inst:GetAttribute("_isIcon") then inst.ImageColor3 = color
 	elseif inst:GetAttribute("_isBg") then inst.BackgroundColor3 = color end
@@ -278,7 +286,7 @@ function Library:CreateWindow(cfg)
 	})
 
 	-- ── Main Frame ──
-	local scale = isMobile and 0.8 or 1.0
+	local scale = isMobile and 0.92 or 1.0
 	local main = mk("Frame", {
 		Size = size;
 		Position = UDim2.new(0.5, -(size.X.Offset * scale) / 2, 0.5, -(size.Y.Offset * scale) / 2);
@@ -354,15 +362,15 @@ function Library:CreateWindow(cfg)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -54, 0, 18); Position = UDim2.fromOffset(48, 10);
 		BackgroundTransparency = 1; Text = "Leon X";
-		Font = Enum.Font.GothamBold; TextSize = 15;
+		Font = Enum.Font.GothamBold; TextSize = mts(15);
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 12; Parent = brandBox;
 	}), "text")
 
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -54, 0, 14); Position = UDim2.fromOffset(48, 28);
-		BackgroundTransparency = 1; Text = "v" .. tostring(cfg.Version or "0.0.2"):gsub("^v", "");
-		Font = Enum.Font.GothamMedium; TextSize = 10;
+		BackgroundTransparency = 1; Text = "v" .. tostring(cfg.Version or "0.0.3"):gsub("^v", "");
+		Font = Enum.Font.GothamMedium; TextSize = mts(10);
 		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 12; Parent = brandBox;
 	}), "textdim")
@@ -422,7 +430,7 @@ function Library:CreateWindow(cfg)
 	local headerTitleLabel = tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -160, 0, 22); Position = UDim2.fromOffset(46, 6);
 		BackgroundTransparency = 1; Text = "Dashboard";
-		Font = Enum.Font.GothamBold; TextSize = 17;
+		Font = Enum.Font.GothamBold; TextSize = mts(17);
 		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 11; Parent = headerBg;
 	}), "text")
@@ -430,7 +438,7 @@ function Library:CreateWindow(cfg)
 	local headerSubLabel = tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -160, 0, 14); Position = UDim2.fromOffset(46, 28);
 		BackgroundTransparency = 1; Text = author ~= "" and author or "Universal Mode";
-		Font = Enum.Font.GothamMedium; TextSize = 10;
+		Font = Enum.Font.GothamMedium; TextSize = mts(10);
 		TextColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
 		ZIndex = 11; Parent = headerBg;
 	}), "textdim")
@@ -485,8 +493,9 @@ function Library:CreateWindow(cfg)
 		Size = UDim2.new(1, -28, 1, 0); Position = UDim2.fromOffset(26, 0);
 		BackgroundTransparency = 1; PlaceholderText = "Search...";
 		PlaceholderColor3 = theme.TextDim; Text = "";
-		Font = Enum.Font.GothamMedium; TextSize = 11;
-		TextColor3 = theme.Text; TextXAlignment = Enum.TextXAlignment.Left;
+		Font = Enum.Font.GothamMedium; TextSize = mts(11);
+		TextColor3 = theme.Text; SelectionColor3 = Color3.fromRGB(50, 50, 70);
+		TextXAlignment = Enum.TextXAlignment.Left;
 		ClearTextOnFocus = false; ZIndex = 16; Parent = searchContainer;
 	})
 	tagText(globalSearchBox, "text")
@@ -759,7 +768,7 @@ function Library:CreateWindow(cfg)
 		local tLabel = tagText(mk("TextLabel", {
 			Size = UDim2.new(1, -78, 1, 0); Position = UDim2.fromOffset(46, 0);
 			BackgroundTransparency = 1; Text = tabName;
-			Font = Enum.Font.GothamMedium; TextSize = 12;
+			Font = Enum.Font.GothamMedium; TextSize = mts(12);
 			TextColor3 = theme.TextSub; TextXAlignment = Enum.TextXAlignment.Left;
 			ZIndex = 13; Parent = btn;
 		}), "textsub")
@@ -953,7 +962,7 @@ function Section(tab, data)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -90, 1, 0); Position = UDim2.fromOffset(40, 0);
 		BackgroundTransparency = 1; Text = label:upper();
-		Font = Enum.Font.GothamBold; TextSize = 11; TextColor3 = theme.TextSub;
+		Font = Enum.Font.GothamBold; TextSize = mts(11); TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 2; Parent = f;
 	}), "textsub")
 
@@ -1061,7 +1070,7 @@ function Toggle(tab, data)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -(lx + 82), 1, 0); Position = UDim2.fromOffset(lx, 0);
 		BackgroundTransparency = 1; Text = label;
-		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = mts(inSec and 11 or 12); TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
@@ -1177,7 +1186,7 @@ function Slider(tab, data)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -74, 0, 14); Position = UDim2.fromOffset(12, inSec and 6 or 8);
 		BackgroundTransparency = 1; Text = getLabel(data);
-		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = mts(inSec and 11 or 12); TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
@@ -1185,11 +1194,13 @@ function Slider(tab, data)
 	local valLbl = mk("TextBox", {
 		Size = UDim2.new(0, 48, 0, inSec and 18 or 22); Position = UDim2.new(1, -58, 0, inSec and 4 or 4);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = inSec and 10 or 11;
-		TextColor3 = theme.Accent; TextXAlignment = Enum.TextXAlignment.Center; Parent = f;
+		Text = tostring(df); Font = Enum.Font.GothamBold; TextSize = mts(inSec and 10 or 11);
+		TextColor3 = theme.Text; PlaceholderColor3 = theme.TextDim;
+		SelectionColor3 = Color3.fromRGB(50, 50, 70);
+		TextXAlignment = Enum.TextXAlignment.Center; Parent = f;
 	})
 	mk("UICorner", { CornerRadius = UDim.new(0, 5); Parent = valLbl })
-	tagBg(valLbl, "elevated"); tagText(valLbl, "accent")
+	tagBg(valLbl, "elevated"); tagText(valLbl, "text")
 
 	-- Slider Track
 	local trk = mk("Frame", {
@@ -1305,7 +1316,7 @@ function Dropdown(tab, data)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -28, 0, 12); Position = UDim2.fromOffset(12, 5);
 		BackgroundTransparency = 1; Text = getLabel(data);
-		Font = Enum.Font.GothamBold; TextSize = 10; TextColor3 = theme.TextSub;
+		Font = Enum.Font.GothamBold; TextSize = mts(10); TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "textsub")
 
@@ -1320,7 +1331,7 @@ function Dropdown(tab, data)
 	local valTxt = tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -32, 1, 0); Position = UDim2.fromOffset(8, 0);
 		BackgroundTransparency = 1; Text = tostring(cur);
-		Font = Enum.Font.GothamMedium; TextSize = inSec and 10 or 11; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = mts(inSec and 10 or 11); TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 3; Parent = box;
 	}), "text")
 
@@ -1339,8 +1350,9 @@ function Dropdown(tab, data)
 		Size = UDim2.new(1, -(sIco and 26 or 10), 1, 0);
 		Position = UDim2.fromOffset(sIco and 24 or 6, 0);
 		BackgroundTransparency = 1; PlaceholderText = "Search..."; PlaceholderColor3 = theme.TextDim;
-		Text = ""; Font = Enum.Font.GothamMedium; TextSize = 10;
-		TextColor3 = theme.Text; ClearTextOnFocus = true;
+		Text = ""; Font = Enum.Font.GothamMedium; TextSize = mts(10);
+		TextColor3 = theme.Text; SelectionColor3 = Color3.fromRGB(50, 50, 70);
+		ClearTextOnFocus = true;
 		TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 4; Parent = sFrame;
 	})
 	tagText(searchBox, "text")
@@ -1466,7 +1478,7 @@ function Button(tab, data)
 	local btnTxt = mk("TextLabel", {
 		Size = UDim2.new(1, -(lx > 0 and lx + 12 or 0), 1, 0); Position = UDim2.fromOffset(lx > 0 and lx or 0, 0);
 		BackgroundTransparency = 1; Text = label;
-		Font = Enum.Font.GothamBold; TextSize = inSec and 11 or 12;
+		Font = Enum.Font.GothamBold; TextSize = mts(inSec and 11 or 12);
 		TextXAlignment = lx > 0 and Enum.TextXAlignment.Left or Enum.TextXAlignment.Center; ZIndex = 2; Parent = btn;
 	})
 
@@ -1567,7 +1579,7 @@ function Keybind(tab, data)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -(lx + 84), 1, 0); Position = UDim2.fromOffset(lx, 0);
 		BackgroundTransparency = 1; Text = getLabel(data);
-		Font = Enum.Font.GothamMedium; TextSize = inSec and 11 or 12; TextColor3 = theme.Text;
+		Font = Enum.Font.GothamMedium; TextSize = mts(inSec and 11 or 12); TextColor3 = theme.Text;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "text")
 
@@ -1575,7 +1587,7 @@ function Keybind(tab, data)
 		Size = UDim2.fromOffset(inSec and 68 or 78, inSec and 22 or 26);
 		Position = UDim2.new(1, inSec and -78 or -90, 0.5, inSec and -11 or -13);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
-		Text = tostring(cur); Font = Enum.Font.GothamBold; TextSize = inSec and 10 or 11;
+		Text = tostring(cur); Font = Enum.Font.GothamBold; TextSize = mts(inSec and 10 or 11);
 		TextColor3 = theme.Accent; AutoButtonColor = false; Parent = f;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }) }), "elevated")
 	tagText(kbtn, "accent")
@@ -1623,7 +1635,7 @@ function Input(tab, data)
 	tagText(mk("TextLabel", {
 		Size = UDim2.new(1, -24, 0, 12); Position = UDim2.fromOffset(12, 5);
 		BackgroundTransparency = 1; Text = getLabel(data);
-		Font = Enum.Font.GothamBold; TextSize = 10; TextColor3 = theme.TextSub;
+		Font = Enum.Font.GothamBold; TextSize = mts(10); TextColor3 = theme.TextSub;
 		TextXAlignment = Enum.TextXAlignment.Left; Parent = f;
 	}), "textsub")
 
@@ -1632,8 +1644,9 @@ function Input(tab, data)
 		Size = UDim2.new(1, -24, 0, inSec and 22 or 26); Position = UDim2.fromOffset(12, inSec and 17 or 22);
 		BackgroundColor3 = theme.Elevated; BorderSizePixel = 0;
 		PlaceholderText = data.Placeholder or ""; Text = cur;
-		Font = Enum.Font.GothamMedium; TextSize = 11; TextColor3 = theme.Text;
-		PlaceholderColor3 = theme.TextDim; TextXAlignment = Enum.TextXAlignment.Left;
+		Font = Enum.Font.GothamMedium; TextSize = mts(inSec and 10 or 11); TextColor3 = theme.Text;
+		PlaceholderColor3 = theme.TextDim; SelectionColor3 = Color3.fromRGB(50, 50, 70);
+		TextXAlignment = Enum.TextXAlignment.Left;
 		ClearTextOnFocus = false; Parent = f;
 	}, { mk("UICorner", { CornerRadius = UDim.new(0, 6) }), stroke }), "elevated")
 	tagText(tb, "text")
@@ -1684,7 +1697,7 @@ function Library:Notify(cfg)
 		mk("TextLabel", {
 			Size = UDim2.new(1, -(cx + 12), 0, 18); Position = UDim2.fromOffset(cx, 14);
 			BackgroundTransparency = 1; Text = title;
-			Font = Enum.Font.GothamBold; TextSize = 13; TextColor3 = theme.Text;
+			Font = Enum.Font.GothamBold; TextSize = mts(13); TextColor3 = theme.Text;
 			TextXAlignment = Enum.TextXAlignment.Left; ZIndex = 1001; Parent = n;
 		})
 	end
@@ -1692,7 +1705,7 @@ function Library:Notify(cfg)
 		mk("TextLabel", {
 			Size = UDim2.new(1, -(cx + 12), 0, 16); Position = UDim2.fromOffset(cx, title ~= "" and 34 or 18);
 			BackgroundTransparency = 1; Text = text;
-			Font = Enum.Font.GothamMedium; TextSize = 11; TextColor3 = theme.TextSub;
+			Font = Enum.Font.GothamMedium; TextSize = mts(11); TextColor3 = theme.TextSub;
 			TextXAlignment = Enum.TextXAlignment.Left; TextWrapped = true; ZIndex = 1001; Parent = n;
 		})
 	end

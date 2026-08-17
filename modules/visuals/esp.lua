@@ -64,7 +64,7 @@ local function addESP(player)
     local bbg = Instance.new("BillboardGui")
     bbg.Name        = randomName()  -- Anti-detection: random GUID
     bbg.Adornee     = hrp
-    bbg.Size        = UDim2.new(0, 150, 0, 40)
+    bbg.Size        = UDim2.new(0, 150, 0, 56)
     bbg.StudsOffset = Vector3.new(0, 3.4, 0)
     bbg.AlwaysOnTop = true
     bbg.Enabled     = (ESP.ShowMode == "Both" or ESP.ShowMode == "Name")
@@ -101,12 +101,33 @@ local function addESP(player)
     distLbl.TextStrokeColor3       = Color3.new(0, 0, 0)
     distLbl.Parent                 = bbg
 
+    -- Health bar container
+    local hpBarBg = Instance.new("Frame")
+    hpBarBg.Name                   = randomName()
+    hpBarBg.Size                   = UDim2.new(0.8, 0, 0, 4)
+    hpBarBg.BackgroundColor3       = Color3.fromRGB(40, 40, 40)
+    hpBarBg.BackgroundTransparency = 0.3
+    hpBarBg.BorderSizePixel        = 0
+    hpBarBg.Parent                 = bbg
+    local hpBgCorner = Instance.new("UICorner")
+    hpBgCorner.CornerRadius = UDim.new(0, 2); hpBgCorner.Parent = hpBarBg
+
+    local hpBarFill = Instance.new("Frame")
+    hpBarFill.Name                   = randomName()
+    hpBarFill.Size                   = UDim2.new(1, 0, 1, 0)
+    hpBarFill.BackgroundColor3       = Color3.fromRGB(0, 255, 100)
+    hpBarFill.BackgroundTransparency = 0
+    hpBarFill.BorderSizePixel        = 0
+    hpBarFill.Parent                 = hpBarBg
+    local hpFillCorner = Instance.new("UICorner")
+    hpFillCorner.CornerRadius = UDim.new(0, 2); hpFillCorner.Parent = hpBarFill
+
     -- Respawn handling: cleanup connection that auto-removes ESP when character dies
     local cleanupConn = char.AncestryChanged:Connect(function()
         if not char.Parent then removeESP(player) end
     end)
 
-    espData[player] = { hl=hl, bbg=bbg, nameLbl=nameLbl, distLbl=distLbl, cleanupConn=cleanupConn }
+    espData[player] = { hl=hl, bbg=bbg, nameLbl=nameLbl, distLbl=distLbl, hpBarFill=hpBarFill, cleanupConn=cleanupConn }
 end
 
 local function applyShowMode()
@@ -128,18 +149,30 @@ local function startDistanceUpdate()
         if not success or not myHRP then return end
 
         for player, d in pairs(espData) do
-            if d.distLbl then
-                pcall(function()
-                    local char = player.Character
-                    if char then
-                        local tHRP = char:FindFirstChild("HumanoidRootPart")
-                        if tHRP then
-                            local dist = math.floor((myHRP.Position - tHRP.Position).Magnitude)
-                            d.distLbl.Text = dist .. " stud"
-                        end
+            pcall(function()
+                local char = player.Character
+                if not char then return end
+                local tHRP = char:FindFirstChild("HumanoidRootPart")
+
+                -- Update distance
+                if d.distLbl and tHRP then
+                    local dist = math.floor((myHRP.Position - tHRP.Position).Magnitude)
+                    d.distLbl.Text = dist .. " stud"
+                end
+
+                -- Update health bar
+                if d.hpBarFill then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.MaxHealth > 0 then
+                        local pct = math.clamp(hum.Health / hum.MaxHealth, 0, 1)
+                        d.hpBarFill.Size = UDim2.new(pct, 0, 1, 0)
+                        -- Color: green→yellow→red based on health %
+                        local r = pct < 0.5 and 1 or (1 - (pct - 0.5) * 2)
+                        local g = pct > 0.5 and 1 or (pct * 2)
+                        d.hpBarFill.BackgroundColor3 = Color3.new(r, g, 0.1)
                     end
-                end)
-            end
+                end
+            end)
         end
     end)
 end
