@@ -9,9 +9,7 @@
 [![Platform](https://img.shields.io/badge/platform-Roblox-ef4444?style=for-the-badge)](https://roblox.com)
 [![Language](https://img.shields.io/badge/language-Lua-8b5cf6?style=for-the-badge)](https://www.lua.org)
 
-```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/leonx24/Leon-x/main/loader.lua"))()
-```
+
 
 </div>
 
